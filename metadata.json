@@ -1,0 +1,6 @@
+{
+  "name": "ServiLocal",
+  "description": "Marketplace de servicios locales para conectar a vecinos con profesionales y técnicos de confianza.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

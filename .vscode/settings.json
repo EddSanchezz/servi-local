@@ -1,0 +1,44 @@
+﻿{
+  "editor.tabSize": 2,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "reedyuk.kotlin",
+  "[kotlin]": {
+    "editor.defaultFormatter": "reedyuk.kotlin",
+    "editor.tabSize": 2,
+    "editor.formatOnSave": true,
+    "editor.wordWrap": "off"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-server",
+    "editor.tabSize": 2
+  },
+  "[xml]": {
+    "editor.defaultFormatter": "redhat.vscode-xml",
+    "editor.tabSize": 2
+  },
+  "kotlin.languageVersion": "2.2.10",
+  "java.jdt.ls.java.home": "C:/Program Files/Android/Android Studio/jbr",
+  "kotlin.coroutineAnalyzer": true,
+  "kotlin.implicitReturns": false,
+  "kotlin.undefIsError": true,
+  "kotlin.nullChecks": true,
+  "kotlin.enableRecursionLimit": 500,
+  "kotlin.formatting.indentWidth": 2,
+  "kotlin.linting.enabled": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.gradle": true,
+    "**/build": true,
+    "**/gradle": true
+  },
+  "files.watcherExclude": {
+    "**/.gradle/**": true,
+    "**/build/**": true,
+    "**/.git/**": true
+  },
+  "search.exclude": {
+    "**/build": true,
+    "**/.gradle": true,
+    "**/gradle": true
+  }
+}
