@@ -1,6 +1,6 @@
 ﻿# ServiLocal
 
-Aplicación Android en **Kotlin** con arquitectura **MVVM + Clean Architecture**, Compose (Material 3), Hilt (inyección de dependencias), Room (persistencia local) y Navigation Compose.
+Aplicación Android en **Kotlin** con arquitectura **MVVM** y pantallas en Jetpack Compose (Material 3). En esta fase, `MockDataRepository` gestiona los datos en memoria; no se implementan base de datos, sesiones de usuario, carga de imágenes, permisos ni mapas reales.
 
 ## Stack Tecnológico
 
@@ -11,15 +11,7 @@ Aplicación Android en **Kotlin** con arquitectura **MVVM + Clean Architecture**
 | Gradle | 9.3.1 | Automatización de builds |
 | Jetpack Compose BOM | 2024.09.00 | UI declarativa |
 | Material 3 | incluido | Diseño UI |
-| Hilt | 2.51.1 | Inyección de dependencias |
-| Room | 2.7.0 | Base de datos local |
-| Navigation Compose | 2.8.9 | Navegación entre pantallas |
-| Retrofit + Moshi | 2.12.0 | Llamadas HTTP/API |
-| OkHttp | 4.10.0 | Cliente HTTP |
-| Coil | 2.7.0 | Carga de imágenes |
-| Firebase AI / AppCheck | BOM 34.17.0 | IA y seguridad Firebase |
 | Kotlin Coroutines | 1.10.2 | Programación asíncrona |
-| DataStore Preferences | 1.1.7 | Almacenamiento de preferencias |
 | Roborazzi | 1.59.0 | Capturas de pantalla en tests |
 | Robolectric | 4.16.1 | Tests unitarios Android |
 | JDK | 17+ (recomendado 21) | Compilación y ejecución |
@@ -49,49 +41,30 @@ JAVA_HOME = C:\Program Files\Android\Android Studio\jbr
 
 ## Arquitectura
 
-El proyecto sigue **MVVM** en la capa de presentación y **Clean Architecture** en las capas de datos y dominio:
+La aplicación separa infraestructura compartida, funciones de producto y navegación. Cada función mantiene su propio ViewModel y `UiState`; `AppViewModel` solo conserva el rol activo y las preferencias globales.
 
 ```
 com.example/
-├── MainActivity.kt              ── Punto de entrada
-├── data/                        ── Capa de datos (repositorios, DAOs, DTOs)
-│   ├── local/                   ── Persistencia local (Room)
-│   │   ├── database/
-│   │   └── entity/
-│   ├── remote/                  ── API remotas (Retrofit)
-│   │   └── dto/
-│   ├── mapper/                  ── Mapeo DTO ↔ Entity
-│   ├── model/                   ── Modelos de datos (ServicePost, UserProfile, etc.)
-│   └── repository/              ── Repositorios (MockDataRepository)
-├── domain/                      ── Capa de dominio (lógica de negocio)
-│   ├── model/                   ── Modelos de dominio (AuthSession, Post)
-│   ├── repository/              ── Interfaces de repositorio
-│   │   ├── AuthRepository.kt
-│   │   ├── PostRepository.kt
-│   │   ├── ChatRepository.kt
-│   │   ├── ModerationRepository.kt
-│   │   └── NotificationRepository.kt
-│   └── usecase/                 ── Casos de uso (lógica aplicable)
-│       ├── auth/
-│       ├── posts/
-│       ├── chat/
-│       ├── moderation/
-│       └── notification/
-├── di/                          ── Módulos de inyección (Hilt)
-├── ui/                          ── Capa de presentación (MVVM)
-│   ├── navigation/              ── Rutas y NavHost
-│   ├── auth/                    ── Pantallas y ViewModel de autenticación
-│   ├── explore/                 ── Pantalla de exploración/feed
-│   ├── chat/                    ── Pantallas de chat
-│   ├── moderation/              ── Panel de moderación
-│   ├── profile/                 ── Perfil de usuario
-│   ├── screens/                 ── Composición de pantallas
-│   ├── theme/                   ── Temas, colores y tipografía (Material 3)
-│   └── viewmodel/               ── ViewModels (ServiLocalViewModel)
-└── viewmodel/                   ── ViewModel principal legacy (refactorizable)
+├── MainActivity.kt
+├── core/
+│   ├── data/                    ── Modelos y repositorio de demostración
+│   ├── domain/                  ── Modelos y contratos de repositorio
+│   └── ui/                      ── Componentes compartidos y tema Material 3
+├── features/
+│   ├── onboarding/              ── Bienvenida e introducción
+│   ├── home/                    ── Inicio del usuario
+│   ├── auth/                    ── Acceso, registro y recuperación
+│   ├── explore/                 ── Búsqueda y detalle de servicios
+│   ├── posts/                   ── Creación de publicaciones
+│   ├── chat/                    ── Conversaciones y mensajes
+│   ├── notifications/           ── Filtros y acciones de notificación
+│   ├── moderation/              ── Auditoría, reportes y estadísticas
+│   └── profile/                 ── Perfil y preferencias
+└── navigation/
+    └── AppNavHost.kt            ── Rutas, argumentos y back stack Compose
 ```
 
-**Flujo de datos:** `UI(Compose)` → `ViewModel` (estado `StateFlow`) → `Repository` (interface) → `DAO/Room` o `API(Retrofit)`.
+**Flujo de datos:** `Pantalla Compose` → `ViewModel de la función` (`UiState`/`StateFlow`) → `MockDataRepository`. `AppNavHost` mantiene el back stack y las pantallas reciben eventos de navegación como callbacks.
 
 ## Estructura de carpetas del proyecto
 
@@ -153,11 +126,15 @@ servi-local/
 
 ## Testing
 
-El proyecto incluye tests en `app/src/test/`:
+El proyecto incluye pruebas de lógica de ViewModel y capturas de pantallas en `app/src/test/`:
 
-- **Robolectric tests** (`ExampleRobolectricTest.kt`) — tests Android sin emulador
-- **Roborazzi screenshot tests** (`GreetingScreenshotTest.kt`) — capturas de pantalla para validar UI
-- **JUnit tests** — tests unitarios puros
+- **`FeatureViewModelTest.kt`** — validación de acceso/registro, creación de publicaciones, preferencias y recursos Android con Robolectric.
+- **`ServiLocalScreenshotTest.kt`** — capturas de bienvenida, inicio y detalle con Compose UI Test y Robolectric.
+- Las capturas se guardan bajo `app/src/test/screenshots/`.
+
+### Evidencias visuales
+
+El PDF reúne el ícono de la aplicación y las capturas de onboarding, inicio y detalle del servicio: [servilocal_evidencias.pdf](output/pdf/servilocal_evidencias.pdf).
 
 ```bash
 # Ejecutar todos los tests
@@ -192,11 +169,7 @@ Todas las versiones están centralizadas en `gradle/libs.versions.toml`:
 - `agp = "9.1.1"` — Android Gradle Plugin
 - `kotlin = "2.2.10"` — Kotlin
 - `composeBom = "2024.09.00"` — Compose BOM
-- `navigationCompose = "2.8.9"` — Navigation Compose
-- `roomRuntime = "2.7.0"` — Room
-- `retrofit = "2.12.0"` — Retrofit
-- `firebaseBom = "34.17.0"` — Firebase BOM
-- `hilt = "2.51.1"` — Hilt DI
+- Los conectores remotos y la persistencia quedan fuera del alcance de esta fase.
 
 ## Notas de desarrollo
 
@@ -206,4 +179,4 @@ Todas las versiones están centralizadas en `gradle/libs.versions.toml`:
 
 ---
 
-ServiLocal — Aplicación Android MVVM + Clean Architecture.
+ServiLocal — Aplicación Android MVVM con datos en memoria para fase 2.
