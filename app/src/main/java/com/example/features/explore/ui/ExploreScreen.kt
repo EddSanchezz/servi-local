@@ -1,5 +1,7 @@
 package com.example.features.explore.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,8 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.core.data.model.PostStatus
-import com.example.core.data.model.ServicePost
+import com.example.domain.model.PostStatus
+import com.example.domain.model.ServicePost
 import com.example.features.app.viewmodel.AppUiState
 import com.example.features.explore.viewmodel.ExploreViewModel
 import com.example.features.explore.viewmodel.ViewDisplayMode
@@ -41,12 +43,12 @@ fun ExploreScreen(
     onOpenChat: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val posts by viewModel.posts.collectAsState()
-    val uiState by viewModel.uiState.collectAsState()
+    val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery = uiState.searchQuery
     val selectedCategory = uiState.selectedCategory
     val viewDisplayMode = uiState.displayMode
-    val notifications by viewModel.notifications.collectAsState()
+    val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val notificationsEnabled = appUiState.notificationsEnabled
     val unreadNotifs = if (notificationsEnabled) notifications.count { !it.read } else 0
 

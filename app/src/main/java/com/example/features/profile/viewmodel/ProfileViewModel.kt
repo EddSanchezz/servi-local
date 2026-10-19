@@ -1,16 +1,25 @@
 package com.example.features.profile.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.example.core.data.repository.MockDataRepository
+import com.example.domain.repository.AuthRepository
+import com.example.domain.repository.NotificationRepository
+import com.example.domain.repository.PostRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import jakarta.inject.Inject
 
-class ProfileViewModel(private val repository: MockDataRepository) : ViewModel() {
-    val currentUser = repository.currentUser
-    val posts = repository.posts
-    val notifications = repository.notifications
+@HiltViewModel
+class ProfileViewModel @Inject constructor(
+    private val authRepository: AuthRepository,
+    postRepository: PostRepository,
+    notificationRepository: NotificationRepository
+) : ViewModel() {
+    val currentUser = authRepository.currentUser
+    val posts = postRepository.posts
+    val notifications = notificationRepository.notifications
 
     fun updateCurrentUser(name: String, email: String): Boolean {
         if (name.isBlank() || !email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) return false
-        repository.updateCurrentUser(name.trim(), email.trim())
+        authRepository.updateCurrentUser(name.trim(), email.trim())
         return true
     }
 }

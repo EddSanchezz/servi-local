@@ -1,14 +1,19 @@
 package com.example.features.posts.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.example.core.data.repository.MockDataRepository
+import com.example.domain.usecase.posts.CreateServicePostUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class CreatePostUiState(val submissionError: String? = null)
 
-class CreatePostViewModel(private val repository: MockDataRepository) : ViewModel() {
+@HiltViewModel
+class CreatePostViewModel @Inject constructor(
+    private val createServicePost: CreateServicePostUseCase
+) : ViewModel() {
     private val _uiState = MutableStateFlow(CreatePostUiState())
     val uiState: StateFlow<CreatePostUiState> = _uiState.asStateFlow()
 
@@ -17,7 +22,7 @@ class CreatePostViewModel(private val repository: MockDataRepository) : ViewMode
         isPriceToAgree: Boolean, location: String
     ): Boolean {
         return try {
-            repository.createPost(title, category, description, minPrice, maxPrice, isPriceToAgree, location)
+            createServicePost(title, category, description, minPrice, maxPrice, isPriceToAgree, location)
             _uiState.value = CreatePostUiState()
             true
         } catch (error: IllegalArgumentException) {

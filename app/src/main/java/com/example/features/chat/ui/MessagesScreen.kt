@@ -1,5 +1,7 @@
 package com.example.features.chat.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,8 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.core.data.model.ChatConversation
-import com.example.core.data.model.ChatStatus
+import com.example.domain.model.ChatConversation
+import com.example.domain.model.ChatStatus
 import com.example.features.chat.viewmodel.MessagesViewModel
 
 @Composable
@@ -33,8 +35,8 @@ fun MessagesScreen(
     onOpenChat: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val conversations by viewModel.conversations.collectAsState()
-    val messagesUiState by viewModel.uiState.collectAsState()
+    val conversations by viewModel.conversations.collectAsStateWithLifecycle()
+    val messagesUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val chatSegment = messagesUiState.segment
     var searchChatQuery by remember { mutableStateOf("") }
 

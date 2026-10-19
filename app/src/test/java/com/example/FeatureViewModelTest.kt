@@ -2,13 +2,16 @@ package com.example
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.example.core.data.model.PostStatus
-import com.example.core.data.model.UserRole
+import com.example.domain.model.PostStatus
+import com.example.domain.model.UserRole
 import com.example.core.data.repository.MockDataRepository
 import com.example.features.app.viewmodel.AppViewModel
 import com.example.features.auth.viewmodel.AuthViewModel
 import com.example.features.moderation.viewmodel.ModerationViewModel
 import com.example.features.posts.viewmodel.CreatePostViewModel
+import com.example.domain.usecase.auth.RegisterUserUseCase
+import com.example.domain.usecase.auth.ValidateLoginCredentialsUseCase
+import com.example.domain.usecase.posts.CreateServicePostUseCase
 import com.example.features.explore.viewmodel.ExploreViewModel
 import com.example.features.explore.viewmodel.ViewDisplayMode
 import org.junit.Assert.assertEquals
@@ -26,7 +29,7 @@ class FeatureViewModelTest {
 
     @Test
     fun `app session changes role without owning navigation`() {
-        val viewModel = AppViewModel(MockDataRepository())
+        val viewModel = AppViewModel()
 
         viewModel.login(UserRole.MODERATOR)
         assertEquals(UserRole.MODERATOR, viewModel.uiState.value.activeRole)
@@ -37,7 +40,8 @@ class FeatureViewModelTest {
 
     @Test
     fun `login validation returns feedback for malformed fields`() {
-        val viewModel = AuthViewModel(MockDataRepository())
+        val repository = MockDataRepository()
+        val viewModel = AuthViewModel(ValidateLoginCredentialsUseCase(), RegisterUserUseCase(repository))
 
         assertFalse(viewModel.login("not-an-email", "123"))
         assertEquals("Ingresa un correo válido.", viewModel.uiState.value.emailError)
@@ -46,7 +50,8 @@ class FeatureViewModelTest {
 
     @Test
     fun `valid local login passes form validation`() {
-        val viewModel = AuthViewModel(MockDataRepository())
+        val repository = MockDataRepository()
+        val viewModel = AuthViewModel(ValidateLoginCredentialsUseCase(), RegisterUserUseCase(repository))
 
         assertTrue(viewModel.login("ana@example.com", "clave2026"))
         assertEquals(null, viewModel.uiState.value.emailError)
@@ -56,7 +61,7 @@ class FeatureViewModelTest {
     @Test
     fun `registration rejects missing name and accepts valid details`() {
         val repository = MockDataRepository()
-        val viewModel = AuthViewModel(repository)
+        val viewModel = AuthViewModel(ValidateLoginCredentialsUseCase(), RegisterUserUseCase(repository))
 
         assertFalse(viewModel.register(" ", "ana@example.com"))
         assertNotNull(viewModel.uiState.value.nameError)
@@ -67,7 +72,7 @@ class FeatureViewModelTest {
     @Test
     fun `create post validation returns an actionable error and saves valid posts`() {
         val repository = MockDataRepository()
-        val viewModel = CreatePostViewModel(repository)
+        val viewModel = CreatePostViewModel(CreateServicePostUseCase(repository))
 
         assertFalse(viewModel.createPost("", "Hogar", "", 0, 0, false, ""))
         assertNotNull(viewModel.uiState.value.submissionError)
@@ -78,7 +83,8 @@ class FeatureViewModelTest {
 
     @Test
     fun `explore controls keep screen state separate from session`() {
-        val viewModel = ExploreViewModel(MockDataRepository())
+        val repository = MockDataRepository()
+        val viewModel = ExploreViewModel(repository, repository, repository)
 
         viewModel.setSearchQuery("electricista")
         viewModel.setSelectedCategory("Electricidad")
@@ -92,7 +98,7 @@ class FeatureViewModelTest {
     @Test
     fun `user and moderator schedules are available and moderator shift can be toggled`() {
         val repository = MockDataRepository()
-        val moderationViewModel = ModerationViewModel(repository)
+        val moderationViewModel = ModerationViewModel(repository, repository, repository, repository)
 
         assertTrue(repository.currentUser.value.workingHours.contains("sábado"))
         assertTrue(repository.moderatorUser.value.workingHours.contains("viernes"))

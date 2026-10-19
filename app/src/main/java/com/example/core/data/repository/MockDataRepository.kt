@@ -1,12 +1,25 @@
 package com.example.core.data.repository
 
-import com.example.core.data.model.*
+import com.example.domain.model.*
+import com.example.domain.repository.AuthRepository
+import com.example.domain.repository.ChatRepository
+import com.example.domain.repository.ModerationRepository
+import com.example.domain.repository.NotificationRepository
+import com.example.domain.repository.PostRepository
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-class MockDataRepository {
+@Singleton
+class MockDataRepository @Inject constructor() :
+    AuthRepository,
+    PostRepository,
+    ChatRepository,
+    NotificationRepository,
+    ModerationRepository {
 
     // Current logged in user
     private val _currentUser = MutableStateFlow(
@@ -21,7 +34,7 @@ class MockDataRepository {
             workingHours = "Lunes a sábado · 8:00 a. m. - 6:00 p. m."
         )
     )
-    val currentUser: StateFlow<UserProfile> = _currentUser.asStateFlow()
+    override val currentUser: StateFlow<UserProfile> = _currentUser.asStateFlow()
 
     // Moderator profile for staff view
     private val _moderatorUser = MutableStateFlow(
@@ -35,26 +48,26 @@ class MockDataRepository {
             workingHours = "Lunes a viernes · 8:00 a. m. - 4:30 p. m."
         )
     )
-    val moderatorUser: StateFlow<UserProfile> = _moderatorUser.asStateFlow()
+    override val moderatorUser: StateFlow<UserProfile> = _moderatorUser.asStateFlow()
 
     // Service posts
     private val _posts = MutableStateFlow<List<ServicePost>>(getInitialPosts())
-    val posts: StateFlow<List<ServicePost>> = _posts.asStateFlow()
+    override val posts: StateFlow<List<ServicePost>> = _posts.asStateFlow()
 
     // Chat conversations
     private val _conversations = MutableStateFlow<List<ChatConversation>>(getInitialChats())
-    val conversations: StateFlow<List<ChatConversation>> = _conversations.asStateFlow()
+    override val conversations: StateFlow<List<ChatConversation>> = _conversations.asStateFlow()
 
     // Notifications
     private val _notifications = MutableStateFlow<List<NotificationItem>>(getInitialNotifications())
-    val notifications: StateFlow<List<NotificationItem>> = _notifications.asStateFlow()
+    override val notifications: StateFlow<List<NotificationItem>> = _notifications.asStateFlow()
 
     // Moderation reports
     private val _reports = MutableStateFlow<List<ModerationReportItem>>(getInitialReports())
-    val reports: StateFlow<List<ModerationReportItem>> = _reports.asStateFlow()
+    override val reports: StateFlow<List<ModerationReportItem>> = _reports.asStateFlow()
 
     // Upvote toggle
-    fun toggleUpvote(postId: String) {
+    override fun toggleUpvote(postId: String) {
         _posts.update { list ->
             list.map { post ->
                 if (post.id == postId) {
@@ -67,7 +80,7 @@ class MockDataRepository {
     }
 
     // Add comment to a service
-    fun addComment(postId: String, text: String, authorName: String, isAuthorReply: Boolean = false) {
+    override fun addComment(postId: String, text: String, authorName: String, isAuthorReply: Boolean) {
         if (text.isBlank()) return
         _posts.update { list ->
             list.map { post ->
@@ -87,7 +100,7 @@ class MockDataRepository {
     }
 
     // Create new post
-    fun createPost(
+    override fun createPost(
         title: String,
         category: String,
         description: String,
@@ -126,7 +139,7 @@ class MockDataRepository {
     }
 
     // Moderation: Approve post
-    fun approvePost(postId: String) {
+    override fun approvePost(postId: String) {
         _posts.update { list ->
             list.map { post ->
                 if (post.id == postId) {
@@ -137,7 +150,7 @@ class MockDataRepository {
     }
 
     // Moderation: Reject post with mandatory reason
-    fun rejectPost(postId: String, reason: String, notes: String?) {
+    override fun rejectPost(postId: String, reason: String, notes: String?) {
         _posts.update { list ->
             list.map { post ->
                 if (post.id == postId) {
@@ -152,7 +165,7 @@ class MockDataRepository {
     }
 
     // Send chat message
-    fun sendMessage(conversationId: String, text: String) {
+    override fun sendMessage(conversationId: String, text: String) {
         if (text.isBlank()) return
         _conversations.update { list ->
             list.map { chat ->
@@ -175,7 +188,7 @@ class MockDataRepository {
         }
     }
 
-    fun startConversation(postId: String): String? {
+    override fun startConversation(postId: String): String? {
         val post = _posts.value.find { it.id == postId } ?: return null
         val existing = _conversations.value.firstOrNull {
             it.isClientRole && it.serviceTitle == post.title && it.recipientName == post.providerName
@@ -197,13 +210,13 @@ class MockDataRepository {
         return conversationId
     }
 
-    fun markConversationRead(conversationId: String) {
+    override fun markConversationRead(conversationId: String) {
         _conversations.update { list ->
             list.map { if (it.id == conversationId) it.copy(unreadCount = 0) else it }
         }
     }
 
-    fun updateConversationStatus(conversationId: String, status: ChatStatus) {
+    override fun updateConversationStatus(conversationId: String, status: ChatStatus) {
         val statusMessage = when (status) {
             ChatStatus.IN_PROGRESS -> "Solicitud aceptada. El servicio está en proceso."
             ChatStatus.PENDING -> "Solicitud pendiente de respuesta."
@@ -231,25 +244,25 @@ class MockDataRepository {
         }
     }
 
-    fun updateCurrentUser(name: String, email: String) {
+    override fun updateCurrentUser(name: String, email: String) {
         if (name.isBlank() || !email.contains('@')) return
         _currentUser.update { it.copy(name = name.trim(), email = email.trim()) }
     }
 
-    fun registerUser(name: String, email: String) {
+    override fun registerUser(name: String, email: String) {
         if (name.isBlank() || !email.contains('@')) return
         _currentUser.update {
             it.copy(id = "user_${System.currentTimeMillis()}", name = name.trim(), email = email.trim(), role = UserRole.USER)
         }
     }
 
-    fun createReport(
+    override fun createReport(
         reason: String,
         description: String,
         targetType: String,
         targetTitle: String,
-        targetPostId: String? = null,
-        targetChatId: String? = null
+        targetPostId: String?,
+        targetChatId: String?
     ) {
         val existing = _reports.value.firstOrNull {
             it.targetPostId == targetPostId && it.targetChatId == targetChatId && it.reasonTitle == reason
@@ -275,7 +288,7 @@ class MockDataRepository {
     }
 
     // Create request and start conversation
-    fun createServiceRequest(
+    override fun createServiceRequest(
         postId: String,
         applicantName: String,
         contactMethod: String,
@@ -315,32 +328,32 @@ class MockDataRepository {
     }
 
     // Dismiss report
-    fun dismissReport(reportId: String) {
+    override fun dismissReport(reportId: String) {
         _reports.update { list -> list.filterNot { it.id == reportId } }
     }
 
-    fun resolveReportsForPost(postId: String) {
+    override fun resolveReportsForPost(postId: String) {
         _reports.update { list -> list.filterNot { it.targetPostId == postId } }
     }
 
-    fun resolveReportsForChat(chatId: String) {
+    override fun resolveReportsForChat(chatId: String) {
         _reports.update { list -> list.filterNot { it.targetChatId == chatId } }
     }
 
     // Mark all notifications as read
-    fun markAllNotificationsRead() {
+    override fun markAllNotificationsRead() {
         _notifications.update { list ->
             list.map { it.copy(read = true) }
         }
     }
 
-    fun toggleNotificationRead(notificationId: String) {
+    override fun toggleNotificationRead(notificationId: String) {
         _notifications.update { list ->
             list.map { if (it.id == notificationId) it.copy(read = !it.read) else it }
         }
     }
 
-    fun toggleModeratorShift() {
+    override fun toggleModeratorShift() {
         _moderatorUser.update { it.copy(activeShift = !it.activeShift) }
     }
 

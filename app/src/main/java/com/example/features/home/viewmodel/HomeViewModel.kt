@@ -2,12 +2,14 @@ package com.example.features.home.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.core.data.model.PostStatus
-import com.example.core.data.model.ServicePost
-import com.example.core.data.repository.MockDataRepository
+import com.example.domain.model.PostStatus
+import com.example.domain.model.ServicePost
+import com.example.domain.usecase.home.ObserveHomeFeedUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import jakarta.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 data class HomeUiState(
@@ -15,11 +17,14 @@ data class HomeUiState(
     val featuredPosts: List<ServicePost> = emptyList()
 )
 
-class HomeViewModel(repository: MockDataRepository) : ViewModel() {
-    val uiState: StateFlow<HomeUiState> = combine(repository.currentUser, repository.posts) { user, posts ->
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    observeHomeFeed: ObserveHomeFeedUseCase
+) : ViewModel() {
+    val uiState: StateFlow<HomeUiState> = observeHomeFeed().map { data ->
         HomeUiState(
-            greetingName = user.name.substringBefore(' '),
-            featuredPosts = posts.filter { it.status == PostStatus.APPROVED }.take(3)
+            greetingName = data.user.name.substringBefore(' '),
+            featuredPosts = data.posts.filter { it.status == PostStatus.APPROVED }.take(3)
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 }

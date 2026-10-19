@@ -1,6 +1,7 @@
 package com.example.features.auth.ui
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -26,8 +28,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.core.data.model.UserRole
+import com.example.domain.model.UserRole
 import com.example.features.auth.viewmodel.AuthViewModel
+import com.example.R
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -41,10 +46,13 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var selectedRole by remember { mutableStateOf(UserRole.USER) }
     var showLoginError by remember { mutableStateOf(false) }
-    val authUiState by viewModel.uiState.collectAsState()
+    val authUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
     val validEmail = email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
     val validLogin = validEmail && password.length >= 6
 
+    Box(Modifier.fillMaxSize()) {
     Surface(
         modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
         color = MaterialTheme.colorScheme.background
@@ -66,11 +74,10 @@ fun LoginScreen(
                     .background(MaterialTheme.colorScheme.secondaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Handyman,
-                    contentDescription = "ServiLocal Icon",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(44.dp)
+                Image(
+                    painter = painterResource(R.drawable.ic_servilocal_logo),
+                    contentDescription = "Logo ServiLocal",
+                    modifier = Modifier.size(80.dp).clip(RoundedCornerShape(24.dp))
                 )
                 Box(
                     modifier = Modifier
@@ -283,7 +290,10 @@ fun LoginScreen(
             Button(
                 onClick = {
                     if (viewModel.login(email, password)) onAuthenticated(selectedRole)
-                    else showLoginError = true
+                    else {
+                        showLoginError = true
+                        coroutineScope.launch { snackbarHostState.showSnackbar("Revisa el correo y la contraseña para continuar.") }
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -333,6 +343,8 @@ fun LoginScreen(
             }
         }
     }
+    SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+    }
 }
 
 @Composable
@@ -348,12 +360,15 @@ fun RegisterScreen(
     var termsAccepted by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var isSubmitted by remember { mutableStateOf(false) }
-    val authState by viewModel.uiState.collectAsState()
+    val authState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     val passwordsMatch = password.isNotEmpty() && password == confirmPassword
     val validEmail = email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
     val validForm = fullName.isNotBlank() && validEmail && password.length >= 8 && passwordsMatch && termsAccepted
 
+    Box(Modifier.fillMaxSize()) {
     Surface(
         modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
         color = MaterialTheme.colorScheme.background
@@ -546,6 +561,7 @@ fun RegisterScreen(
                     } else {
                         isSubmitted = true
                         viewModel.register(fullName, email.trim())
+                        coroutineScope.launch { snackbarHostState.showSnackbar("Revisa los campos marcados antes de crear la cuenta.") }
                     }
                 },
                 modifier = Modifier
@@ -570,6 +586,8 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+    SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+    }
 }
 
 @Composable
@@ -577,8 +595,11 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
     var recoveryEmail by remember { mutableStateOf("") }
     var emailSent by remember { mutableStateOf(false) }
     var attemptedSubmit by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
     val validRecoveryEmail = recoveryEmail.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
 
+    Box(Modifier.fillMaxSize()) {
     Surface(
         modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
         color = MaterialTheme.colorScheme.background
@@ -696,7 +717,15 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
             }
 
             Button(
-                onClick = { attemptedSubmit = true; emailSent = validRecoveryEmail },
+                onClick = {
+                    attemptedSubmit = true
+                    emailSent = validRecoveryEmail
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(
+                            if (validRecoveryEmail) "La solicitud de recuperación quedó registrada." else "Ingresa un correo válido para continuar."
+                        )
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -720,5 +749,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
                 Text("Volver a Iniciar Sesión", color = MaterialTheme.colorScheme.primary)
             }
         }
+    }
+    SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(16.dp))
     }
 }

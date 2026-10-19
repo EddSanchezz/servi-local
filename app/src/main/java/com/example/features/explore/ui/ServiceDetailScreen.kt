@@ -1,5 +1,7 @@
 package com.example.features.explore.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -24,7 +26,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.core.data.model.ServicePost
+import com.example.domain.model.ServicePost
 import com.example.features.explore.viewmodel.ServiceDetailViewModel
 import kotlinx.coroutines.launch
 
@@ -37,8 +39,8 @@ fun ServiceDetailScreen(
     onOpenChat: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val posts by viewModel.posts.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
+    val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val post = posts.find { it.id == postId }
     val context = LocalContext.current
 
@@ -48,7 +50,7 @@ fun ServiceDetailScreen(
     var showReportDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-    val detailUiState by viewModel.uiState.collectAsState()
+    val detailUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val showRequestSheet = detailUiState.showRequestSheet
 
     if (post == null) {
@@ -108,7 +110,7 @@ fun ServiceDetailScreen(
         },
         bottomBar = {
             // Fixed Bottom Bar with Price, Upvote and Request CTA
-            if (post.status == com.example.core.data.model.PostStatus.APPROVED) Surface(
+            if (post.status == com.example.domain.model.PostStatus.APPROVED) Surface(
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 12.dp,
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding()

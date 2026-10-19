@@ -1,5 +1,7 @@
 package com.example.features.posts.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,11 +48,14 @@ fun CreatePostScreen(
     var attemptedSubmit by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
     var showCreatedDialog by remember { mutableStateOf(false) }
-    val formUiState by viewModel.uiState.collectAsState()
+    val formUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     val categories = listOf("Hogar", "Educación", "Mascotas", "Tecnología", "Electricidad", "Transporte")
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -100,6 +105,13 @@ fun CreatePostScreen(
                                     location = location.trim()
                                 )
                                 showCreatedDialog = created
+                                if (created) {
+                                    coroutineScope.launch { snackbarHostState.showSnackbar("Publicación enviada a revisión.") }
+                                } else {
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(formUiState.submissionError ?: "No se pudo crear la publicación.") }
+                                }
+                            } else {
+                                coroutineScope.launch { snackbarHostState.showSnackbar("Completa los campos requeridos y verifica el rango de precios.") }
                             }
                         },
                         modifier = Modifier

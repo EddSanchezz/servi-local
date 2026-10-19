@@ -1,5 +1,7 @@
 package com.example.features.home.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,7 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.core.data.model.ServicePost
+import com.example.domain.model.ServicePost
 import com.example.features.home.viewmodel.HomeViewModel
 
 @Composable
@@ -49,7 +51,7 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("home_screen"),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),

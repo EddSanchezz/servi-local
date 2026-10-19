@@ -1,5 +1,7 @@
 package com.example.features.profile.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,9 +41,9 @@ fun UserProfileScreen(
     onNotificationsChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val currentUser by viewModel.currentUser.collectAsState()
-    val posts by viewModel.posts.collectAsState()
-    val notifications by viewModel.notifications.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val darkTheme = appUiState.darkTheme
     val notificationsEnabled = appUiState.notificationsEnabled
     var activeDialog by remember { mutableStateOf<String?>(null) }
@@ -403,10 +405,10 @@ fun UserProfileScreen(
                             ) {
                                 dialogPosts.forEach { post ->
                                     val status = when (post.status) {
-                                        com.example.core.data.model.PostStatus.PENDING_VERIFICATION -> "Pendiente de revisión"
-                                        com.example.core.data.model.PostStatus.APPROVED -> "Publicada"
-                                        com.example.core.data.model.PostStatus.REJECTED -> "Rechazada"
-                                        com.example.core.data.model.PostStatus.FINISHED -> "Finalizada"
+                                        com.example.domain.model.PostStatus.PENDING_VERIFICATION -> "Pendiente de revisión"
+                                        com.example.domain.model.PostStatus.APPROVED -> "Publicada"
+                                        com.example.domain.model.PostStatus.REJECTED -> "Rechazada"
+                                        com.example.domain.model.PostStatus.FINISHED -> "Finalizada"
                                     }
                                     TextButton(
                                         onClick = {

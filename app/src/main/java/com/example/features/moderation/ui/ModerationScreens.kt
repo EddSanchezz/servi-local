@@ -1,5 +1,7 @@
 package com.example.features.moderation.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,10 +26,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.core.data.model.ModerationReportItem
-import com.example.core.data.model.PostStatus
-import com.example.core.data.model.ServicePost
-import com.example.core.data.model.UserRole
+import com.example.domain.model.ModerationReportItem
+import com.example.domain.model.PostStatus
+import com.example.domain.model.ServicePost
+import com.example.domain.model.UserRole
 import com.example.core.ui.components.ProfileNavRow
 import com.example.features.app.viewmodel.AppUiState
 import com.example.features.moderation.viewmodel.ModerationViewModel
@@ -39,9 +41,9 @@ fun ModerationFeedScreen(
     onOpenDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val posts by viewModel.posts.collectAsState()
-    val reports by viewModel.reports.collectAsState()
-    val moderationUiState by viewModel.uiState.collectAsState()
+    val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val reports by viewModel.reports.collectAsStateWithLifecycle()
+    val moderationUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val moderationFilter = moderationUiState.filter
     val pendingPosts = remember(posts, reports, moderationFilter) {
         val pending = posts.filter { it.status == PostStatus.PENDING_VERIFICATION }
@@ -300,7 +302,7 @@ fun ModerationDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val posts by viewModel.posts.collectAsState()
+    val posts by viewModel.posts.collectAsStateWithLifecycle()
     val post = posts.find { it.id == postId }
 
     var showRejectSheet by remember { mutableStateOf(false) }
@@ -317,7 +319,7 @@ fun ModerationDetailScreen(
         return
     }
 
-    val reports by viewModel.reports.collectAsState()
+    val reports by viewModel.reports.collectAsStateWithLifecycle()
     val providerPosts = posts.filter { it.providerName == post.providerName }
     val providerApproved = providerPosts.count { it.status == PostStatus.APPROVED }
     val providerRejected = providerPosts.count { it.status == PostStatus.REJECTED }
@@ -728,7 +730,7 @@ fun ModerationReportsScreen(
     onOpenChat: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val reports by viewModel.reports.collectAsState()
+    val reports by viewModel.reports.collectAsStateWithLifecycle()
     var selectedFilter by remember { mutableStateOf("Todos") }
     val filterOptions = listOf("Todos", "Fraude/Estafa", "Contacto no permitido", "Contenido ofensivo")
     fun matchesReportFilter(report: ModerationReportItem, filter: String): Boolean = when (filter) {
@@ -865,10 +867,10 @@ fun ModerationStatsScreen(
     onOpenNotifications: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val moderationUiState by viewModel.uiState.collectAsState()
+    val moderationUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val statsRange = moderationUiState.statsTimeRange
-    val posts by viewModel.posts.collectAsState()
-    val reports by viewModel.reports.collectAsState()
+    val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val reports by viewModel.reports.collectAsStateWithLifecycle()
     val rangeStart = remember(statsRange) {
         val now = System.currentTimeMillis()
         when (statsRange) {
@@ -1046,8 +1048,8 @@ fun ModeratorProfileScreen(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val moderatorUser by viewModel.moderatorUser.collectAsState()
-    val notifications by viewModel.notifications.collectAsState()
+    val moderatorUser by viewModel.moderatorUser.collectAsStateWithLifecycle()
+    val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val notificationsEnabled = appUiState.notificationsEnabled
     var activeInfoDialog by remember { mutableStateOf<String?>(null) }
 

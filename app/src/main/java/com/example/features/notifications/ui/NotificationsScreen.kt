@@ -1,5 +1,7 @@
 package com.example.features.notifications.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,9 +25,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.core.data.model.NotificationItem
-import com.example.core.data.model.NotificationType
-import com.example.core.data.model.UserRole
+import com.example.domain.model.NotificationItem
+import com.example.domain.model.NotificationType
+import com.example.domain.model.UserRole
 import com.example.features.app.viewmodel.AppUiState
 import com.example.features.notifications.viewmodel.NotificationsViewModel
 
@@ -40,8 +42,8 @@ fun NotificationsScreen(
     onOpenModerationDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val notifications by viewModel.notifications.collectAsState()
-    val notificationUiState by viewModel.uiState.collectAsState()
+    val notifications by viewModel.notifications.collectAsStateWithLifecycle()
+    val notificationUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val notificationFilter = notificationUiState.filter
 
     val filteredList = remember(notifications, notificationFilter) {

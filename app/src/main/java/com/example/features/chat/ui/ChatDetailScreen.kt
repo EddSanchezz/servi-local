@@ -1,5 +1,7 @@
 package com.example.features.chat.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -21,9 +23,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.core.data.model.ChatMessageItem
-import com.example.core.data.model.ChatStatus
-import com.example.core.data.model.UserRole
+import com.example.domain.model.ChatMessageItem
+import com.example.domain.model.ChatStatus
+import com.example.domain.model.UserRole
 import com.example.features.app.viewmodel.AppUiState
 import com.example.features.chat.viewmodel.ChatDetailViewModel
 import com.example.features.explore.ui.ReportContentDialog
@@ -38,7 +40,7 @@ fun ChatDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val conversations by viewModel.conversations.collectAsState()
+    val conversations by viewModel.conversations.collectAsStateWithLifecycle()
     val activeRole = appUiState.activeRole
     val conversation = conversations.find { it.id == chatId }
 
