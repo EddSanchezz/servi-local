@@ -1,11 +1,19 @@
 package com.example.domain.repository
 
-import com.example.data.model.ModerationReportItem
-import kotlinx.coroutines.flow.Flow
+import com.example.domain.model.ModerationReportItem
+import kotlinx.coroutines.flow.StateFlow
 
 interface ModerationRepository {
-    val reports: Flow<List<ModerationReportItem>>
-    suspend fun approvePost(postId: String)
-    suspend fun rejectPost(postId: String, reason: String, notes: String?)
-    suspend fun dismissReport(reportId: String)
+    val reports: StateFlow<List<ModerationReportItem>>
+
+    fun createReport(
+        reason: String,
+        description: String,
+        targetType: String,
+        targetTitle: String,
+        targetPostId: String? = null,
+        targetChatId: String? = null
+    )
+    fun dismissReport(reportId: String)
+    fun resolveReportsForPost(postId: String)
 }

@@ -1,10 +1,11 @@
 package com.example.domain.repository
 
-import com.example.data.model.NotificationItem
-import kotlinx.coroutines.flow.Flow
+import com.example.domain.model.NotificationItem
+import kotlinx.coroutines.flow.StateFlow
 
 interface NotificationRepository {
-    val notifications: Flow<List<NotificationItem>>
-    suspend fun markAllRead()
-    suspend fun toggleRead(id: String)
+    val notifications: StateFlow<List<NotificationItem>>
+
+    fun markAllNotificationsRead()
+    fun toggleNotificationRead(notificationId: String)
 }
