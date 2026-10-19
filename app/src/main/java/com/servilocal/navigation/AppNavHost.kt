@@ -191,10 +191,11 @@ private fun DashboardNavigation(
     }
 
     fun navigateTab(route: String) {
-        navController.navigate(route) {
-            popUpTo(startDestination) { saveState = true }
-            launchSingleTop = true
-            restoreState = true
+        if (currentRoute != route){
+            navController.navigate(route) {
+                launchSingleTop = true
+                restoreState = true
+            }
         }
     }
 
