@@ -21,7 +21,33 @@ class MockDataRepository @Inject constructor() :
     NotificationRepository,
     ModerationRepository {
 
-    // Current logged in user
+    // ───────────────────────── TABLAS DE ENTIDADES ERD (PERSISTENCIA) ─────────────────────────
+
+    private val erdUsers = MutableStateFlow<List<User>>(
+        listOf(
+            User("user_val_1", "Valentina Morales", "valentina.morales@servilocal.co", "hash123", UserRole.USER, points = 220, level = UserLevel.MAESTRO),
+            User("mod_ale_1", "Alejandro Vargas", "alejandro.vargas@staff.servilocal.pe", "hash456", UserRole.MODERATOR, points = 500, level = UserLevel.MAESTRO)
+        )
+    )
+
+    private val erdPosts = MutableStateFlow<List<Post>>(
+        listOf(
+            Post("pub_1", "user_val_1", title = "Instalación Eléctrica Residencial y Reparaciones", category = PostCategory.HOGAR, description = "Ingeniero Eléctrico con certificación técnica oficial.", minPrice = 25000, maxPrice = 45000, status = PostStatus.APPROVED),
+            Post("pub_2", "user_val_1", title = "Plomería y Destapes de Urgencia 24/7", category = PostCategory.HOGAR, description = "Atención inmediata para fugas de agua y destapes.", minPrice = 25000, maxPrice = 50000, status = PostStatus.APPROVED),
+            Post("pub_3", "user_val_1", title = "Clases Particulares de Matemáticas y Física", category = PostCategory.EDUCACION, description = "Docente universitaria de matemáticas puras.", minPrice = 15000, maxPrice = 30000, status = PostStatus.APPROVED),
+            Post("pub_4", "user_val_1", title = "Paseo y Cuidado Canino Personalizado", category = PostCategory.MASCOTAS, description = "Paseos recreativos individuales o en grupos reducidos.", minPrice = 8000, maxPrice = 18000, status = PostStatus.APPROVED),
+            Post("pub_5", "user_val_1", title = "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas", category = PostCategory.HOGAR, description = "Servicio de cerrajería rápido a domicilio.", minPrice = 30000, maxPrice = 60000, status = PostStatus.PENDING_VERIFICATION),
+            Post("pub_6", "user_val_1", title = "Mantenimiento e Instalación de Tableros Eléctricos", category = PostCategory.TECNOLOGIA, description = "Levantamiento de planos y detección de fugas.", minPrice = 35000, maxPrice = 85000, status = PostStatus.PENDING_VERIFICATION)
+        )
+    )
+
+    private val erdRequests = MutableStateFlow<List<ServiceRequest>>(emptyList())
+    private val erdMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    private val erdNotifications = MutableStateFlow<List<AppNotification>>(emptyList())
+    private val erdReports = MutableStateFlow<List<Report>>(emptyList())
+
+    // ───────────────────────── FLUJOS DE ESTADO REPACTADOS PARA LA UI ─────────────────────────
+
     private val _currentUser = MutableStateFlow(
         UserProfile(
             id = "user_val_1",
@@ -36,7 +62,6 @@ class MockDataRepository @Inject constructor() :
     )
     override val currentUser: StateFlow<UserProfile> = _currentUser.asStateFlow()
 
-    // Moderator profile for staff view
     private val _moderatorUser = MutableStateFlow(
         UserProfile(
             id = "mod_ale_1",
@@ -50,23 +75,20 @@ class MockDataRepository @Inject constructor() :
     )
     override val moderatorUser: StateFlow<UserProfile> = _moderatorUser.asStateFlow()
 
-    // Service posts
     private val _posts = MutableStateFlow<List<ServicePost>>(getInitialPosts())
     override val posts: StateFlow<List<ServicePost>> = _posts.asStateFlow()
 
-    // Chat conversations
     private val _conversations = MutableStateFlow<List<ChatConversation>>(getInitialChats())
     override val conversations: StateFlow<List<ChatConversation>> = _conversations.asStateFlow()
 
-    // Notifications
     private val _notifications = MutableStateFlow<List<NotificationItem>>(getInitialNotifications())
     override val notifications: StateFlow<List<NotificationItem>> = _notifications.asStateFlow()
 
-    // Moderation reports
     private val _reports = MutableStateFlow<List<ModerationReportItem>>(getInitialReports())
     override val reports: StateFlow<List<ModerationReportItem>> = _reports.asStateFlow()
 
-    // Upvote toggle
+    // ───────────────────────── MÉTODOS DE REPOSITORIO ─────────────────────────
+
     override fun toggleUpvote(postId: String) {
         _posts.update { list ->
             list.map { post ->
@@ -79,7 +101,6 @@ class MockDataRepository @Inject constructor() :
         }
     }
 
-    // Add comment to a service
     override fun addComment(postId: String, text: String, authorName: String, isAuthorReply: Boolean) {
         if (text.isBlank()) return
         _posts.update { list ->
@@ -99,7 +120,6 @@ class MockDataRepository @Inject constructor() :
         }
     }
 
-    // Create new post
     override fun createPost(
         title: String,
         category: String,
@@ -113,8 +133,21 @@ class MockDataRepository @Inject constructor() :
         require(description.isNotBlank()) { "La descripción es obligatoria." }
         require(location.isNotBlank()) { "La ubicación es obligatoria." }
         require(isPriceToAgree || (minPrice > 0 && maxPrice >= minPrice)) { "El rango de precios no es válido." }
-        val newPost = ServicePost(
+
+        val newErdPost = Post(
             id = "pub_${System.currentTimeMillis()}",
+            userId = _currentUser.value.id,
+            title = title,
+            category = try { PostCategory.valueOf(category.uppercase()) } catch (_: Exception) { PostCategory.HOGAR },
+            description = description,
+            minPrice = minPrice,
+            maxPrice = maxPrice,
+            status = PostStatus.PENDING_VERIFICATION
+        )
+        erdPosts.update { listOf(newErdPost) + it }
+
+        val newPost = ServicePost(
+            id = newErdPost.id,
             title = title,
             category = category,
             description = description,
@@ -138,51 +171,44 @@ class MockDataRepository @Inject constructor() :
         return newPost
     }
 
-    // Moderation: Approve post
     override fun approvePost(postId: String) {
-        _posts.update { list ->
-            list.map { post ->
-                if (post.id == postId) {
-                    post.copy(status = PostStatus.APPROVED)
-                } else post
-            }
-        }
+        erdPosts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it } }
+        _posts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it } }
     }
 
-    // Moderation: Reject post with mandatory reason
     override fun rejectPost(postId: String, reason: String, notes: String?) {
+        erdPosts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.REJECTED, rejectionReason = reason) else it } }
         _posts.update { list ->
             list.map { post ->
                 if (post.id == postId) {
-                    post.copy(
-                        status = PostStatus.REJECTED,
-                        rejectionReason = reason,
-                        rejectionNotes = notes
-                    )
+                    post.copy(status = PostStatus.REJECTED, rejectionReason = reason, rejectionNotes = notes)
                 } else post
             }
         }
     }
 
-    // Send chat message
     override fun sendMessage(conversationId: String, text: String) {
         if (text.isBlank()) return
+        val newErdMsg = ChatMessage(
+            id = "m_${System.currentTimeMillis()}",
+            serviceRequestId = conversationId,
+            senderId = _currentUser.value.id,
+            message = text
+        )
+        erdMessages.update { listOf(newErdMsg) + it }
+
         _conversations.update { list ->
             list.map { chat ->
                 if (chat.id == conversationId) {
                     val newMsg = ChatMessageItem(
-                        id = "m_${System.currentTimeMillis()}",
+                        id = newErdMsg.id,
                         senderName = _currentUser.value.name,
                         text = text,
                         time = "Ahora",
                         isFromMe = true,
                         read = false
                     )
-                    chat.copy(
-                        lastMessage = text,
-                        lastTime = "Ahora",
-                        messages = chat.messages + newMsg
-                    )
+                    chat.copy(lastMessage = text, lastTime = "Ahora", messages = chat.messages + newMsg)
                 } else chat
             }
         }
@@ -201,7 +227,7 @@ class MockDataRepository @Inject constructor() :
             recipientName = post.providerName,
             serviceTitle = post.title,
             servicePrice = if (post.isPriceToAgree) "A convenir" else "$ ${post.minPrice} COP",
-            status = ChatStatus.IN_PROGRESS,
+            status = ServiceRequestStatus.IN_PROGRESS,
             lastMessage = "Inicia la conversación",
             lastTime = "Ahora",
             isClientRole = true
@@ -211,18 +237,16 @@ class MockDataRepository @Inject constructor() :
     }
 
     override fun markConversationRead(conversationId: String) {
-        _conversations.update { list ->
-            list.map { if (it.id == conversationId) it.copy(unreadCount = 0) else it }
-        }
+        _conversations.update { list -> list.map { if (it.id == conversationId) it.copy(unreadCount = 0) else it } }
     }
 
     override fun updateConversationStatus(conversationId: String, status: ChatStatus) {
         val statusMessage = when (status) {
-            ChatStatus.IN_PROGRESS -> "Solicitud aceptada. El servicio está en proceso."
-            ChatStatus.PENDING -> "Solicitud pendiente de respuesta."
-            ChatStatus.COMPLETED -> "Servicio finalizado."
-            ChatStatus.NEW_REQUEST -> "Nueva solicitud recibida."
-            ChatStatus.DECLINED -> "Solicitud rechazada."
+            ServiceRequestStatus.IN_PROGRESS -> "Solicitud aceptada. El servicio está en proceso."
+            ServiceRequestStatus.PENDING -> "Solicitud pendiente de respuesta."
+            ServiceRequestStatus.COMPLETED -> "Servicio finalizado."
+            ServiceRequestStatus.NEW_REQUEST -> "Nueva solicitud recibida."
+            ServiceRequestStatus.DECLINED -> "Solicitud rechazada."
         }
         _conversations.update { list ->
             list.map { conversation ->
@@ -251,8 +275,16 @@ class MockDataRepository @Inject constructor() :
 
     override fun registerUser(name: String, email: String) {
         if (name.isBlank() || !email.contains('@')) return
+        val newErdUser = User(
+            id = "user_${System.currentTimeMillis()}",
+            name = name.trim(),
+            email = email.trim(),
+            passwordHash = "hash",
+            role = UserRole.USER
+        )
+        erdUsers.update { listOf(newErdUser) + it }
         _currentUser.update {
-            it.copy(id = "user_${System.currentTimeMillis()}", name = name.trim(), email = email.trim(), role = UserRole.USER)
+            it.copy(id = newErdUser.id, name = name.trim(), email = email.trim(), role = UserRole.USER)
         }
     }
 
@@ -264,6 +296,16 @@ class MockDataRepository @Inject constructor() :
         targetPostId: String?,
         targetChatId: String?
     ) {
+        val newErdReport = Report(
+            id = "rep_${System.currentTimeMillis()}",
+            reporterId = _currentUser.value.id,
+            targetType = if (targetPostId != null) ReportTargetType.POST else ReportTargetType.CHAT_MESSAGE,
+            targetId = targetPostId ?: targetChatId ?: "unknown",
+            reason = reason,
+            status = ReportStatus.PENDING
+        )
+        erdReports.update { listOf(newErdReport) + it }
+
         val existing = _reports.value.firstOrNull {
             it.targetPostId == targetPostId && it.targetChatId == targetChatId && it.reasonTitle == reason
         }
@@ -273,7 +315,7 @@ class MockDataRepository @Inject constructor() :
             _reports.update { list ->
                 listOf(
                     ModerationReportItem(
-                        id = "rep_${System.currentTimeMillis()}",
+                        id = newErdReport.id,
                         reasonTitle = reason,
                         reportCount = 1,
                         targetType = targetType,
@@ -287,7 +329,6 @@ class MockDataRepository @Inject constructor() :
         }
     }
 
-    // Create request and start conversation
     override fun createServiceRequest(
         postId: String,
         applicantName: String,
@@ -299,12 +340,23 @@ class MockDataRepository @Inject constructor() :
         val recipient = post?.providerName ?: "Carlos Mendoza"
         val convId = "chat_${System.currentTimeMillis()}"
 
+        val newErdReq = ServiceRequest(
+            id = convId,
+            postId = postId,
+            clientId = _currentUser.value.id,
+            contactPhone = contactMethod,
+            exactAddress = address,
+            problemDescription = description,
+            status = ServiceRequestStatus.PENDING
+        )
+        erdRequests.update { listOf(newErdReq) + it }
+
         val newConv = ChatConversation(
             id = convId,
             recipientName = recipient,
             serviceTitle = post?.title ?: "Servicio Solicitado",
             servicePrice = if (post?.isPriceToAgree == true) "A convenir" else "$ ${post?.minPrice ?: 25000} COP",
-            status = ChatStatus.PENDING,
+            status = ServiceRequestStatus.PENDING,
             lastMessage = description,
             lastTime = "Ahora",
             unreadCount = 0,
@@ -327,7 +379,6 @@ class MockDataRepository @Inject constructor() :
         return convId
     }
 
-    // Dismiss report
     override fun dismissReport(reportId: String) {
         _reports.update { list -> list.filterNot { it.id == reportId } }
     }
@@ -340,29 +391,26 @@ class MockDataRepository @Inject constructor() :
         _reports.update { list -> list.filterNot { it.targetChatId == chatId } }
     }
 
-    // Mark all notifications as read
     override fun markAllNotificationsRead() {
-        _notifications.update { list ->
-            list.map { it.copy(read = true) }
-        }
+        _notifications.update { list -> list.map { it.copy(read = true) } }
     }
 
     override fun toggleNotificationRead(notificationId: String) {
-        _notifications.update { list ->
-            list.map { if (it.id == notificationId) it.copy(read = !it.read) else it }
-        }
+        _notifications.update { list -> list.map { if (it.id == notificationId) it.copy(read = !it.read) else it } }
     }
 
     override fun toggleModeratorShift() {
         _moderatorUser.update { it.copy(activeShift = !it.activeShift) }
     }
 
+    // ───────────────────────── DATOS INICIALES MOCK ─────────────────────────
+
     private fun getInitialPosts(): List<ServicePost> = listOf(
         ServicePost(
             id = "pub_1",
             title = "Instalación Eléctrica Residencial y Reparaciones",
             category = "Hogar",
-            description = "Ingeniero Eléctrico con certificación técnica oficial. Realizo diagnóstico, instalación y reparación de cableados domiciliarios, tableros eléctricos, detección de cortocircuitos y sobrecargas con instrumental calibrado de precisión.",
+            description = "Ingeniero Eléctrico con certificación técnica oficial. Realizo diagnóstico, instalación y reparación de cableados domiciliarios.",
             providerName = "Carlos Mendoza",
             providerLevel = "Maestro 🏆",
             minPrice = 25000,
@@ -377,37 +425,16 @@ class MockDataRepository @Inject constructor() :
             responseTime = "< 30 min",
             createdAtMillis = daysAgo(0),
             comments = listOf(
-                ServiceComment(
-                    id = "c_1",
-                    authorName = "Francisca Valenzuela",
-                    date = "Ayer a las 18:40",
-                    text = "Excelente servicio. Don Carlos detectó la fuga a tierra de inmediato y cambió el interruptor diferencial de forma muy pulcra y rápida. 100% recomendado.",
-                    isAuthorReply = false,
-                    isRecommended = true
-                ),
-                ServiceComment(
-                    id = "c_2",
-                    authorName = "Matías Sepúlveda",
-                    date = "Hace 3 días",
-                    text = "Hola Carlos, ¿haces instalación de cargadores para autos eléctricos tipo Wallbox domiciliario? Saludos.",
-                    isAuthorReply = false,
-                    isRecommended = false
-                ),
-                ServiceComment(
-                    id = "c_3",
-                    authorName = "Carlos Mendoza (Autor)",
-                    date = "Hace 3 días",
-                    text = "¡Hola Matías! Sí, cuento con certificación para dimensionamiento de empalmes e instalación de Wallbox. Puedes agendar una visita diagnóstica.",
-                    isAuthorReply = true,
-                    isRecommended = true
-                )
+                ServiceComment("c_1", "Francisca Valenzuela", "Ayer a las 18:40", "Excelente servicio. Don Carlos detectó la fuga de inmediato.", isAuthorReply = false, isRecommended = true),
+                ServiceComment("c_2", "Matías Sepúlveda", "Hace 3 días", "Hola Carlos, ¿haces instalación de Wallbox?", isAuthorReply = false, isRecommended = false),
+                ServiceComment("c_3", "Carlos Mendoza (Autor)", "Hace 3 días", "¡Hola Matías! Sí, cuento con certificación.", isAuthorReply = true, isRecommended = true)
             )
         ),
         ServicePost(
             id = "pub_2",
             title = "Plomería y Destapes de Urgencia 24/7",
             category = "Hogar",
-            description = "Atención inmediata para fugas de agua, cambio de griferías, destapes con sonda eléctrica y reparación de sanitarios. Servicio limpio, rápido y con garantía escrita de 30 días.",
+            description = "Atención inmediata para fugas de agua, cambio de griferías y destapes.",
             providerName = "Carlos R.",
             providerLevel = "Experto ★",
             minPrice = 25000,
@@ -426,7 +453,7 @@ class MockDataRepository @Inject constructor() :
             id = "pub_3",
             title = "Clases Particulares de Matemáticas y Física",
             category = "Educación",
-            description = "Docente universitaria de matemáticas puras. Apoyo escolar y preparación para exámenes universitarios (Cálculo I, II, Álgebra Lineal y Física). Modalidad online o presencial a domicilio en Armenia.",
+            description = "Docente universitaria de matemáticas puras. Apoyo escolar y universitario.",
             providerName = "Valentina M.",
             providerLevel = "Maestro 🏆",
             minPrice = 15000,
@@ -445,7 +472,7 @@ class MockDataRepository @Inject constructor() :
             id = "pub_4",
             title = "Paseo y Cuidado Canino Personalizado",
             category = "Mascotas",
-            description = "Paseos recreativos individuales o en grupos reducidos con seguimiento GPS en tiempo real. Adiestramiento básico en positivo y cuidados a domicilio.",
+            description = "Paseos recreativos individuales o en grupos reducidos con seguimiento GPS.",
             providerName = "Matías S.",
             providerLevel = "Profesional",
             minPrice = 8000,
@@ -464,7 +491,7 @@ class MockDataRepository @Inject constructor() :
             id = "pub_5",
             title = "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas",
             category = "Hogar",
-            description = "Servicio de cerrajería rápido a domicilio para casas y autos sin romper cerraduras. Atención inmediata día y noche ante extravío de llaves, cambio de combinación y chapas blindadas.",
+            description = "Servicio de cerrajería rápido a domicilio para casas y autos.",
             providerName = "Rodrigo Tapia",
             providerLevel = "Principiante",
             minPrice = 30000,
@@ -474,7 +501,7 @@ class MockDataRepository @Inject constructor() :
             rating = 4.6f,
             reviewCount = 8,
             upvotesCount = 27,
-            status = PostStatus.PENDING_VERIFICATION, // In moderation queue
+            status = PostStatus.PENDING_VERIFICATION,
             warrantyMonths = 3,
             responseTime = "< 25 min",
             createdAtMillis = daysAgo(5)
@@ -483,7 +510,7 @@ class MockDataRepository @Inject constructor() :
             id = "pub_6",
             title = "Mantenimiento e Instalación de Tableros Eléctricos",
             category = "Electricidad",
-            description = "Levantamiento de planos, detección de fugas con pinza amperimétrica True RMS, reemplazo de protecciones magnetotérmicas y diferenciales.",
+            description = "Levantamiento de planos, detección de fugas y reemplazo de protecciones.",
             providerName = "Fernando Lucas",
             providerLevel = "Nuevo",
             minPrice = 35000,
@@ -493,7 +520,7 @@ class MockDataRepository @Inject constructor() :
             rating = 5.0f,
             reviewCount = 2,
             upvotesCount = 15,
-            status = PostStatus.PENDING_VERIFICATION, // In moderation queue
+            status = PostStatus.PENDING_VERIFICATION,
             warrantyMonths = 6,
             responseTime = "< 45 min",
             createdAtMillis = daysAgo(1)
@@ -506,7 +533,7 @@ class MockDataRepository @Inject constructor() :
             recipientName = "Carlos R.",
             serviceTitle = "Instalación Eléctrica Residencial",
             servicePrice = "$ 45.000 COP",
-            status = ChatStatus.IN_PROGRESS,
+            status = ServiceRequestStatus.IN_PROGRESS,
             lastMessage = "Perfecto, llevo el multímetro y los repuestos a las 3:00 PM.",
             lastTime = "10:20 AM",
             unreadCount = 2,
@@ -515,28 +542,9 @@ class MockDataRepository @Inject constructor() :
             requestProblem = "El interruptor principal del circuito de la cocina genera chispas al encender el horno eléctrico. Requiere revisión urgente.",
             requestPhone = "+57 312 456 7890",
             messages = listOf(
-                ChatMessageItem(
-                    id = "m1",
-                    senderName = "Carlos R.",
-                    text = "Hola Valentina, gusto en saludarte. Ya revisé la solicitud. Ese síntoma puede ser un falso contacto en la bornera del disyuntor.",
-                    time = "10:14 AM",
-                    isFromMe = false
-                ),
-                ChatMessageItem(
-                    id = "m2",
-                    senderName = "Valentina Morales",
-                    text = "¡Hola Carlos! Muchas gracias. ¿Podrías traer repuesto por si toca cambiar el breaker?",
-                    time = "10:16 AM",
-                    isFromMe = true,
-                    read = true
-                ),
-                ChatMessageItem(
-                    id = "m3",
-                    senderName = "Carlos R.",
-                    text = "Perfecto, llevo el multímetro y los repuestos a las 3:00 PM.",
-                    time = "10:20 AM",
-                    isFromMe = false
-                )
+                ChatMessageItem("m1", "Carlos R.", "Hola Valentina, gusto en saludarte. Ya revisé la solicitud.", "10:14 AM", isFromMe = false),
+                ChatMessageItem("m2", "Valentina Morales", "¡Hola Carlos! Muchas gracias.", "10:16 AM", isFromMe = true, read = true),
+                ChatMessageItem("m3", "Carlos R.", "Perfecto, llevo el multímetro a las 3:00 PM.", "10:20 AM", isFromMe = false)
             )
         ),
         ChatConversation(
@@ -544,19 +552,13 @@ class MockDataRepository @Inject constructor() :
             recipientName = "Valentina Morales",
             serviceTitle = "Clases de Matemáticas",
             servicePrice = "$ 15.000 COP / hr",
-            status = ChatStatus.PENDING,
+            status = ServiceRequestStatus.PENDING,
             lastMessage = "Te adjunto el temario del examen de cálculo para revisarlo.",
             lastTime = "Hace 2 h",
             unreadCount = 0,
             isClientRole = true,
             messages = listOf(
-                ChatMessageItem(
-                    id = "m4",
-                    senderName = "Valentina Morales",
-                    text = "Te adjunto el temario del examen de cálculo para revisarlo.",
-                    time = "Hace 2 h",
-                    isFromMe = false
-                )
+                ChatMessageItem("m4", "Valentina Morales", "Te adjunto el temario del examen de cálculo para revisarlo.", "Hace 2 h", isFromMe = false)
             )
         ),
         ChatConversation(
@@ -564,40 +566,27 @@ class MockDataRepository @Inject constructor() :
             recipientName = "Andrés Gómez",
             serviceTitle = "Plomería y Destapes 24/7",
             servicePrice = "$ 30.000 COP",
-            status = ChatStatus.COMPLETED,
+            status = ServiceRequestStatus.COMPLETED,
             lastMessage = "Servicio completado exitosamente. ¡Muchas gracias por calificar!",
             lastTime = "Ayer",
             unreadCount = 0,
             isClientRole = true,
             messages = listOf(
-                ChatMessageItem(
-                    id = "m5",
-                    senderName = "Andrés Gómez",
-                    text = "Servicio completado exitosamente. ¡Muchas gracias por calificar!",
-                    time = "Ayer",
-                    isFromMe = false
-                )
+                ChatMessageItem("m5", "Andrés Gómez", "Servicio completado exitosamente. ¡Muchas gracias por calificar!", "Ayer", isFromMe = false)
             )
         ),
-        // Requests received as Provider
         ChatConversation(
             id = "chat_4",
             recipientName = "Francisca Valenzuela",
             serviceTitle = "Instalación Eléctrica Residencial",
             servicePrice = "$ 40.000 COP",
-            status = ChatStatus.NEW_REQUEST,
+            status = ServiceRequestStatus.NEW_REQUEST,
             lastMessage = "¡Hola! ¿Tienes disponibilidad este viernes para revisar una cerradura en Calle Mayor?",
             lastTime = "10:45 AM",
             unreadCount = 1,
             isClientRole = false,
             messages = listOf(
-                ChatMessageItem(
-                    id = "m6",
-                    senderName = "Mariana Rivas",
-                    text = "¡Hola! ¿Tienes disponibilidad este viernes para revisar una cerradura en Calle Mayor?",
-                    time = "10:45 AM",
-                    isFromMe = false
-                )
+                ChatMessageItem("m6", "Mariana Rivas", "¡Hola! ¿Tienes disponibilidad este viernes para revisar una cerradura?", "10:45 AM", isFromMe = false)
             )
         ),
         ChatConversation(
@@ -605,100 +594,29 @@ class MockDataRepository @Inject constructor() :
             recipientName = "Jorge Palacios",
             serviceTitle = "Pintura y Remodelaciones Integrales",
             servicePrice = "$ 65.000 COP",
-            status = ChatStatus.IN_PROGRESS,
+            status = ServiceRequestStatus.IN_PROGRESS,
             lastMessage = "Me interesa cotizar la pintura para dos habitaciones. Te mando medidas.",
             lastTime = "Ayer",
             unreadCount = 0,
             isClientRole = false,
             messages = listOf(
-                ChatMessageItem(
-                    id = "m7",
-                    senderName = "Jorge Palacios",
-                    text = "Me interesa cotizar la pintura para dos habitaciones. Te mando medidas.",
-                    time = "Ayer",
-                    isFromMe = false
-                )
+                ChatMessageItem("m7", "Jorge Palacios", "Me interesa cotizar la pintura para dos habitaciones. Te mando medidas.", "Ayer", isFromMe = false)
             )
         )
     )
 
     private fun getInitialNotifications(): List<NotificationItem> = listOf(
-        NotificationItem(
-            id = "notif_1",
-            title = "Nueva solicitud de servicio recibida",
-            description = "Francisca Valenzuela ha solicitado tu servicio de 'Instalación Eléctrica Residencial'. Toca para revisar detalles.",
-            time = "Hace 10 min",
-            type = NotificationType.REQUEST,
-            read = false,
-            relatedChatId = "chat_4"
-        ),
-        NotificationItem(
-            id = "notif_2",
-            title = "¡Publicación Aprobada!",
-            description = "La publicación 'Instalación Eléctrica Residencial y Reparaciones' está disponible en el Feed de la comunidad.",
-            time = "Hace 2 horas",
-            type = NotificationType.SYSTEM,
-            read = false,
-            relatedPostId = "pub_1"
-        ),
-        NotificationItem(
-            id = "notif_3",
-            title = "Nuevo comentario en tu anuncio",
-            description = "Matías Sepúlveda preguntó: '¿Haces instalación de cargadores para autos eléctricos...?'",
-            time = "Hace 4 horas",
-            type = NotificationType.COMMENT,
-            read = false,
-            relatedPostId = "pub_1"
-        ),
-        NotificationItem(
-            id = "notif_4",
-            title = "¡Nuevo logro desbloqueado: Super Proveedor!",
-            description = "Completaste 10 servicios con calificación 5 estrellas. Ganaste 150 pts de reputación comunitaria.",
-            time = "Ayer",
-            type = NotificationType.ACHIEVEMENT,
-            read = true
-        ),
-        NotificationItem(
-            id = "notif_5",
-            title = "A 5 vecinos les interesó tu servicio",
-            description = "Tu publicación tuvo alta interacción en el sector de Los Profesionales y Centro.",
-            time = "Hace 3 días",
-            type = NotificationType.INTERACTION,
-            read = true
-        )
+        NotificationItem("notif_1", "Nueva solicitud de servicio recibida", "Francisca Valenzuela ha solicitado tu servicio.", "Hace 10 min", NotificationType.REQUEST, false, relatedChatId = "chat_4"),
+        NotificationItem("notif_2", "¡Publicación Aprobada!", "La publicación 'Instalación Eléctrica' está disponible en el Feed.", "Hace 2 horas", NotificationType.SYSTEM, false, relatedPostId = "pub_1"),
+        NotificationItem("notif_3", "Nuevo comentario en tu anuncio", "Matías Sepúlveda preguntó por instalación de cargadores.", "Hace 4 horas", NotificationType.COMMENT, false, relatedPostId = "pub_1"),
+        NotificationItem("notif_4", "¡Nuevo logro desbloqueado: Super Proveedor!", "Completaste 10 servicios con 5 estrellas.", "Ayer", NotificationType.ACHIEVEMENT, true),
+        NotificationItem("notif_5", "A 5 vecinos les interesó tu servicio", "Tu publicación tuvo alta interacción.", "Hace 3 días", NotificationType.INTERACTION, true)
     )
 
     private fun getInitialReports(): List<ModerationReportItem> = listOf(
-        ModerationReportItem(
-            id = "rep_1",
-            reasonTitle = "Solicitud de pago externo",
-            reportCount = 3,
-            targetType = "Publicación",
-            targetTitle = "Instalación Eléctrica Residencial y Reparaciones",
-            description = "Pide transferencia bancaria previa por WhatsApp antes de acudir al domicilio fuera de los canales de ServiLocal.",
-            targetPostId = "pub_1",
-            createdAtMillis = daysAgo(0)
-        ),
-        ModerationReportItem(
-            id = "rep_2",
-            reasonTitle = "Datos de contacto en descripción",
-            reportCount = 1,
-            targetType = "Publicación",
-            targetTitle = "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas",
-            description = "Incluye número de teléfono privado y enlace directo a Telegram en la descripción del servicio.",
-            targetPostId = "pub_5",
-            createdAtMillis = daysAgo(9)
-        ),
-        ModerationReportItem(
-            id = "rep_3",
-            reasonTitle = "Servicio engañoso o no autorizado",
-            reportCount = 2,
-            targetType = "Chat",
-            targetTitle = "Pintura y Remodelaciones Integrales",
-            description = "Lenguaje inapropiado e incumplimiento de cita acordada tras confirmación de guardia.",
-            targetChatId = "chat_5",
-            createdAtMillis = daysAgo(20)
-        )
+        ModerationReportItem("rep_1", "Solicitud de pago externo", 3, "Publicación", "Instalación Eléctrica Residencial y Reparaciones", "Pide transferencia previa por WhatsApp.", targetPostId = "pub_1", createdAtMillis = daysAgo(0)),
+        ModerationReportItem("rep_2", "Datos de contacto en descripción", 1, "Publicación", "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas", "Incluye número privado en la descripción.", targetPostId = "pub_5", createdAtMillis = daysAgo(9)),
+        ModerationReportItem("rep_3", "Servicio engañoso o no autorizado", 2, "Chat", "Pintura y Remodelaciones Integrales", "Lenguaje inapropiado e incumplimiento de cita.", targetChatId = "chat_5", createdAtMillis = daysAgo(20))
     )
 
     private fun daysAgo(days: Int): Long =
