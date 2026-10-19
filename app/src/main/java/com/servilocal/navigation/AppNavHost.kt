@@ -7,7 +7,6 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ReportProblem
@@ -16,7 +15,6 @@ import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.ReportProblem
@@ -185,11 +183,11 @@ private fun DashboardNavigation(
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val isModerator = appUiState.activeRole == UserRole.MODERATOR
-    val startDestination = if (isModerator) AppRoute.MODERATION_FEED else AppRoute.HOME
+    val startDestination = if (isModerator) AppRoute.MODERATION_FEED else AppRoute.EXPLORE
     val tabRoutes = if (isModerator) {
         setOf(AppRoute.MODERATION_FEED, AppRoute.MODERATION_REPORTS, AppRoute.MODERATION_STATS, AppRoute.MODERATOR_PROFILE)
     } else {
-        setOf(AppRoute.HOME, AppRoute.EXPLORE, AppRoute.MESSAGES, AppRoute.CREATE_POST, AppRoute.PROFILE)
+        setOf(AppRoute.EXPLORE, AppRoute.MESSAGES, AppRoute.CREATE_POST, AppRoute.PROFILE)
     }
 
     fun navigateTab(route: String) {
@@ -213,7 +211,6 @@ private fun DashboardNavigation(
                     )
                 } else {
                     listOf(
-                        BarItem(AppRoute.HOME, "Inicio", Icons.Filled.Home, Icons.Outlined.Home),
                         BarItem(AppRoute.EXPLORE, "Explorar", Icons.Filled.Explore, Icons.Outlined.Explore),
                         BarItem(AppRoute.MESSAGES, "Mensajes", Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline),
                         BarItem(AppRoute.CREATE_POST, "Publicar", Icons.Filled.AddCircle, Icons.Outlined.AddCircleOutline),
