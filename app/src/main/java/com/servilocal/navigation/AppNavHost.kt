@@ -1,5 +1,6 @@
 package com.servilocal.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -30,6 +31,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -190,13 +193,31 @@ private fun DashboardNavigation(
         setOf(AppRoute.EXPLORE, AppRoute.MESSAGES, AppRoute.CREATE_POST, AppRoute.PROFILE)
     }
 
+    val tabHistory = remember { mutableStateListOf(startDestination) }
+
     fun navigateTab(route: String) {
-        if (currentRoute != route){
-            navController.navigate(route) {
-                launchSingleTop = true
-                restoreState = true
+        if (currentRoute != route) {
+            if (tabHistory.contains(route)) {
+                tabHistory.remove(route)
+                tabHistory.add(route)
+                navController.popBackStack(startDestination, inclusive = false)
+                for (i in 1 until tabHistory.size) {
+                    navController.navigate(tabHistory[i]) {
+                        launchSingleTop = true
+                    }
+                }
+            } else {
+                tabHistory.add(route)
+                navController.navigate(route) {
+                    launchSingleTop = true
+                }
             }
         }
+    }
+
+    BackHandler(enabled = currentRoute in tabRoutes && tabHistory.size > 1) {
+        tabHistory.removeAt(tabHistory.lastIndex)
+        navController.popBackStack()
     }
 
     Scaffold(
