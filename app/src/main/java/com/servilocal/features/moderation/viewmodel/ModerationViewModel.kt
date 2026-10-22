@@ -1,20 +1,33 @@
 package com.servilocal.features.moderation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.servilocal.domain.model.ServicePost
+import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PostRepository
+import com.servilocal.domain.usecase.moderation.ApprovePostUseCase
+import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
+import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
+import com.servilocal.domain.usecase.moderation.RejectPostUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
 data class ModerationUiState(
     val filter: String = "FIFO",
-    val statsTimeRange: String = "Hoy"
+    val selectedCategory: String? = null,
+    val statsTimeRange: String = "Hoy",
+    val isLoading: Boolean = false,
+    val error: String? = null
 )
 
 @HiltViewModel
@@ -22,18 +35,74 @@ class ModerationViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val moderationRepository: ModerationRepository,
     private val notificationRepository: NotificationRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val observePendingPostsUseCase: ObservePendingPostsUseCase = ObservePendingPostsUseCase(postRepository),
+    private val filterPendingPostsByCategoryUseCase: FilterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
+    private val approvePostUseCase: ApprovePostUseCase = ApprovePostUseCase(postRepository, authRepository),
+    private val rejectPostUseCase: RejectPostUseCase = RejectPostUseCase(postRepository, authRepository)
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(ModerationUiState())
     val uiState: StateFlow<ModerationUiState> = _uiState.asStateFlow()
+
+    val pendingPosts: StateFlow<List<ServicePost>> = observePendingPostsUseCase()
+        .combine(_uiState) { posts, state ->
+            val activeFilter = state.selectedCategory ?: state.filter
+            filterPendingPostsByCategoryUseCase(posts, activeFilter)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val posts = postRepository.posts
     val reports = moderationRepository.reports
     val notifications = notificationRepository.notifications
     val moderatorUser = authRepository.moderatorUser
-    fun setFilter(value: String) = _uiState.update { it.copy(filter = value) }
+
+    fun setFilter(value: String) {
+        _uiState.update {
+            it.copy(
+                filter = value,
+                selectedCategory = if (value == "FIFO" || value == "Todos") null else value,
+                error = null
+            )
+        }
+    }
+
+    fun setCategoryFilter(category: String?) {
+        _uiState.update {
+            it.copy(
+                selectedCategory = category,
+                filter = category ?: "Todos",
+                error = null
+            )
+        }
+    }
+
     fun setStatsTimeRange(value: String) = _uiState.update { it.copy(statsTimeRange = value) }
-    fun approvePost(id: String) = postRepository.approvePost(id)
-    fun rejectPost(id: String, reason: String, notes: String?) = postRepository.rejectPost(id, reason, notes)
+
+    fun approvePost(id: String) {
+        val success = approvePostUseCase(id)
+        if (!success) {
+            val userRole = authRepository.moderatorUser.value.role
+            if (userRole != UserRole.MODERATOR) {
+                _uiState.update { it.copy(error = "Usuario no autorizado para moderar") }
+            }
+        }
+    }
+
+    fun rejectPost(id: String, reason: String, notes: String? = null) {
+        val success = rejectPostUseCase(id, reason, notes)
+        if (!success) {
+            val userRole = authRepository.moderatorUser.value.role
+            if (userRole != UserRole.MODERATOR) {
+                _uiState.update { it.copy(error = "Usuario no autorizado para moderar") }
+            }
+        }
+    }
+
     fun dismissReport(id: String) = moderationRepository.dismissReport(id)
     fun resolveReportsForPost(id: String) = moderationRepository.resolveReportsForPost(id)
     fun toggleModeratorShift() = authRepository.toggleModeratorShift()

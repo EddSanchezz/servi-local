@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.servilocal.domain.model.ModerationReportItem
+import com.servilocal.domain.model.PostCategory
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
@@ -41,18 +42,19 @@ fun ModerationFeedScreen(
     onOpenDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val posts by viewModel.posts.collectAsStateWithLifecycle()
-    val reports by viewModel.reports.collectAsStateWithLifecycle()
+    val pendingPosts by viewModel.pendingPosts.collectAsStateWithLifecycle()
     val moderationUiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val moderationFilter = moderationUiState.filter
-    val pendingPosts = remember(posts, reports, moderationFilter) {
-        val pending = posts.filter { it.status == PostStatus.PENDING_VERIFICATION }
-        when {
-            moderationFilter.startsWith("Plomería", ignoreCase = true) -> pending.filter { "plomer" in it.title.lowercase() || "plomer" in it.category.lowercase() }
-            moderationFilter.startsWith("Electricidad", ignoreCase = true) -> pending.filter { "electric" in it.title.lowercase() || "electric" in it.category.lowercase() }
-            moderationFilter.startsWith("Cerrajería", ignoreCase = true) -> pending.filter { "cerrajer" in it.title.lowercase() || "cerrajer" in it.category.lowercase() }
-            moderationFilter.startsWith("Urgentes", ignoreCase = true) -> pending.sortedByDescending { post -> reports.filter { it.targetPostId == post.id }.sumOf { it.reportCount } }
-            else -> pending.sortedBy { it.id.substringAfterLast('_').toLongOrNull() ?: Long.MAX_VALUE }
+    val activeFilter = moderationUiState.selectedCategory ?: moderationUiState.filter
+
+    val categories = remember {
+        listOf("Todos") + PostCategory.entries.map { cat ->
+            when (cat) {
+                PostCategory.HOGAR -> "Hogar"
+                PostCategory.EDUCACION -> "Educación"
+                PostCategory.MASCOTAS -> "Mascotas"
+                PostCategory.TECNOLOGIA -> "Tecnología"
+                PostCategory.TRANSPORTE -> "Transporte"
+            }
         }
     }
 
@@ -141,12 +143,22 @@ fun ModerationFeedScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            listOf("FIFO (Por defecto)", "Urgentes", "Plomería", "Electricidad", "Cerrajería").forEach { f ->
-                val isSelected = moderationFilter.startsWith(f.substringBefore(" ("), ignoreCase = true)
+            categories.forEach { cat ->
+                val isSelected = if (cat == "Todos") {
+                    activeFilter.isBlank() || activeFilter.equals("Todos", ignoreCase = true) || activeFilter.equals("FIFO", ignoreCase = true)
+                } else {
+                    activeFilter.equals(cat, ignoreCase = true)
+                }
                 FilterChip(
                     selected = isSelected,
-                    onClick = { viewModel.setFilter(f) },
-                    label = { Text(f) },
+                    onClick = {
+                        if (cat == "Todos") {
+                            viewModel.setCategoryFilter(null)
+                        } else {
+                            viewModel.setCategoryFilter(cat)
+                        }
+                    },
+                    label = { Text(cat) },
                     leadingIcon = if (isSelected) {
                         { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
                     } else null,
