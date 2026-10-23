@@ -4,16 +4,16 @@ Aplicación Android en Kotlin y Jetpack Compose para conectar a la comunidad con
 
 ## Arquitectura
 
-El código separa infraestructura, dominio, funciones de producto y navegación. Cada función mantiene su ViewModel y estado de UI; la navegación y la sesión global tienen responsabilidades distintas.
+El código separa infraestructura, dominio, funciones de producto y navegación. Los ViewModels exponen estado mediante `StateFlow`; la UI lo observa con `collectAsStateWithLifecycle`. La navegación está en `AppNavHost` y la sesión y preferencias de la aplicación están en `AppViewModel`.
 
 ```text
-app/src/main/java/com/example/
+app/src/main/java/com/servilocal/
 ├── core/
-│   ├── data/repository/MockDataRepository.kt
+│   ├── data/repository/MockDataRepository.kt  # datos de demostración en memoria
 │   ├── di/RepositoryModule.kt
 │   └── ui/                         # tema y componentes compartidos
 ├── domain/
-│   ├── model/
+│   ├── model/                      # entidades del ERD y modelos para la UI
 │   ├── repository/                 # contratos
 │   └── usecase/                    # casos de uso
 ├── features/
@@ -30,9 +30,9 @@ app/src/main/java/com/example/
 └── navigation/AppNavHost.kt        # grafo raíz y grafo interno
 ```
 
-Flujo de datos: `Compose` → `ViewModel` (`UiState`/`StateFlow`) → caso de uso → contrato de repositorio → implementación de demostración. Los repositorios se enlazan con Hilt. La navegación usa Navigation Compose con un back stack raíz para onboarding y autenticación, y un grafo anidado para el área de usuario o moderación.
+Flujo de datos habitual: `Compose` → `ViewModel` → repositorio. Algunas operaciones pasan por un caso de uso antes de llegar al repositorio. Hilt conecta los contratos de repositorio con `MockDataRepository`. Navigation Compose administra un grafo raíz para onboarding y autenticación y un grafo anidado para las pantallas de usuario o moderación. En el dashboard, Explorar es la pestaña inicial; `HomeScreen` está implementada, pero no forma parte de la barra de pestañas actual.
 
-En esta fase no hay persistencia, autenticación remota, mapas ni carga de imágenes. Las guías de clase se conservan localmente en `/docs`; esta carpeta está excluida de Git.
+En esta fase, la aplicación usa datos de demostración en memoria: no hay persistencia, autenticación remota, mapas reales ni carga de imágenes. Las guías de clase y los archivos de referencia del ERD se conservan localmente en `/docs`; esta carpeta está excluida de Git.
 
 ## Requisitos
 

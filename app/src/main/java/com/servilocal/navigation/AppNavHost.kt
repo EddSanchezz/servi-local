@@ -233,7 +233,7 @@ private fun DashboardNavigation(
                     )
                 } else {
                     listOf(
-                        BarItem(AppRoute.EXPLORE, "Explorar", Icons.Filled.Explore, Icons.Outlined.Explore),
+                        BarItem(AppRoute.EXPLORE, "Home", Icons.Filled.Explore, Icons.Outlined.Explore),
                         BarItem(AppRoute.MESSAGES, "Mensajes", Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline),
                         BarItem(AppRoute.CREATE_POST, "Publicar", Icons.Filled.AddCircle, Icons.Outlined.AddCircleOutline),
                         BarItem(AppRoute.PROFILE, "Perfil", Icons.Filled.Person, Icons.Outlined.Person)

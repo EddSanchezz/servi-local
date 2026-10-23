@@ -107,7 +107,7 @@ fun ExploreScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Explorar",
+                        text = "Home",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
