@@ -8,10 +8,10 @@ import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PostRepository
-import com.servilocal.domain.usecase.moderation.ApprovePostUseCase
+import com.servilocal.domain.usecase.moderation.ApprovePendingPostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
-import com.servilocal.domain.usecase.moderation.RejectPostUseCase
+import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +27,8 @@ data class ModerationUiState(
     val selectedCategory: String? = null,
     val statsTimeRange: String = "Hoy",
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val actionResult: String? = null
 )
 
 @HiltViewModel
@@ -38,8 +39,8 @@ class ModerationViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val observePendingPostsUseCase: ObservePendingPostsUseCase = ObservePendingPostsUseCase(postRepository),
     private val filterPendingPostsByCategoryUseCase: FilterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
-    private val approvePostUseCase: ApprovePostUseCase = ApprovePostUseCase(postRepository, authRepository),
-    private val rejectPostUseCase: RejectPostUseCase = RejectPostUseCase(postRepository, authRepository)
+    private val approvePendingPostUseCase: ApprovePendingPostUseCase = ApprovePendingPostUseCase(postRepository, authRepository),
+    private val rejectPendingPostUseCase: RejectPendingPostUseCase = RejectPendingPostUseCase(postRepository, authRepository)
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ModerationUiState())
@@ -84,21 +85,29 @@ class ModerationViewModel @Inject constructor(
     fun setStatsTimeRange(value: String) = _uiState.update { it.copy(statsTimeRange = value) }
 
     fun approvePost(id: String) {
-        val success = approvePostUseCase(id)
-        if (!success) {
+        val success = approvePendingPostUseCase(id)
+        if (success) {
+            _uiState.update { it.copy(actionResult = "Publicación aprobada exitosamente", error = null) }
+        } else {
             val userRole = authRepository.moderatorUser.value.role
             if (userRole != UserRole.MODERATOR) {
                 _uiState.update { it.copy(error = "Usuario no autorizado para moderar") }
+            } else {
+                _uiState.update { it.copy(error = "No se pudo aprobar la publicación (estado inválido)") }
             }
         }
     }
 
     fun rejectPost(id: String, reason: String, notes: String? = null) {
-        val success = rejectPostUseCase(id, reason, notes)
-        if (!success) {
+        val success = rejectPendingPostUseCase(id, reason, notes)
+        if (success) {
+            _uiState.update { it.copy(actionResult = "Publicación rechazada", error = null) }
+        } else {
             val userRole = authRepository.moderatorUser.value.role
             if (userRole != UserRole.MODERATOR) {
                 _uiState.update { it.copy(error = "Usuario no autorizado para moderar") }
+            } else {
+                _uiState.update { it.copy(error = "Motivo obligatorio o estado inválido") }
             }
         }
     }

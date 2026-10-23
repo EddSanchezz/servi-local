@@ -8,10 +8,11 @@ import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PostRepository
-import com.servilocal.domain.usecase.moderation.ApprovePostUseCase
+import com.servilocal.domain.usecase.moderation.ApprovePendingPostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
-import com.servilocal.domain.usecase.moderation.RejectPostUseCase
+import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
+import com.servilocal.domain.usecase.moderation.ReportPostUseCase
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -89,13 +90,15 @@ class ModerationUseCaseTest {
     }
 
     private class FakeAuthRepository(
-        role: UserRole = UserRole.MODERATOR
+        role: UserRole = UserRole.MODERATOR,
+        userId: String = "mod_1",
+        userName: String = "Mod"
     ) : AuthRepository {
-        private val _moderatorUser = MutableStateFlow(
-            UserProfile(id = "mod_1", name = "Mod", email = "mod@test.com", role = role)
+        private val _user = MutableStateFlow(
+            UserProfile(id = userId, name = userName, email = "mod@test.com", role = role)
         )
-        override val currentUser: StateFlow<UserProfile> = _moderatorUser
-        override val moderatorUser: StateFlow<UserProfile> = _moderatorUser
+        override val currentUser: StateFlow<UserProfile> = _user
+        override val moderatorUser: StateFlow<UserProfile> = _user
 
         override fun registerUser(name: String, email: String) {}
         override fun updateCurrentUser(name: String, email: String) {}
@@ -103,10 +106,37 @@ class ModerationUseCaseTest {
     }
 
     private class FakeModerationRepository : ModerationRepository {
-        override val reports = MutableStateFlow(emptyList<com.servilocal.domain.model.ModerationReportItem>())
-        override fun createReport(reason: String, description: String, targetType: String, targetTitle: String, targetPostId: String?, targetChatId: String?) {}
-        override fun dismissReport(reportId: String) {}
-        override fun resolveReportsForPost(postId: String) {}
+        private val _reports = MutableStateFlow(emptyList<com.servilocal.domain.model.ModerationReportItem>())
+        override val reports: StateFlow<List<com.servilocal.domain.model.ModerationReportItem>> = _reports
+
+        override fun createReport(
+            reason: String,
+            description: String,
+            targetType: String,
+            targetTitle: String,
+            targetPostId: String?,
+            targetChatId: String?
+        ) {
+            val report = com.servilocal.domain.model.ModerationReportItem(
+                id = "rep_${System.currentTimeMillis()}",
+                reasonTitle = reason,
+                reportCount = 1,
+                targetType = targetType,
+                targetTitle = targetTitle,
+                description = description,
+                targetPostId = targetPostId,
+                targetChatId = targetChatId
+            )
+            _reports.value = listOf(report) + _reports.value
+        }
+
+        override fun dismissReport(reportId: String) {
+            _reports.value = _reports.value.filter { it.id != reportId }
+        }
+
+        override fun resolveReportsForPost(postId: String) {
+            _reports.value = _reports.value.filter { it.targetPostId != postId }
+        }
     }
 
     private class FakeNotificationRepository : NotificationRepository {
@@ -158,13 +188,13 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `ApprovePostUseCase approves pending post idempotently when moderator`() {
+    fun `ApprovePendingPostUseCase approves pending post idempotently when moderator`() {
         val pendingPost = ServicePost(id = "post_pending", title = "P", category = "Hogar", description = "Desc", providerName = "P", status = PostStatus.PENDING_VERIFICATION)
         val approvedPost = ServicePost(id = "post_approved", title = "P2", category = "Hogar", description = "Desc", providerName = "P", status = PostStatus.APPROVED)
 
         val postRepo = FakePostRepository(listOf(pendingPost, approvedPost))
         val authRepo = FakeAuthRepository(UserRole.MODERATOR)
-        val useCase = ApprovePostUseCase(postRepo, authRepo)
+        val useCase = ApprovePendingPostUseCase(postRepo, authRepo)
 
         val successFirst = useCase("post_pending")
         assertTrue(successFirst)
@@ -179,23 +209,48 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `RejectPostUseCase rejects pending post when moderator and fails when non-moderator`() {
+    fun `RejectPendingPostUseCase rejects pending post when moderator and fails when non-moderator or blank reason`() {
         val pendingPost = ServicePost(id = "post_pending", title = "P", category = "Hogar", description = "Desc", providerName = "P", status = PostStatus.PENDING_VERIFICATION)
 
         val postRepo = FakePostRepository(listOf(pendingPost))
         val userAuthRepo = FakeAuthRepository(UserRole.USER)
-        val rejectUseCaseUser = RejectPostUseCase(postRepo, userAuthRepo)
+        val rejectUseCaseUser = RejectPendingPostUseCase(postRepo, userAuthRepo)
 
         assertFalse(rejectUseCaseUser("post_pending", "Spam", "Notas"))
 
         val modAuthRepo = FakeAuthRepository(UserRole.MODERATOR)
-        val rejectUseCaseMod = RejectPostUseCase(postRepo, modAuthRepo)
+        val rejectUseCaseMod = RejectPendingPostUseCase(postRepo, modAuthRepo)
+
+        // Blank reason fails
+        assertFalse(rejectUseCaseMod("post_pending", "", "Notas"))
 
         assertTrue(rejectUseCaseMod("post_pending", "Spam", "Notas"))
         val rejected = postRepo.posts.value.first { it.id == "post_pending" }
         assertEquals(PostStatus.REJECTED, rejected.status)
         assertEquals("Spam", rejected.rejectionReason)
         assertEquals("Notas", rejected.rejectionNotes)
+    }
+
+    @Test
+    fun `ReportPostUseCase allows reporting other users post and prevents reporting own post`() {
+        val postOther = ServicePost(id = "post_1", title = "P1", category = "Hogar", description = "Desc", providerName = "Other User", providerId = "user_other")
+        val postOwn = ServicePost(id = "post_2", title = "P2", category = "Hogar", description = "Desc", providerName = "Test User", providerId = "user_test")
+
+        val postRepo = FakePostRepository(listOf(postOther, postOwn))
+        val authRepo = FakeAuthRepository(role = UserRole.USER, userId = "user_test", userName = "Test User")
+        val modRepo = FakeModerationRepository()
+        val reportUseCase = ReportPostUseCase(postRepo, authRepo, modRepo)
+
+        // Cannot report own post
+        val reportOwnResult = reportUseCase("post_2", "Estafa", "Detalles")
+        assertFalse(reportOwnResult)
+        assertEquals(0, modRepo.reports.value.size)
+
+        // Can report other user's post
+        val reportOtherResult = reportUseCase("post_1", "Estafa", "Detalles")
+        assertTrue(reportOtherResult)
+        assertEquals(1, modRepo.reports.value.size)
+        assertEquals("post_1", modRepo.reports.value.first().targetPostId)
     }
 
     @Test

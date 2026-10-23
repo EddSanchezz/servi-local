@@ -719,9 +719,15 @@ fun ServiceDetailScreen(
             title = "Reportar publicación",
             onDismiss = { showReportDialog = false },
             onSubmit = { reason, details ->
-                viewModel.reportPost(post.id, reason, details)
+                val success = viewModel.reportPost(post.id, reason, details)
                 showReportDialog = false
-                coroutineScope.launch { snackbarHostState.showSnackbar("Reporte enviado a moderación") }
+                coroutineScope.launch {
+                    if (success) {
+                        snackbarHostState.showSnackbar("Reporte enviado a moderación")
+                    } else {
+                        snackbarHostState.showSnackbar("No puedes reportar tu propia publicación")
+                    }
+                }
             }
         )
     }
