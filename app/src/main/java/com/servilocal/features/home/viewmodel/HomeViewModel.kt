@@ -1,30 +1,38 @@
 package com.servilocal.features.home.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.servilocal.domain.model.PostStatus
-import com.servilocal.domain.model.ServicePost
-import com.servilocal.domain.usecase.home.ObserveHomeFeedUseCase
+import com.servilocal.domain.repository.ChatRepository
+import com.servilocal.domain.repository.NotificationRepository
+import com.servilocal.domain.repository.PostRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 data class HomeUiState(
-    val greetingName: String = "",
-    val featuredPosts: List<ServicePost> = emptyList()
+    val searchQuery: String = "",
+    val selectedCategory: String = "Todos",
+    val displayMode: ViewDisplayMode = ViewDisplayMode.LIST
 )
+
+enum class ViewDisplayMode { LIST, MAP }
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    observeHomeFeed: ObserveHomeFeedUseCase
+    private val postRepository: PostRepository,
+    private val chatRepository: ChatRepository,
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
-    val uiState: StateFlow<HomeUiState> = observeHomeFeed().map { data ->
-        HomeUiState(
-            greetingName = data.user.name.substringBefore(' '),
-            featuredPosts = data.posts.filter { it.status == PostStatus.APPROVED }.take(3)
-        )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    val posts = postRepository.posts
+    val notifications = notificationRepository.notifications
+
+    fun setSearchQuery(value: String) = _uiState.update { it.copy(searchQuery = value) }
+    fun setSelectedCategory(value: String) = _uiState.update { it.copy(selectedCategory = value) }
+    fun setDisplayMode(value: ViewDisplayMode) = _uiState.update { it.copy(displayMode = value) }
+    fun toggleUpvote(postId: String) = postRepository.toggleUpvote(postId)
+    fun startConversation(postId: String): String? = chatRepository.startConversation(postId)
 }

@@ -1,4 +1,4 @@
-package com.servilocal.features.explore.viewmodel
+package com.servilocal.features.home.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.servilocal.domain.repository.AuthRepository

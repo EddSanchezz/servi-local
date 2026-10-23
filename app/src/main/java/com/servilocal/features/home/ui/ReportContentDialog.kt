@@ -1,4 +1,4 @@
-package com.servilocal.features.explore.ui
+package com.servilocal.features.home.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column

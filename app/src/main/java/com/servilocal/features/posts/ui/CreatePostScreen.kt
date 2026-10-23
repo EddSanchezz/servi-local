@@ -2,10 +2,7 @@ package com.servilocal.features.posts.ui
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -14,18 +11,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,7 +27,7 @@ import com.servilocal.features.posts.viewmodel.CreatePostViewModel
 fun CreatePostScreen(
     viewModel: CreatePostViewModel,
     onBack: () -> Unit,
-    onOpenExplore: () -> Unit,
+    onOpenHome: () -> Unit,
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -417,11 +411,11 @@ fun CreatePostScreen(
 
     if (showCreatedDialog) {
         AlertDialog(
-            onDismissRequest = { showCreatedDialog = false; onOpenExplore() },
+            onDismissRequest = { showCreatedDialog = false; onOpenHome() },
             title = { Text("Publicación enviada") },
             text = { Text("Tu servicio quedó en la cola de revisión. Puedes verlo desde Mis Publicaciones.") },
             confirmButton = { TextButton(onClick = { showCreatedDialog = false; onOpenProfile() }) { Text("Ver mis publicaciones") } },
-            dismissButton = { TextButton(onClick = { showCreatedDialog = false; onOpenExplore() }) { Text("Explorar") } }
+            dismissButton = { TextButton(onClick = { showCreatedDialog = false; onOpenHome() }) { Text("Explorar") } }
         )
     }
 }

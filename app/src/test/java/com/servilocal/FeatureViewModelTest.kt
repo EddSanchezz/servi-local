@@ -12,8 +12,8 @@ import com.servilocal.features.posts.viewmodel.CreatePostViewModel
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
-import com.servilocal.features.explore.viewmodel.ExploreViewModel
-import com.servilocal.features.explore.viewmodel.ViewDisplayMode
+import com.servilocal.features.home.viewmodel.HomeViewModel
+import com.servilocal.features.home.viewmodel.ViewDisplayMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -82,9 +82,9 @@ class FeatureViewModelTest {
     }
 
     @Test
-    fun `explore controls keep screen state separate from session`() {
+    fun `home controls keep screen state separate from session`() {
         val repository = MockDataRepository()
-        val viewModel = ExploreViewModel(repository, repository, repository)
+        val viewModel = HomeViewModel(repository, repository, repository)
 
         viewModel.setSearchQuery("electricista")
         viewModel.setSelectedCategory("Electricidad")

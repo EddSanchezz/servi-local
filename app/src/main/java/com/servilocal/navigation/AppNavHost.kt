@@ -7,7 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ReportProblem
@@ -15,7 +15,7 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.ReportProblem
@@ -56,11 +56,9 @@ import com.servilocal.features.chat.ui.ChatDetailScreen
 import com.servilocal.features.chat.ui.MessagesScreen
 import com.servilocal.features.chat.viewmodel.ChatDetailViewModel
 import com.servilocal.features.chat.viewmodel.MessagesViewModel
-import com.servilocal.features.explore.ui.ExploreScreen
-import com.servilocal.features.explore.ui.ServiceDetailScreen
-import com.servilocal.features.explore.viewmodel.ExploreViewModel
-import com.servilocal.features.explore.viewmodel.ServiceDetailViewModel
 import com.servilocal.features.home.ui.HomeScreen
+import com.servilocal.features.home.ui.ServiceDetailScreen
+import com.servilocal.features.home.viewmodel.ServiceDetailViewModel
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.moderation.ui.ModerationDetailScreen
 import com.servilocal.features.moderation.ui.ModerationFeedScreen
@@ -83,7 +81,6 @@ object AppRoute {
     const val FORGOT_PASSWORD = "forgot-password"
     const val DASHBOARD = "dashboard"
     const val HOME = "home"
-    const val EXPLORE = "explore"
     const val MESSAGES = "messages"
     const val CREATE_POST = "create-post"
     const val PROFILE = "profile"
@@ -186,38 +183,37 @@ private fun DashboardNavigation(
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val isModerator = appUiState.activeRole == UserRole.MODERATOR
-    val startDestination = if (isModerator) AppRoute.MODERATION_FEED else AppRoute.EXPLORE
+    val startDestination = if (isModerator) AppRoute.MODERATION_FEED else AppRoute.HOME
     val tabRoutes = if (isModerator) {
         setOf(AppRoute.MODERATION_FEED, AppRoute.MODERATION_REPORTS, AppRoute.MODERATION_STATS, AppRoute.MODERATOR_PROFILE)
     } else {
-        setOf(AppRoute.EXPLORE, AppRoute.MESSAGES, AppRoute.CREATE_POST, AppRoute.PROFILE)
+        setOf(AppRoute.HOME, AppRoute.MESSAGES, AppRoute.CREATE_POST, AppRoute.PROFILE)
     }
 
     val tabHistory = remember { mutableStateListOf(startDestination) }
 
+    fun showTab(route: String) {
+        val returnedToExistingTab = navController.popBackStack(route, inclusive = false)
+        if (!returnedToExistingTab) {
+            navController.navigate(route) {
+                popUpTo(startDestination) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
     fun navigateTab(route: String) {
         if (currentRoute != route) {
-            if (tabHistory.contains(route)) {
-                tabHistory.remove(route)
-                tabHistory.add(route)
-                navController.popBackStack(startDestination, inclusive = false)
-                for (i in 1 until tabHistory.size) {
-                    navController.navigate(tabHistory[i]) {
-                        launchSingleTop = true
-                    }
-                }
-            } else {
-                tabHistory.add(route)
-                navController.navigate(route) {
-                    launchSingleTop = true
-                }
-            }
+            val updatedHistory = moveTabToTop(tabHistory, route)
+            tabHistory.clear()
+            tabHistory.addAll(updatedHistory)
+            showTab(route)
         }
     }
 
     BackHandler(enabled = currentRoute in tabRoutes && tabHistory.size > 1) {
         tabHistory.removeAt(tabHistory.lastIndex)
-        navController.popBackStack()
+        showTab(tabHistory.last())
     }
 
     Scaffold(
@@ -233,7 +229,7 @@ private fun DashboardNavigation(
                     )
                 } else {
                     listOf(
-                        BarItem(AppRoute.EXPLORE, "Home", Icons.Filled.Explore, Icons.Outlined.Explore),
+                        BarItem(AppRoute.HOME, "Home", Icons.Filled.Home, Icons.Outlined.Home),
                         BarItem(AppRoute.MESSAGES, "Mensajes", Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline),
                         BarItem(AppRoute.CREATE_POST, "Publicar", Icons.Filled.AddCircle, Icons.Outlined.AddCircleOutline),
                         BarItem(AppRoute.PROFILE, "Perfil", Icons.Filled.Person, Icons.Outlined.Person)
@@ -256,11 +252,13 @@ private fun DashboardNavigation(
         ) {
             composable(AppRoute.HOME) {
                 val viewModel: HomeViewModel = hiltViewModel()
-                HomeScreen(viewModel, onExplore = { navigateTab(AppRoute.EXPLORE) }, onOpenDetail = { navController.navigate(AppRoute.serviceDetail(it)) }, onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) })
-            }
-            composable(AppRoute.EXPLORE) {
-                val viewModel: ExploreViewModel = hiltViewModel()
-                ExploreScreen(viewModel, appUiState, onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) }, onOpenServiceDetail = { navController.navigate(AppRoute.serviceDetail(it)) }, onOpenChat = { navController.navigate(AppRoute.chatDetail(it)) })
+                HomeScreen(
+                    viewModel = viewModel,
+                    appUiState = appUiState,
+                    onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) },
+                    onOpenServiceDetail = { navController.navigate(AppRoute.serviceDetail(it)) },
+                    onOpenChat = { navController.navigate(AppRoute.chatDetail(it)) }
+                )
             }
             composable(AppRoute.MESSAGES) {
                 val viewModel: MessagesViewModel = hiltViewModel()
@@ -268,14 +266,13 @@ private fun DashboardNavigation(
             }
             composable(AppRoute.CREATE_POST) {
                 val viewModel: CreatePostViewModel = hiltViewModel()
-                CreatePostScreen(viewModel, onBack = { navController.navigateUp() }, onOpenExplore = { navigateTab(AppRoute.EXPLORE) }, onOpenProfile = { navigateTab(AppRoute.PROFILE) })
+                CreatePostScreen(viewModel, onBack = { navController.navigateUp() }, onOpenHome = { navigateTab(AppRoute.HOME) }, onOpenProfile = { navigateTab(AppRoute.PROFILE) })
             }
             composable(AppRoute.PROFILE) {
                 val viewModel: ProfileViewModel = hiltViewModel()
                 UserProfileScreen(
                     viewModel, appUiState,
                     onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) },
-                    onSwitchToModerator = { appViewModel.switchRole(UserRole.MODERATOR) },
                     onLogout = onLogout,
                     onOpenServiceDetail = { navController.navigate(AppRoute.serviceDetail(it)) },
                     onDarkThemeChange = appViewModel::setDarkTheme,
@@ -331,6 +328,9 @@ private fun DashboardNavigation(
 }
 
 private data class BarItem(val route: String, val label: String, val selectedIcon: ImageVector, val icon: ImageVector)
+
+internal fun moveTabToTop(history: List<String>, route: String): List<String> =
+    history.filterNot { it == route } + route
 
 @Composable
 private fun AppBottomBar(

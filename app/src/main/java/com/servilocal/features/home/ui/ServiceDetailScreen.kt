@@ -1,11 +1,9 @@
-package com.servilocal.features.explore.ui
+package com.servilocal.features.home.ui
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import android.content.Intent
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,7 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.servilocal.domain.model.ServicePost
-import com.servilocal.features.explore.viewmodel.ServiceDetailViewModel
+import com.servilocal.features.home.viewmodel.ServiceDetailViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
