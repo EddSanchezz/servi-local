@@ -49,7 +49,7 @@ fun HomeScreen(
     val viewDisplayMode = uiState.displayMode
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val notificationsEnabled = appUiState.notificationsEnabled
-    val unreadNotifs = if (notificationsEnabled) notifications.count { !it.read } else 0
+    val unreadNotifs = if (notificationsEnabled) notifications.count { !it.isRead } else 0
 
     val categories = listOf(
         Pair("Todos", Icons.Default.Check),

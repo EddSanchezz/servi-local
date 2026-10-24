@@ -1082,7 +1082,7 @@ fun ModeratorProfileScreen(
         ) {
             Text("Perfil de Staff", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
             IconButton(onClick = onOpenNotifications) {
-                BadgedBox(badge = { if (notificationsEnabled && notifications.count { !it.read } > 0) Badge { Text(notifications.count { !it.read }.toString()) } }) {
+                BadgedBox(badge = { if (notificationsEnabled && notifications.count { !it.isRead } > 0) Badge { Text(notifications.count { !it.isRead }.toString()) } }) {
                     Icon(Icons.Outlined.Notifications, contentDescription = "Notificaciones")
                 }
             }

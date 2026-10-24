@@ -21,6 +21,7 @@ import com.servilocal.domain.usecase.auth.RecoverPasswordUseCase
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import com.servilocal.domain.usecase.auth.ResetPasswordUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
+import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
@@ -220,7 +221,11 @@ class FeatureViewModelTest {
     @Test
     fun `home controls keep screen state separate from session`() {
         val repository = MockDataRepository()
-        val viewModel = HomeViewModel(repository, repository, repository)
+        val viewModel = HomeViewModel(
+            repository,
+            repository,
+            ObserveNotificationsUseCase(SessionRepositoryImpl(), repository)
+        )
 
         viewModel.setSearchQuery("electricista")
         viewModel.setSelectedCategory("Electricidad")
@@ -234,7 +239,12 @@ class FeatureViewModelTest {
     @Test
     fun `user and moderator schedules are available and moderator shift can be toggled`() {
         val repository = MockDataRepository()
-        val moderationViewModel = ModerationViewModel(repository, repository, repository, repository)
+        val moderationViewModel = ModerationViewModel(
+            repository,
+            repository,
+            ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
+            repository
+        )
 
         assertTrue(repository.currentUser.value.workingHours.contains("sábado"))
         assertTrue(repository.moderatorUser.value.workingHours.contains("viernes"))

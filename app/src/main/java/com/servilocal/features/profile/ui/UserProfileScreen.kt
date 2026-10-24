@@ -64,7 +64,7 @@ fun UserProfileScreen(
                 title = { Text("Perfil", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
                 actions = {
                     IconButton(onClick = onOpenNotifications) {
-                        BadgedBox(badge = { if (notificationsEnabled && notifications.count { !it.read } > 0) Badge { Text(notifications.count { !it.read }.toString()) } }) {
+                        BadgedBox(badge = { if (notificationsEnabled && notifications.count { !it.isRead } > 0) Badge { Text(notifications.count { !it.isRead }.toString()) } }) {
                             Icon(Icons.Outlined.Notifications, contentDescription = "Notificaciones")
                         }
                     }

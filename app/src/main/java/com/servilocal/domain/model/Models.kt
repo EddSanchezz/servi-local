@@ -147,8 +147,10 @@ data class AppNotification(
     val userId: String,                     // destinatario
     val title: String,
     val body: String,
+    val type: NotificationType = NotificationType.SYSTEM,
     val isRead: Boolean = false,
     val relatedPostId: String? = null,
+    val relatedChatId: String? = null,
     val createdAtMillis: Long = System.currentTimeMillis()
 )
 

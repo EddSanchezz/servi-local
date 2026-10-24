@@ -90,8 +90,8 @@ class MockDataRepository @Inject constructor(
     private val _conversations = MutableStateFlow<List<ChatConversation>>(getInitialChats())
     override val conversations: StateFlow<List<ChatConversation>> = _conversations.asStateFlow()
 
-    private val _notifications = MutableStateFlow<List<NotificationItem>>(getInitialNotifications())
-    override val notifications: StateFlow<List<NotificationItem>> = _notifications.asStateFlow()
+    private val _notifications = MutableStateFlow<List<AppNotification>>(getInitialNotifications())
+    override val notifications: StateFlow<List<AppNotification>> = _notifications.asStateFlow()
 
     private val _reports = MutableStateFlow<List<ModerationReportItem>>(getInitialReports())
     override val reports: StateFlow<List<ModerationReportItem>> = _reports.asStateFlow()
@@ -395,12 +395,31 @@ class MockDataRepository @Inject constructor(
         _reports.update { list -> list.filterNot { it.targetChatId == chatId } }
     }
 
-    override fun markAllNotificationsRead() {
-        _notifications.update { list -> list.map { it.copy(read = true) } }
+    override suspend fun create(notification: AppNotification) {
+        _notifications.update { current -> current + notification }
     }
 
-    override fun toggleNotificationRead(notificationId: String) {
-        _notifications.update { list -> list.map { if (it.id == notificationId) it.copy(read = !it.read) else it } }
+    override suspend fun markRead(notificationId: String, userId: String, isRead: Boolean): Boolean {
+        var updated = false
+        _notifications.update { current ->
+            current.map { notification ->
+                if (notification.id == notificationId && notification.userId == userId) {
+                    updated = true
+                    notification.copy(isRead = isRead)
+                } else {
+                    notification
+                }
+            }
+        }
+        return updated
+    }
+
+    override suspend fun markAllRead(userId: String) {
+        _notifications.update { current ->
+            current.map { notification ->
+                if (notification.userId == userId) notification.copy(isRead = true) else notification
+            }
+        }
     }
 
     override fun toggleModeratorShift() {
@@ -609,13 +628,57 @@ class MockDataRepository @Inject constructor(
         )
     )
 
-    private fun getInitialNotifications(): List<NotificationItem> = listOf(
-        NotificationItem("notif_1", "Nueva solicitud de servicio recibida", "Francisca Valenzuela ha solicitado tu servicio.", "Hace 10 min", NotificationType.REQUEST, false, relatedChatId = "chat_4"),
-        NotificationItem("notif_2", "¡Publicación Aprobada!", "La publicación 'Instalación Eléctrica' está disponible en el Feed.", "Hace 2 horas", NotificationType.SYSTEM, false, relatedPostId = "pub_1"),
-        NotificationItem("notif_3", "Nuevo comentario en tu anuncio", "Matías Sepúlveda preguntó por instalación de cargadores.", "Hace 4 horas", NotificationType.COMMENT, false, relatedPostId = "pub_1"),
-        NotificationItem("notif_4", "¡Nuevo logro desbloqueado: Super Proveedor!", "Completaste 10 servicios con 5 estrellas.", "Ayer", NotificationType.ACHIEVEMENT, true),
-        NotificationItem("notif_5", "A 5 vecinos les interesó tu servicio", "Tu publicación tuvo alta interacción.", "Hace 3 días", NotificationType.INTERACTION, true)
-    )
+    private fun getInitialNotifications(): List<AppNotification> {
+        val now = System.currentTimeMillis()
+        val minute = 60_000L
+        return listOf(
+            AppNotification(
+                id = "notif_1",
+                userId = "user_val_1",
+                title = "Nueva solicitud de servicio recibida",
+                body = "Francisca Valenzuela ha solicitado tu servicio.",
+                type = NotificationType.REQUEST,
+                relatedChatId = "chat_4",
+                createdAtMillis = now - 10 * minute
+            ),
+            AppNotification(
+                id = "notif_2",
+                userId = "user_val_1",
+                title = "¡Publicación aprobada!",
+                body = "La publicación 'Instalación Eléctrica' está disponible en el Feed.",
+                type = NotificationType.SYSTEM,
+                relatedPostId = "pub_1",
+                createdAtMillis = now - 120 * minute
+            ),
+            AppNotification(
+                id = "notif_3",
+                userId = "user_val_1",
+                title = "Nuevo comentario en tu anuncio",
+                body = "Matías Sepúlveda preguntó por instalación de cargadores.",
+                type = NotificationType.COMMENT,
+                relatedPostId = "pub_1",
+                createdAtMillis = now - 240 * minute
+            ),
+            AppNotification(
+                id = "notif_4",
+                userId = "user_val_1",
+                title = "¡Nuevo logro desbloqueado: Súper Proveedor!",
+                body = "Completaste 10 servicios con 5 estrellas.",
+                type = NotificationType.ACHIEVEMENT,
+                isRead = true,
+                createdAtMillis = now - 24 * 60 * minute
+            ),
+            AppNotification(
+                id = "notif_5",
+                userId = "user_val_1",
+                title = "A 5 vecinos les interesó tu servicio",
+                body = "Tu publicación tuvo alta interacción.",
+                type = NotificationType.INTERACTION,
+                isRead = true,
+                createdAtMillis = now - 3 * 24 * 60 * minute
+            )
+        )
+    }
 
     private fun getInitialReports(): List<ModerationReportItem> = listOf(
         ModerationReportItem("rep_1", "Solicitud de pago externo", 3, "Publicación", "Instalación Eléctrica Residencial y Reparaciones", "Pide transferencia previa por WhatsApp.", targetPostId = "pub_1", createdAtMillis = daysAgo(0)),

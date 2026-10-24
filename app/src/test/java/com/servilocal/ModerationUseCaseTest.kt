@@ -1,18 +1,20 @@
 package com.servilocal
 
+import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserProfile
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ModerationRepository
-import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PostRepository
+import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.domain.usecase.moderation.ApprovePendingPostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
 import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
+import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -138,12 +140,6 @@ class ModerationUseCaseTest {
         }
     }
 
-    private class FakeNotificationRepository : NotificationRepository {
-        override val notifications = MutableStateFlow(emptyList<com.servilocal.domain.model.NotificationItem>())
-        override fun markAllNotificationsRead() {}
-        override fun toggleNotificationRead(notificationId: String) {}
-    }
-
     @Test
     fun `ObservePendingPostsUseCase filters only pending posts and orders FIFO by createdAtMillis`() = runTest {
         val post1 = ServicePost(id = "post_2", title = "P1", category = "Hogar", description = "Desc", providerName = "P", status = PostStatus.PENDING_VERIFICATION, createdAtMillis = 2000L)
@@ -259,13 +255,13 @@ class ModerationUseCaseTest {
 
         val postRepo = FakePostRepository(listOf(post1, post2))
         val modRepo = FakeModerationRepository()
-        val notifRepo = FakeNotificationRepository()
+        val notifRepo = MockDataRepository()
         val authRepo = FakeAuthRepository()
 
         val viewModel = ModerationViewModel(
             postRepository = postRepo,
             moderationRepository = modRepo,
-            notificationRepository = notifRepo,
+            observeNotifications = ObserveNotificationsUseCase(SessionRepositoryImpl(), notifRepo),
             authRepository = authRepo
         )
 

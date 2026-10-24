@@ -6,12 +6,12 @@ import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ModerationRepository
-import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.usecase.moderation.ApprovePendingPostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
 import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
+import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +35,7 @@ data class ModerationUiState(
 class ModerationViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val moderationRepository: ModerationRepository,
-    private val notificationRepository: NotificationRepository,
+    observeNotifications: ObserveNotificationsUseCase,
     private val authRepository: AuthRepository,
     private val observePendingPostsUseCase: ObservePendingPostsUseCase = ObservePendingPostsUseCase(postRepository),
     private val filterPendingPostsByCategoryUseCase: FilterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
@@ -59,7 +59,12 @@ class ModerationViewModel @Inject constructor(
 
     val posts = postRepository.posts
     val reports = moderationRepository.reports
-    val notifications = notificationRepository.notifications
+    val notifications = observeNotifications()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
     val moderatorUser = authRepository.moderatorUser
 
     fun setFilter(value: String) {
