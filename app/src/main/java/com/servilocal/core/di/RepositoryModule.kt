@@ -1,10 +1,12 @@
 package com.servilocal.core.di
 
 import com.servilocal.core.data.repository.MockDataRepository
+import com.servilocal.data.repository.memory.BadgeRepositoryImpl
 import com.servilocal.data.repository.memory.PasswordResetRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.repository.AuthRepository
+import com.servilocal.domain.repository.BadgeRepository
 import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
@@ -54,4 +56,8 @@ abstract class RepositoryModule {
     abstract fun bindPasswordResetRepository(
         repository: PasswordResetRepositoryImpl
     ): PasswordResetRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBadgeRepository(repository: BadgeRepositoryImpl): BadgeRepository
 }

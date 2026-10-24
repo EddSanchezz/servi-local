@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.servilocal.core.ui.components.ProfileNavRow
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +44,9 @@ fun UserProfileScreen(
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val posts by viewModel.posts.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
+    val profileUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val badges by viewModel.badges.collectAsStateWithLifecycle()
+    val stats = profileUiState.stats
     val darkTheme = appUiState.darkTheme
     val notificationsEnabled = appUiState.notificationsEnabled
     var activeDialog by remember { mutableStateOf<String?>(null) }
@@ -52,6 +56,16 @@ fun UserProfileScreen(
     var editValidationMessage by remember { mutableStateOf(false) }
     val ownedPosts = posts.filter { it.providerId == currentUser.id || it.providerName == currentUser.name }
     val votedPosts = posts.filter { it.userUpvoted }
+    val displayBadges = badges.ifEmpty { currentUser.badges }
+    val points = stats?.user?.points ?: currentUser.points
+    val nextLevelPoints = stats?.nextLevelPoints ?: currentUser.nextLevelPoints
+    val progress = stats?.progress ?: if (nextLevelPoints > 0) {
+        (points.toFloat() / nextLevelPoints).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val remainingPoints = stats?.remainingPoints ?: (nextLevelPoints - points).coerceAtLeast(0)
+    val levelLabel = stats?.levelLabel ?: currentUser.level
     val dialogPosts = when (activeDialog) {
         "Mis Publicaciones" -> ownedPosts
         "Servicios que me importan / Mis Votos" -> votedPosts
@@ -138,10 +152,10 @@ fun UserProfileScreen(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(Icons.Default.Verified, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
-                                    Text(currentUser.level, style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold))
+                                    Text(levelLabel, style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold))
                                 }
                             }
-                            Text("${currentUser.points} pts acumulados", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            Text("$points pts acumulados", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         }
                     }
 
@@ -156,11 +170,11 @@ fun UserProfileScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("${currentUser.points} / ${currentUser.nextLevelPoints} pts", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                                Text("para Nivel 4: Experto", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                Text("$points / $nextLevelPoints pts", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                Text("Nivel actual: $levelLabel", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                             }
                             LinearProgressIndicator(
-                                progress = { currentUser.points.toFloat() / currentUser.nextLevelPoints.toFloat() },
+                                progress = { progress },
                                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
                                 color = MaterialTheme.colorScheme.primary,
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -169,10 +183,32 @@ fun UserProfileScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("73% completado", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                Text("Faltan 80 pts", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text("${(progress * 100).roundToInt()}% completado", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text("Faltan $remainingPoints pts", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                             }
                         }
+                    }
+
+                    // Estadísticas del perfil
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ProfileStatItem(
+                            value = "${stats?.totalPosts ?: ownedPosts.size}",
+                            label = "Publicaciones",
+                            modifier = Modifier.weight(1f)
+                        )
+                        ProfileStatItem(
+                            value = "${stats?.pendingPosts ?: ownedPosts.count { it.status == com.servilocal.domain.model.PostStatus.PENDING_VERIFICATION }}",
+                            label = "Pendientes",
+                            modifier = Modifier.weight(1f)
+                        )
+                        ProfileStatItem(
+                            value = "${stats?.badgeCount ?: displayBadges.count { it.unlocked }}",
+                            label = "Insignias",
+                            modifier = Modifier.weight(1f)
+                        )
                     }
 
                     // Insignias (RN-GAM-003)
@@ -190,7 +226,7 @@ fun UserProfileScreen(
                             modifier = Modifier.horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            currentUser.badges.forEach { badge ->
+                            displayBadges.forEach { badge ->
                                 Surface(
                                     color = if (badge.unlocked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                                     shape = RoundedCornerShape(16.dp)
@@ -442,6 +478,35 @@ fun UserProfileScreen(
             },
             dismissButton = { TextButton(onClick = { showDeleteConfirmation = false }) { Text("Cancelar") } }
         )
+    }
+}
+
+@Composable
+private fun ProfileStatItem(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
     }
 }
 
