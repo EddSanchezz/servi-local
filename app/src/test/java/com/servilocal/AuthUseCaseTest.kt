@@ -1,5 +1,6 @@
 package com.servilocal
 
+import com.servilocal.data.repository.memory.PasswordResetRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.model.UserRole
@@ -10,6 +11,8 @@ import com.servilocal.domain.usecase.auth.RecoverPasswordResult
 import com.servilocal.domain.usecase.auth.RecoverPasswordUseCase
 import com.servilocal.domain.usecase.auth.RegisterResult
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
+import com.servilocal.domain.usecase.auth.ResetPasswordResult
+import com.servilocal.domain.usecase.auth.ResetPasswordUseCase
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -23,15 +26,21 @@ class AuthUseCaseTest {
 
     private lateinit var users: UserRepositoryImpl
     private lateinit var sessions: SessionRepositoryImpl
+    private lateinit var resetCodes: PasswordResetRepositoryImpl
     private lateinit var login: LoginUserUseCase
     private lateinit var register: RegisterUserUseCase
+    private lateinit var recover: RecoverPasswordUseCase
+    private lateinit var reset: ResetPasswordUseCase
 
     @Before
     fun setUp() {
         users = UserRepositoryImpl()
         sessions = SessionRepositoryImpl()
+        resetCodes = PasswordResetRepositoryImpl()
         login = LoginUserUseCase(users, sessions)
         register = RegisterUserUseCase(users)
+        recover = RecoverPasswordUseCase(users, resetCodes)
+        reset = ResetPasswordUseCase(users, resetCodes)
     }
 
     @Test
@@ -134,13 +143,70 @@ class AuthUseCaseTest {
 
     @Test
     fun `recover password validates the email and the existing account`() = runTest {
-        val recover = RecoverPasswordUseCase(users)
-
         assertEquals(RecoverPasswordResult.InvalidEmail, recover("correo-invalido"))
         assertEquals(RecoverPasswordResult.UserNotFound, recover("nadie@example.com"))
+    }
+
+    @Test
+    fun `recover password generates and stores a five digit code`() = runTest {
+        val result = recover("  VALENTINA.MORALES@SERVILOCAL.CO  ")
+
+        assertTrue(result is RecoverPasswordResult.Success)
+        val code = (result as RecoverPasswordResult.Success).code
+        assertTrue(code.matches(Regex("\\d{5}")))
+        assertEquals(code, resetCodes.findCode("valentina.morales@servilocal.co"))
+    }
+
+    @Test
+    fun `reset password with a valid code updates the credentials and consumes the code`() = runTest {
+        val email = "valentina.morales@servilocal.co"
+        val code = (recover(email) as RecoverPasswordResult.Success).code
+
+        val result = reset(email, code, "nuevaClave2026")
+
+        assertEquals(ResetPasswordResult.Success, result)
+        assertNull(resetCodes.findCode(email))
+        assertNull(login(email, "servilocal2026"))
+        assertNotNull(login(email, "nuevaClave2026"))
+    }
+
+    @Test
+    fun `reset password rejects a reused code`() = runTest {
+        val email = "valentina.morales@servilocal.co"
+        val code = (recover(email) as RecoverPasswordResult.Success).code
+
+        assertEquals(ResetPasswordResult.Success, reset(email, code, "nuevaClave2026"))
+        assertEquals(ResetPasswordResult.InvalidCode, reset(email, code, "otraClave2026"))
+    }
+
+    @Test
+    fun `reset password rejects a wrong code without changing the password`() = runTest {
+        val email = "valentina.morales@servilocal.co"
+        val code = (recover(email) as RecoverPasswordResult.Success).code
+        val wrongCode = if (code == "00000") "11111" else "00000"
+
+        assertEquals(ResetPasswordResult.InvalidCode, reset(email, wrongCode, "nuevaClave2026"))
+        assertNotNull(login(email, "servilocal2026"))
+    }
+
+    @Test
+    fun `reset password rejects a weak password but keeps the code usable`() = runTest {
+        val email = "valentina.morales@servilocal.co"
+        val code = (recover(email) as RecoverPasswordResult.Success).code
+
+        assertEquals(ResetPasswordResult.WeakPassword, reset(email, code, "1234567"))
+        assertEquals(ResetPasswordResult.Success, reset(email, code, "nuevaClave2026"))
+    }
+
+    @Test
+    fun `reset password validates the email and the account`() = runTest {
         assertEquals(
-            RecoverPasswordResult.Success,
-            recover("  VALENTINA.MORALES@SERVILOCAL.CO  ")
+            ResetPasswordResult.InvalidEmail,
+            reset("correo-invalido", "12345", "nuevaClave2026")
+        )
+        assertEquals(
+            ResetPasswordResult.UserNotFound,
+            reset("nadie@example.com", "12345", "nuevaClave2026")
         )
     }
 

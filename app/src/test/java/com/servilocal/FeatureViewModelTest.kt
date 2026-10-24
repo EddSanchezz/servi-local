@@ -3,6 +3,7 @@ package com.servilocal
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.servilocal.core.util.RequestResult
+import com.servilocal.data.repository.memory.PasswordResetRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.model.PostStatus
@@ -10,6 +11,7 @@ import com.servilocal.domain.model.UserRole
 import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.features.app.viewmodel.AppViewModel
 import com.servilocal.features.auth.viewmodel.AuthViewModel
+import com.servilocal.features.auth.viewmodel.PasswordRecoveryViewModel
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
 import com.servilocal.domain.usecase.auth.LoginUserUseCase
@@ -17,6 +19,7 @@ import com.servilocal.domain.usecase.auth.LogoutUseCase
 import com.servilocal.domain.usecase.auth.ObserveSessionUseCase
 import com.servilocal.domain.usecase.auth.RecoverPasswordUseCase
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
+import com.servilocal.domain.usecase.auth.ResetPasswordUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
 import com.servilocal.features.home.viewmodel.HomeViewModel
@@ -79,8 +82,7 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, SessionRepositoryImpl()),
-            RegisterUserUseCase(users),
-            RecoverPasswordUseCase(users)
+            RegisterUserUseCase(users)
         )
 
         viewModel.login("not-an-email", "123")
@@ -96,8 +98,7 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, sessions),
-            RegisterUserUseCase(users),
-            RecoverPasswordUseCase(users)
+            RegisterUserUseCase(users)
         )
 
         viewModel.login("valentina.morales@servilocal.co", "servilocal2026")
@@ -115,8 +116,7 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, sessions),
-            RegisterUserUseCase(users),
-            RecoverPasswordUseCase(users)
+            RegisterUserUseCase(users)
         )
 
         viewModel.login("valentina.morales@servilocal.co", "incorrecta")
@@ -132,8 +132,7 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, SessionRepositoryImpl()),
-            RegisterUserUseCase(users),
-            RecoverPasswordUseCase(users)
+            RegisterUserUseCase(users)
         )
 
         viewModel.register(" ", "ana@example.com", "clave2026")
@@ -147,22 +146,63 @@ class FeatureViewModelTest {
     }
 
     @Test
-    fun `recover password maps an unknown account to a failure`() = runTest {
+    fun `password recovery generates a code and resets the account`() = runTest {
         val users = UserRepositoryImpl()
-        val viewModel = AuthViewModel(
-            ValidateLoginCredentialsUseCase(),
-            LoginUserUseCase(users, SessionRepositoryImpl()),
-            RegisterUserUseCase(users),
-            RecoverPasswordUseCase(users)
+        val codes = PasswordResetRepositoryImpl()
+        val viewModel = PasswordRecoveryViewModel(
+            RecoverPasswordUseCase(users, codes),
+            ResetPasswordUseCase(users, codes)
         )
+        val email = "valentina.morales@servilocal.co"
 
-        viewModel.recoverPassword("nadie@example.com")
+        viewModel.onEmailChange(email)
+        viewModel.requestCode()
         advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.recoveryResult is RequestResult.Failure)
 
-        viewModel.recoverPassword("valentina.morales@servilocal.co")
+        assertTrue(viewModel.uiState.value.requestResult is RequestResult.Success)
+        val code = viewModel.uiState.value.demoCode
+        assertNotNull(code)
+        assertEquals(5, code?.length)
+
+        viewModel.prepareReset(email)
+        code!!.forEachIndexed { index, digit ->
+            viewModel.onCodeDigitChange(index, digit.toString())
+        }
+        viewModel.onNewPasswordChange("nuevaClave2026")
+        viewModel.onConfirmPasswordChange("nuevaClave2026")
+        viewModel.submitReset()
         advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.recoveryResult is RequestResult.Success)
+
+        assertTrue(viewModel.uiState.value.resetResult is RequestResult.Success)
+        assertNotNull(users.login(email, "nuevaClave2026"))
+    }
+
+    @Test
+    fun `password recovery validates the email and the reset form`() = runTest {
+        val users = UserRepositoryImpl()
+        val codes = PasswordResetRepositoryImpl()
+        val viewModel = PasswordRecoveryViewModel(
+            RecoverPasswordUseCase(users, codes),
+            ResetPasswordUseCase(users, codes)
+        )
+        val email = "valentina.morales@servilocal.co"
+
+        viewModel.onEmailChange("correo-invalido")
+        viewModel.requestCode()
+        advanceUntilIdle()
+        assertNotNull(viewModel.uiState.value.emailError)
+
+        viewModel.prepareReset(email)
+        viewModel.submitReset()
+        assertNotNull(viewModel.uiState.value.codeError)
+
+        repeat(5) { index -> viewModel.onCodeDigitChange(index, "7") }
+        viewModel.onNewPasswordChange("corta")
+        viewModel.onConfirmPasswordChange("otra")
+        viewModel.submitReset()
+
+        assertNotNull(viewModel.uiState.value.passwordError)
+        assertNotNull(viewModel.uiState.value.confirmPasswordError)
     }
 
     @Test

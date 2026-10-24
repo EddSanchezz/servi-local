@@ -33,6 +33,7 @@ import com.servilocal.core.util.RequestResult
 import com.servilocal.core.util.Validators
 import com.servilocal.domain.model.UserRole
 import com.servilocal.features.auth.viewmodel.AuthViewModel
+import com.servilocal.features.auth.viewmodel.PasswordRecoveryViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 
@@ -630,18 +631,18 @@ fun RegisterScreen(
 }
 
 @Composable
-fun ForgotPasswordScreen(
-    viewModel: AuthViewModel,
-    onBack: () -> Unit
+fun PasswordRecoveryScreen(
+    viewModel: PasswordRecoveryViewModel,
+    onBack: () -> Unit,
+    onContinue: (String) -> Unit
 ) {
-    var recoveryEmail by remember { mutableStateOf("") }
     var attemptedSubmit by remember { mutableStateOf(false) }
-    val authState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val validRecoveryEmail = Validators.isValidEmail(recoveryEmail)
-    val isLoading = authState.recoveryResult is RequestResult.Loading
-    val emailSent = authState.recoveryResult is RequestResult.Success
-    val recoveryError = (authState.recoveryResult as? RequestResult.Failure)?.errorMessage
+    val validEmail = Validators.isValidEmail(uiState.email)
+    val isLoading = uiState.requestResult is RequestResult.Loading
+    val codeGenerated = uiState.requestResult is RequestResult.Success && uiState.demoCode != null
+    val recoveryError = (uiState.requestResult as? RequestResult.Failure)?.errorMessage
 
     LaunchedEffect(recoveryError) {
         recoveryError?.let { snackbarHostState.showSnackbar(it) }
@@ -712,7 +713,7 @@ fun ForgotPasswordScreen(
             )
 
             Text(
-                text = "Ingresa el correo electrónico asociado a tu cuenta de ServiLocal y te enviaremos un enlace seguro para restablecer tu acceso.",
+                text = "Ingresa el correo electrónico asociado a tu cuenta de ServiLocal y generaremos un código de verificación de 5 dígitos para restablecer tu acceso.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -722,18 +723,16 @@ fun ForgotPasswordScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             OutlinedTextField(
-                value = recoveryEmail,
-                onValueChange = {
-                    recoveryEmail = it
-                    if (!isLoading) viewModel.clearRecoveryFeedback()
-                },
+                value = uiState.email,
+                onValueChange = viewModel::onEmailChange,
                 label = { Text("Correo electrónico registrado") },
                 placeholder = { Text("ejemplo@servilocal.co") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 singleLine = true,
-                isError = recoveryError != null || (attemptedSubmit && !validRecoveryEmail),
+                enabled = !isLoading,
+                isError = uiState.emailError != null || (attemptedSubmit && !validEmail),
                 supportingText = {
-                    (recoveryError ?: if (attemptedSubmit && !validRecoveryEmail) {
+                    (uiState.emailError ?: if (attemptedSubmit && !validEmail) {
                         "Ingresa un correo válido para continuar."
                     } else null)?.let { Text(it) }
                 },
@@ -743,30 +742,43 @@ fun ForgotPasswordScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            AnimatedVisibility(visible = emailSent) {
+            AnimatedVisibility(visible = codeGenerated) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Column {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Text(
-                                text = "¡Enlace enviado!",
+                                text = "Código de verificación",
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
-                            Text(
-                                text = "La solicitud quedó registrada en esta demostración. El envío de correos se conectará en una fase posterior.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
                         }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = uiState.demoCode.orEmpty(),
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 8.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Código de demostración. En una fase posterior se enviará al correo registrado.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
@@ -774,7 +786,7 @@ fun ForgotPasswordScreen(
             Button(
                 onClick = {
                     attemptedSubmit = true
-                    if (validRecoveryEmail) viewModel.recoverPassword(recoveryEmail)
+                    viewModel.requestCode()
                 },
                 enabled = !isLoading,
                 modifier = Modifier
@@ -792,9 +804,29 @@ fun ForgotPasswordScreen(
                     Icon(Icons.Default.Send, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (emailSent) "Solicitud enviada" else "Enviar enlace de recuperación",
+                        text = if (codeGenerated) "Reenviar código" else "Enviar código de recuperación",
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                     )
+                }
+            }
+
+            AnimatedVisibility(visible = codeGenerated) {
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { onContinue(uiState.email) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(26.dp)
+                    ) {
+                        Text(
+                            text = "Continuar",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(Icons.Default.ArrowForward, contentDescription = null)
+                    }
                 }
             }
 

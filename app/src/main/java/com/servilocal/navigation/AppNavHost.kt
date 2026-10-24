@@ -1,5 +1,6 @@
 ﻿package com.servilocal.navigation
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -49,10 +50,12 @@ import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.features.app.viewmodel.AppViewModel
-import com.servilocal.features.auth.ui.ForgotPasswordScreen
 import com.servilocal.features.auth.ui.LoginScreen
+import com.servilocal.features.auth.ui.PasswordRecoveryScreen
+import com.servilocal.features.auth.ui.PasswordResetScreen
 import com.servilocal.features.auth.ui.RegisterScreen
 import com.servilocal.features.auth.viewmodel.AuthViewModel
+import com.servilocal.features.auth.viewmodel.PasswordRecoveryViewModel
 import com.servilocal.features.chat.ui.ChatDetailScreen
 import com.servilocal.features.chat.ui.MessagesScreen
 import com.servilocal.features.chat.viewmodel.ChatDetailViewModel
@@ -80,6 +83,7 @@ object AppRoute {
     const val LOGIN = "login"
     const val REGISTER = "register"
     const val FORGOT_PASSWORD = "forgot-password"
+    const val PASSWORD_RESET = "password-reset/{email}"
     const val DASHBOARD = "dashboard"
     const val HOME = "home"
     const val MESSAGES = "messages"
@@ -97,6 +101,7 @@ object AppRoute {
     fun serviceDetail(postId: String) = "service-detail/$postId"
     fun chatDetail(chatId: String) = "chat-detail/$chatId"
     fun moderationDetail(postId: String) = "moderation-detail/$postId"
+    fun passwordReset(email: String) = "password-reset/${Uri.encode(email)}"
 }
 
 @Composable
@@ -151,10 +156,30 @@ fun AppNavHost(
             )
         }
         composable(AppRoute.FORGOT_PASSWORD) {
-            val viewModel: AuthViewModel = hiltViewModel()
-            ForgotPasswordScreen(
+            val viewModel: PasswordRecoveryViewModel = hiltViewModel()
+            PasswordRecoveryScreen(
                 viewModel = viewModel,
-                onBack = { rootNavController.navigateUp() }
+                onBack = { rootNavController.navigateUp() },
+                onContinue = { email ->
+                    rootNavController.navigate(AppRoute.passwordReset(email))
+                }
+            )
+        }
+        composable(
+            route = AppRoute.PASSWORD_RESET,
+            arguments = listOf(navArgument("email") { type = NavType.StringType })
+        ) { entry ->
+            val viewModel: PasswordRecoveryViewModel = hiltViewModel()
+            val email = Uri.decode(entry.arguments?.getString("email").orEmpty())
+            PasswordResetScreen(
+                viewModel = viewModel,
+                email = email,
+                onBack = { rootNavController.navigateUp() },
+                onReset = { resetEmail ->
+                    rootNavController.getBackStackEntry(AppRoute.LOGIN)
+                        .savedStateHandle["registeredEmail"] = resetEmail
+                    rootNavController.popBackStack(AppRoute.LOGIN, inclusive = false)
+                }
             )
         }
         composable(AppRoute.DASHBOARD) {

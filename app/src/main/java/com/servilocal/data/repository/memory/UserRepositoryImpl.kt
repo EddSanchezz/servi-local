@@ -34,6 +34,14 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         return user.takeIf { it.passwordHash == PasswordHasher.hash(password) }
     }
 
+    override suspend fun updatePassword(userId: String, passwordHash: String) {
+        users.update { current ->
+            current.map { user ->
+                if (user.id == userId) user.copy(passwordHash = passwordHash) else user
+            }
+        }
+    }
+
     private fun seedUsers(): List<User> = listOf(
         User(
             id = "user_val_1",

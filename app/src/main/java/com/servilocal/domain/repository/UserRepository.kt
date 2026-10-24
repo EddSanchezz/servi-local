@@ -7,4 +7,5 @@ interface UserRepository {
     suspend fun findById(id: String): User?
     suspend fun findByEmail(email: String): User?
     suspend fun login(email: String, password: String): User?
+    suspend fun updatePassword(userId: String, passwordHash: String)
 }
