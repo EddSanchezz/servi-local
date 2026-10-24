@@ -44,7 +44,6 @@ class AppViewModel @Inject constructor(
     }
 
     fun login(role: UserRole) = _uiState.update { it.copy(activeRole = role) }
-    fun switchRole(role: UserRole) = login(role)
 
     fun logout() {
         // La UI vuelve al login de inmediato; la sesión en memoria se limpia en segundo plano.

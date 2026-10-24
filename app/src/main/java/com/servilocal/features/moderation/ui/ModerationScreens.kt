@@ -1056,7 +1056,6 @@ fun ModeratorProfileScreen(
     appUiState: AppUiState,
     onOpenNotifications: () -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
-    onSwitchToUser: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1166,33 +1165,6 @@ fun ModeratorProfileScreen(
                     checked = moderatorUser.activeShift,
                     onCheckedChange = { viewModel.toggleModeratorShift() }
                 )
-            }
-        }
-
-        // Return to User Mode Button (for seamless evaluation of both user and moderator flows)
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column {
-                        Text("Modo Usuario", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                        Text("Volver a la vista de cliente/proveedor", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                Button(
-                    onClick = onSwitchToUser,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Cambiar")
-                }
             }
         }
 

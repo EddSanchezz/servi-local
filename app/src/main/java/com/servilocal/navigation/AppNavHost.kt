@@ -333,7 +333,6 @@ private fun DashboardNavigation(
                     viewModel, appUiState,
                     onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) },
                     onNotificationsChange = appViewModel::setNotificationsEnabled,
-                    onSwitchToUser = { appViewModel.switchRole(UserRole.USER) },
                     onLogout = onLogout
                 )
             }
