@@ -1,4 +1,4 @@
-package com.servilocal.navigation
+﻿package com.servilocal.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -192,28 +193,32 @@ private fun DashboardNavigation(
 
     val tabHistory = remember { mutableStateListOf(startDestination) }
 
-    fun showTab(route: String) {
-        val returnedToExistingTab = navController.popBackStack(route, inclusive = false)
-        if (!returnedToExistingTab) {
-            navController.navigate(route) {
-                popUpTo(startDestination) { inclusive = false }
-                launchSingleTop = true
-            }
-        }
-    }
-
     fun navigateTab(route: String) {
-        if (currentRoute != route) {
-            val updatedHistory = moveTabToTop(tabHistory, route)
-            tabHistory.clear()
-            tabHistory.addAll(updatedHistory)
-            showTab(route)
+        // Deduplicate: move route to top (remove existing occurrence, append at end)
+        val updated = moveTabToTop(tabHistory, route)
+        tabHistory.clear()
+        tabHistory.addAll(updated)
+
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
         }
     }
 
-    BackHandler(enabled = currentRoute in tabRoutes && tabHistory.size > 1) {
+    // Back press while on a tab: go to previously visited tab (not jump to start)
+    BackHandler(enabled = tabHistory.size > 1 && currentRoute in tabRoutes) {
         tabHistory.removeAt(tabHistory.lastIndex)
-        showTab(tabHistory.last())
+        val previousRoute = tabHistory.last()
+        navController.navigate(previousRoute) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
     }
 
     Scaffold(
@@ -240,7 +245,7 @@ private fun DashboardNavigation(
                     unreadChats = if (!isModerator && appUiState.notificationsEnabled) conversations.sumOf { it.unreadCount } else 0,
                     reportCount = if (isModerator) reports.size else 0,
                     items = items,
-                    onSelect = ::navigateTab
+                    onSelect = { route -> navigateTab(route) }
                 )
             }
         }
