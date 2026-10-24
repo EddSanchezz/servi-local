@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.servilocal.core.util.RequestResult
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.usecase.auth.LoginUserUseCase
+import com.servilocal.domain.usecase.auth.RecoverPasswordResult
+import com.servilocal.domain.usecase.auth.RecoverPasswordUseCase
 import com.servilocal.domain.usecase.auth.RegisterResult
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
@@ -23,14 +25,16 @@ data class AuthUiState(
     val loginResult: RequestResult? = null,
     val authenticatedRole: UserRole? = null,
     val registerResult: RequestResult? = null,
-    val registeredEmail: String? = null
+    val registeredEmail: String? = null,
+    val recoveryResult: RequestResult? = null
 )
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val validateLogin: ValidateLoginCredentialsUseCase,
     private val loginUser: LoginUserUseCase,
-    private val registerUser: RegisterUserUseCase
+    private val registerUser: RegisterUserUseCase,
+    private val recoverPasswordUseCase: RecoverPasswordUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -118,6 +122,36 @@ class AuthViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun recoverPassword(email: String) {
+        if (_uiState.value.recoveryResult is RequestResult.Loading) return
+
+        _uiState.update { it.copy(recoveryResult = RequestResult.Loading) }
+        viewModelScope.launch {
+            val result = recoverPasswordUseCase(email)
+            _uiState.update { state ->
+                when (result) {
+                    RecoverPasswordResult.Success -> state.copy(
+                        recoveryResult = RequestResult.Success(
+                            "Solicitud registrada. Revisa tu correo para continuar."
+                        )
+                    )
+
+                    RecoverPasswordResult.InvalidEmail -> state.copy(
+                        recoveryResult = RequestResult.Failure("Ingresa un correo válido para continuar.")
+                    )
+
+                    RecoverPasswordResult.UserNotFound -> state.copy(
+                        recoveryResult = RequestResult.Failure("No encontramos una cuenta con ese correo.")
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearRecoveryFeedback() {
+        _uiState.update { it.copy(recoveryResult = null) }
     }
 
     fun clearLoginFeedback() {

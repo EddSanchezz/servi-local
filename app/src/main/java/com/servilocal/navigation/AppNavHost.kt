@@ -151,7 +151,11 @@ fun AppNavHost(
             )
         }
         composable(AppRoute.FORGOT_PASSWORD) {
-            ForgotPasswordScreen(onBack = { rootNavController.navigateUp() })
+            val viewModel: AuthViewModel = hiltViewModel()
+            ForgotPasswordScreen(
+                viewModel = viewModel,
+                onBack = { rootNavController.navigateUp() }
+            )
         }
         composable(AppRoute.DASHBOARD) {
             // Recreate the nested graph when the demo role changes so its back stack is reset.

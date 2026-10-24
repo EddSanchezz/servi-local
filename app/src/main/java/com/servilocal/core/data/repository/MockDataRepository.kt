@@ -6,20 +6,34 @@ import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PostRepository
+import com.servilocal.domain.repository.SessionRepository
+import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 @Singleton
-class MockDataRepository @Inject constructor() :
+class MockDataRepository @Inject constructor(
+    private val userRepository: UserRepository?,
+    private val sessionRepository: SessionRepository?
+) :
     AuthRepository,
     PostRepository,
     ChatRepository,
     NotificationRepository,
     ModerationRepository {
+
+    /** Constructor para pruebas y previews: sin sesión real asociada. */
+    constructor() : this(null, null)
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // ───────────────────────── TABLAS DE ENTIDADES ERD (PERSISTENCIA) ─────────────────────────
 
@@ -41,32 +55,34 @@ class MockDataRepository @Inject constructor() :
 
     // ───────────────────────── FLUJOS DE ESTADO REPACTADOS PARA LA UI ─────────────────────────
 
-    private val _currentUser = MutableStateFlow(
-        UserProfile(
-            id = "user_val_1",
-            name = "Valentina Morales",
-            email = "valentina.morales@servilocal.co",
-            role = UserRole.USER,
-            level = "Nivel 3: Destacado",
-            points = 220,
-            nextLevelPoints = 300,
-            workingHours = "Lunes a sábado · 8:00 a. m. - 6:00 p. m."
-        )
-    )
+    private val _currentUser = MutableStateFlow(defaultCurrentUser())
     override val currentUser: StateFlow<UserProfile> = _currentUser.asStateFlow()
 
-    private val _moderatorUser = MutableStateFlow(
-        UserProfile(
-            id = "mod_ale_1",
-            name = "Alejandro Vargas",
-            email = "alejandro.vargas@staff.servilocal.pe",
-            role = UserRole.MODERATOR,
-            staffId = "MOD-4892",
-            activeShift = true,
-            workingHours = "Lunes a viernes · 8:00 a. m. - 4:30 p. m."
-        )
-    )
+    private val _moderatorUser = MutableStateFlow(defaultModeratorUser())
     override val moderatorUser: StateFlow<UserProfile> = _moderatorUser.asStateFlow()
+
+    init {
+        val users = userRepository
+        val sessions = sessionRepository
+        if (users != null && sessions != null) {
+            scope.launch {
+                sessions.session.collect { session ->
+                    if (session == null) {
+                        _currentUser.value = defaultCurrentUser()
+                        _moderatorUser.value = defaultModeratorUser()
+                    } else {
+                        users.findById(session.userId)?.let { user ->
+                            val profile = user.toUserProfile()
+                            _currentUser.value = profile
+                            if (user.role == UserRole.MODERATOR) {
+                                _moderatorUser.value = profile
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     private val _posts = MutableStateFlow<List<ServicePost>>(getInitialPosts())
     override val posts: StateFlow<List<ServicePost>> = _posts.asStateFlow()
@@ -264,6 +280,16 @@ class MockDataRepository @Inject constructor() :
     override fun updateCurrentUser(name: String, email: String) {
         if (name.isBlank() || !email.contains('@')) return
         _currentUser.update { it.copy(name = name.trim(), email = email.trim()) }
+
+        val updated = _currentUser.value
+        val users = userRepository
+        if (users != null) {
+            scope.launch {
+                users.findById(updated.id)?.let { user ->
+                    users.save(user.copy(name = updated.name, email = updated.email))
+                }
+            }
+        }
     }
 
     override fun createReport(
@@ -601,4 +627,52 @@ class MockDataRepository @Inject constructor() :
         java.util.Calendar.getInstance().apply {
             add(java.util.Calendar.DAY_OF_YEAR, -days)
         }.timeInMillis
+
+    private fun defaultCurrentUser(): UserProfile = UserProfile(
+        id = "user_val_1",
+        name = "Valentina Morales",
+        email = "valentina.morales@servilocal.co",
+        role = UserRole.USER,
+        level = "Nivel 3: Destacado",
+        points = 220,
+        nextLevelPoints = 300,
+        workingHours = "Lunes a sábado · 8:00 a. m. - 6:00 p. m."
+    )
+
+    private fun defaultModeratorUser(): UserProfile = UserProfile(
+        id = "mod_ale_1",
+        name = "Alejandro Vargas",
+        email = "alejandro.vargas@staff.servilocal.pe",
+        role = UserRole.MODERATOR,
+        staffId = "MOD-4892",
+        activeShift = true,
+        workingHours = "Lunes a viernes · 8:00 a. m. - 4:30 p. m."
+    )
+
+    /** Convierte la entidad de sesión en el modelo que consumen las pantallas. */
+    private fun User.toUserProfile(): UserProfile {
+        val levelLabel = when (level) {
+            UserLevel.PRINCIPIANTE -> "Nivel 1: Principiante"
+            UserLevel.PROFESIONAL -> "Nivel 2: Profesional"
+            UserLevel.EXPERTO -> "Nivel 3: Experto"
+            UserLevel.MAESTRO -> "Nivel 4: Maestro"
+        }
+        val isModerator = role == UserRole.MODERATOR
+        return UserProfile(
+            id = id,
+            name = name,
+            email = email,
+            role = role,
+            level = levelLabel,
+            points = points,
+            nextLevelPoints = level.next?.minPoints ?: 1000,
+            staffId = if (isModerator) "MOD-4892" else null,
+            activeShift = isModerator,
+            workingHours = if (isModerator) {
+                "Lunes a viernes · 8:00 a. m. - 4:30 p. m."
+            } else {
+                "Lunes a sábado · 8:00 a. m. - 6:00 p. m."
+            }
+        )
+    }
 }

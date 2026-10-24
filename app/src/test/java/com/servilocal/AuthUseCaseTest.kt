@@ -4,6 +4,10 @@ import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.usecase.auth.LoginUserUseCase
+import com.servilocal.domain.usecase.auth.LogoutUseCase
+import com.servilocal.domain.usecase.auth.ObserveSessionUseCase
+import com.servilocal.domain.usecase.auth.RecoverPasswordResult
+import com.servilocal.domain.usecase.auth.RecoverPasswordUseCase
 import com.servilocal.domain.usecase.auth.RegisterResult
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import kotlinx.coroutines.test.runTest
@@ -105,6 +109,39 @@ class AuthUseCaseTest {
         assertEquals(RegisterResult.InvalidName, register(" ", "ana@example.com", "clave2026"))
         assertEquals(RegisterResult.InvalidEmail, register("Ana", "correo-invalido", "clave2026"))
         assertEquals(RegisterResult.WeakPassword, register("Ana", "ana@example.com", "1234567"))
+    }
+
+    @Test
+    fun `logout clears the active session`() = runTest {
+        login("valentina.morales@servilocal.co", "servilocal2026")
+        assertNotNull(sessions.session.value)
+
+        LogoutUseCase(sessions)()
+
+        assertNull(sessions.session.value)
+    }
+
+    @Test
+    fun `observe session exposes the repository flow`() = runTest {
+        val observed = ObserveSessionUseCase(sessions)
+        assertNull(observed().value)
+
+        login("alejandro.vargas@staff.servilocal.pe", "servilocal2026")
+
+        assertEquals("mod_ale_1", observed().value?.userId)
+        assertEquals(UserRole.MODERATOR, observed().value?.role)
+    }
+
+    @Test
+    fun `recover password validates the email and the existing account`() = runTest {
+        val recover = RecoverPasswordUseCase(users)
+
+        assertEquals(RecoverPasswordResult.InvalidEmail, recover("correo-invalido"))
+        assertEquals(RecoverPasswordResult.UserNotFound, recover("nadie@example.com"))
+        assertEquals(
+            RecoverPasswordResult.Success,
+            recover("  VALENTINA.MORALES@SERVILOCAL.CO  ")
+        )
     }
 
     @Test

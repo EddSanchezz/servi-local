@@ -13,6 +13,9 @@ import com.servilocal.features.auth.viewmodel.AuthViewModel
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
 import com.servilocal.domain.usecase.auth.LoginUserUseCase
+import com.servilocal.domain.usecase.auth.LogoutUseCase
+import com.servilocal.domain.usecase.auth.ObserveSessionUseCase
+import com.servilocal.domain.usecase.auth.RecoverPasswordUseCase
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
@@ -54,14 +57,20 @@ class FeatureViewModelTest {
     }
 
     @Test
-    fun `app session changes role without owning navigation`() {
-        val viewModel = AppViewModel()
+    fun `app session changes role without owning navigation`() = runTest {
+        val sessions = SessionRepositoryImpl()
+        val viewModel = AppViewModel(
+            ObserveSessionUseCase(sessions),
+            LogoutUseCase(sessions)
+        )
 
         viewModel.login(UserRole.MODERATOR)
         assertEquals(UserRole.MODERATOR, viewModel.uiState.value.activeRole)
 
         viewModel.logout()
+        advanceUntilIdle()
         assertEquals(UserRole.USER, viewModel.uiState.value.activeRole)
+        assertEquals(null, sessions.session.value)
     }
 
     @Test
@@ -70,7 +79,8 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, SessionRepositoryImpl()),
-            RegisterUserUseCase(users)
+            RegisterUserUseCase(users),
+            RecoverPasswordUseCase(users)
         )
 
         viewModel.login("not-an-email", "123")
@@ -86,7 +96,8 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, sessions),
-            RegisterUserUseCase(users)
+            RegisterUserUseCase(users),
+            RecoverPasswordUseCase(users)
         )
 
         viewModel.login("valentina.morales@servilocal.co", "servilocal2026")
@@ -104,7 +115,8 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, sessions),
-            RegisterUserUseCase(users)
+            RegisterUserUseCase(users),
+            RecoverPasswordUseCase(users)
         )
 
         viewModel.login("valentina.morales@servilocal.co", "incorrecta")
@@ -120,7 +132,8 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, SessionRepositoryImpl()),
-            RegisterUserUseCase(users)
+            RegisterUserUseCase(users),
+            RecoverPasswordUseCase(users)
         )
 
         viewModel.register(" ", "ana@example.com", "clave2026")
@@ -131,6 +144,25 @@ class FeatureViewModelTest {
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.registerResult is RequestResult.Success)
         assertNotNull(users.findByEmail("ana@example.com"))
+    }
+
+    @Test
+    fun `recover password maps an unknown account to a failure`() = runTest {
+        val users = UserRepositoryImpl()
+        val viewModel = AuthViewModel(
+            ValidateLoginCredentialsUseCase(),
+            LoginUserUseCase(users, SessionRepositoryImpl()),
+            RegisterUserUseCase(users),
+            RecoverPasswordUseCase(users)
+        )
+
+        viewModel.recoverPassword("nadie@example.com")
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.recoveryResult is RequestResult.Failure)
+
+        viewModel.recoverPassword("valentina.morales@servilocal.co")
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.recoveryResult is RequestResult.Success)
     }
 
     @Test

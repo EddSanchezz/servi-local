@@ -35,7 +35,6 @@ import com.servilocal.domain.model.UserRole
 import com.servilocal.features.auth.viewmodel.AuthViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -631,13 +630,22 @@ fun RegisterScreen(
 }
 
 @Composable
-fun ForgotPasswordScreen(onBack: () -> Unit) {
+fun ForgotPasswordScreen(
+    viewModel: AuthViewModel,
+    onBack: () -> Unit
+) {
     var recoveryEmail by remember { mutableStateOf("") }
-    var emailSent by remember { mutableStateOf(false) }
     var attemptedSubmit by remember { mutableStateOf(false) }
+    val authState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
-    val validRecoveryEmail = recoveryEmail.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
+    val validRecoveryEmail = Validators.isValidEmail(recoveryEmail)
+    val isLoading = authState.recoveryResult is RequestResult.Loading
+    val emailSent = authState.recoveryResult is RequestResult.Success
+    val recoveryError = (authState.recoveryResult as? RequestResult.Failure)?.errorMessage
+
+    LaunchedEffect(recoveryError) {
+        recoveryError?.let { snackbarHostState.showSnackbar(it) }
+    }
 
     Box(Modifier.fillMaxSize()) {
     Surface(
@@ -715,13 +723,20 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
 
             OutlinedTextField(
                 value = recoveryEmail,
-                onValueChange = { recoveryEmail = it; emailSent = false },
+                onValueChange = {
+                    recoveryEmail = it
+                    if (!isLoading) viewModel.clearRecoveryFeedback()
+                },
                 label = { Text("Correo electrónico registrado") },
                 placeholder = { Text("ejemplo@servilocal.co") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 singleLine = true,
-                isError = attemptedSubmit && !validRecoveryEmail,
-                supportingText = { if (attemptedSubmit && !validRecoveryEmail) Text("Ingresa un correo válido para continuar.") },
+                isError = recoveryError != null || (attemptedSubmit && !validRecoveryEmail),
+                supportingText = {
+                    (recoveryError ?: if (attemptedSubmit && !validRecoveryEmail) {
+                        "Ingresa un correo válido para continuar."
+                    } else null)?.let { Text(it) }
+                },
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -747,7 +762,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             Text(
-                                text = "La solicitud quedó registrada en esta demostración. El envío de correos no está conectado.",
+                                text = "La solicitud quedó registrada en esta demostración. El envío de correos se conectará en una fase posterior.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -759,24 +774,28 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
             Button(
                 onClick = {
                     attemptedSubmit = true
-                    emailSent = validRecoveryEmail
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar(
-                            if (validRecoveryEmail) "La solicitud de recuperación quedó registrada." else "Ingresa un correo válido para continuar."
-                        )
-                    }
+                    if (validRecoveryEmail) viewModel.recoverPassword(recoveryEmail)
                 },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(26.dp)
             ) {
-                Icon(Icons.Default.Send, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (emailSent) "Enlace enviado" else "Enviar enlace de recuperación",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Default.Send, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (emailSent) "Solicitud enviada" else "Enviar enlace de recuperación",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
