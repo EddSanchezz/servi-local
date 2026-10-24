@@ -23,13 +23,6 @@ class MockDataRepository @Inject constructor() :
 
     // ───────────────────────── TABLAS DE ENTIDADES ERD (PERSISTENCIA) ─────────────────────────
 
-    private val erdUsers = MutableStateFlow<List<User>>(
-        listOf(
-            User("user_val_1", "Valentina Morales", "valentina.morales@servilocal.co", "hash123", UserRole.USER, points = 220, level = UserLevel.MAESTRO),
-            User("mod_ale_1", "Alejandro Vargas", "alejandro.vargas@staff.servilocal.pe", "hash456", UserRole.MODERATOR, points = 500, level = UserLevel.MAESTRO)
-        )
-    )
-
     private val erdPosts = MutableStateFlow<List<Post>>(
         listOf(
             Post("pub_1", "user_val_1", title = "Instalación Eléctrica Residencial y Reparaciones", category = PostCategory.HOGAR, description = "Ingeniero Eléctrico con certificación técnica oficial.", minPrice = 25000, maxPrice = 45000, status = PostStatus.APPROVED),
@@ -271,21 +264,6 @@ class MockDataRepository @Inject constructor() :
     override fun updateCurrentUser(name: String, email: String) {
         if (name.isBlank() || !email.contains('@')) return
         _currentUser.update { it.copy(name = name.trim(), email = email.trim()) }
-    }
-
-    override fun registerUser(name: String, email: String) {
-        if (name.isBlank() || !email.contains('@')) return
-        val newErdUser = User(
-            id = "user_${System.currentTimeMillis()}",
-            name = name.trim(),
-            email = email.trim(),
-            passwordHash = "hash",
-            role = UserRole.USER
-        )
-        erdUsers.update { listOf(newErdUser) + it }
-        _currentUser.update {
-            it.copy(id = newErdUser.id, name = name.trim(), email = email.trim(), role = UserRole.USER)
-        }
     }
 
     override fun createReport(

@@ -2,6 +2,9 @@ package com.servilocal
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.servilocal.core.util.RequestResult
+import com.servilocal.data.repository.memory.SessionRepositoryImpl
+import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.UserRole
 import com.servilocal.core.data.repository.MockDataRepository
@@ -9,23 +12,46 @@ import com.servilocal.features.app.viewmodel.AppViewModel
 import com.servilocal.features.auth.viewmodel.AuthViewModel
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
+import com.servilocal.domain.usecase.auth.LoginUserUseCase
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class FeatureViewModelTest {
+
+    private val testDispatcher = StandardTestDispatcher()
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(testDispatcher)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
 
     @Test
     fun `app session changes role without owning navigation`() {
@@ -39,34 +65,72 @@ class FeatureViewModelTest {
     }
 
     @Test
-    fun `login validation returns feedback for malformed fields`() {
-        val repository = MockDataRepository()
-        val viewModel = AuthViewModel(ValidateLoginCredentialsUseCase(), RegisterUserUseCase(repository))
+    fun `login validation returns feedback for malformed fields`() = runTest {
+        val users = UserRepositoryImpl()
+        val viewModel = AuthViewModel(
+            ValidateLoginCredentialsUseCase(),
+            LoginUserUseCase(users, SessionRepositoryImpl()),
+            RegisterUserUseCase(users)
+        )
 
-        assertFalse(viewModel.login("not-an-email", "123"))
+        viewModel.login("not-an-email", "123")
+
         assertEquals("Ingresa un correo válido.", viewModel.uiState.value.emailError)
         assertEquals("Usa al menos 6 caracteres.", viewModel.uiState.value.passwordError)
     }
 
     @Test
-    fun `valid local login passes form validation`() {
-        val repository = MockDataRepository()
-        val viewModel = AuthViewModel(ValidateLoginCredentialsUseCase(), RegisterUserUseCase(repository))
+    fun `valid login authenticates a seed user and creates the session`() = runTest {
+        val users = UserRepositoryImpl()
+        val sessions = SessionRepositoryImpl()
+        val viewModel = AuthViewModel(
+            ValidateLoginCredentialsUseCase(),
+            LoginUserUseCase(users, sessions),
+            RegisterUserUseCase(users)
+        )
 
-        assertTrue(viewModel.login("ana@example.com", "clave2026"))
-        assertEquals(null, viewModel.uiState.value.emailError)
-        assertEquals(null, viewModel.uiState.value.passwordError)
+        viewModel.login("valentina.morales@servilocal.co", "servilocal2026")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.loginResult is RequestResult.Success)
+        assertEquals(UserRole.USER, viewModel.uiState.value.authenticatedRole)
+        assertEquals("user_val_1", sessions.session.value?.userId)
     }
 
     @Test
-    fun `registration rejects missing name and accepts valid details`() {
-        val repository = MockDataRepository()
-        val viewModel = AuthViewModel(ValidateLoginCredentialsUseCase(), RegisterUserUseCase(repository))
+    fun `invalid password exposes a login failure`() = runTest {
+        val users = UserRepositoryImpl()
+        val sessions = SessionRepositoryImpl()
+        val viewModel = AuthViewModel(
+            ValidateLoginCredentialsUseCase(),
+            LoginUserUseCase(users, sessions),
+            RegisterUserUseCase(users)
+        )
 
-        assertFalse(viewModel.register(" ", "ana@example.com"))
+        viewModel.login("valentina.morales@servilocal.co", "incorrecta")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.loginResult is RequestResult.Failure)
+        assertEquals(null, sessions.session.value)
+    }
+
+    @Test
+    fun `registration rejects missing name and accepts valid details`() = runTest {
+        val users = UserRepositoryImpl()
+        val viewModel = AuthViewModel(
+            ValidateLoginCredentialsUseCase(),
+            LoginUserUseCase(users, SessionRepositoryImpl()),
+            RegisterUserUseCase(users)
+        )
+
+        viewModel.register(" ", "ana@example.com", "clave2026")
+        advanceUntilIdle()
         assertNotNull(viewModel.uiState.value.nameError)
-        assertTrue(viewModel.register("Ana Torres", "ana@example.com"))
-        assertEquals("Ana Torres", repository.currentUser.value.name)
+
+        viewModel.register("Ana Torres", "ana@example.com", "clave2026")
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.registerResult is RequestResult.Success)
+        assertNotNull(users.findByEmail("ana@example.com"))
     }
 
     @Test

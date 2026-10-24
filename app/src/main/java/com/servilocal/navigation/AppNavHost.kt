@@ -121,10 +121,12 @@ fun AppNavHost(
                 }
             })
         }
-        composable(AppRoute.LOGIN) {
+        composable(AppRoute.LOGIN) { entry ->
             val viewModel: AuthViewModel = hiltViewModel()
+            val registeredEmail = entry.savedStateHandle.get<String>("registeredEmail").orEmpty()
             LoginScreen(
                 viewModel = viewModel,
+                initialEmail = registeredEmail,
                 onRegister = { rootNavController.navigate(AppRoute.REGISTER) },
                 onForgotPassword = { rootNavController.navigate(AppRoute.FORGOT_PASSWORD) },
                 onAuthenticated = { role ->
@@ -140,11 +142,11 @@ fun AppNavHost(
             RegisterScreen(
                 viewModel = viewModel,
                 onBack = { rootNavController.navigateUp() },
-                onRegistered = {
-                    appViewModel.login(UserRole.USER)
-                    rootNavController.navigate(AppRoute.DASHBOARD) {
-                        popUpTo(AppRoute.ONBOARDING) { inclusive = true }
-                    }
+                onRegistered = { email ->
+                    rootNavController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("registeredEmail", email)
+                    rootNavController.navigateUp()
                 }
             )
         }

@@ -100,7 +100,6 @@ class ModerationUseCaseTest {
         override val currentUser: StateFlow<UserProfile> = _user
         override val moderatorUser: StateFlow<UserProfile> = _user
 
-        override fun registerUser(name: String, email: String) {}
         override fun updateCurrentUser(name: String, email: String) {}
         override fun toggleModeratorShift() {}
     }

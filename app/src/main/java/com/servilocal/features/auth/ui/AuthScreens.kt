@@ -28,29 +28,39 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.servilocal.R
+import com.servilocal.core.util.RequestResult
+import com.servilocal.core.util.Validators
 import com.servilocal.domain.model.UserRole
 import com.servilocal.features.auth.viewmodel.AuthViewModel
-import com.servilocal.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
+    initialEmail: String = "",
     onRegister: () -> Unit,
     onForgotPassword: () -> Unit,
     onAuthenticated: (UserRole) -> Unit
 ) {
-    var email by remember { mutableStateOf("valentina.morales@servilocal.co") }
+    val startEmail = initialEmail.ifBlank { "valentina.morales@servilocal.co" }
+    var email by remember(startEmail) { mutableStateOf(startEmail) }
     var password by remember { mutableStateOf("servilocal2026") }
     var passwordVisible by remember { mutableStateOf(false) }
     var selectedRole by remember { mutableStateOf(UserRole.USER) }
-    var showLoginError by remember { mutableStateOf(false) }
     val authUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
-    val validEmail = email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
-    val validLogin = validEmail && password.length >= 6
+    val isLoading = authUiState.loginResult is RequestResult.Loading
+    val loginError = (authUiState.loginResult as? RequestResult.Failure)?.errorMessage
+
+    LaunchedEffect(authUiState.authenticatedRole) {
+        authUiState.authenticatedRole?.let(onAuthenticated)
+    }
+    LaunchedEffect(loginError) {
+        loginError?.let { snackbarHostState.showSnackbar(it) }
+    }
 
     Box(Modifier.fillMaxSize()) {
     Surface(
@@ -114,7 +124,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Quick Role Switcher for seamless demo testing (Usuario vs Moderador)
+            // Accesos rápidos para probar los dos roles de demostración
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 shape = RoundedCornerShape(16.dp),
@@ -134,7 +144,7 @@ fun LoginScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
-                                text = "Acceso unificado por Rol",
+                                text = "Cuentas de demostración",
                                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -167,7 +177,8 @@ fun LoginScreen(
                             onClick = {
                                 selectedRole = UserRole.USER
                                 email = "valentina.morales@servilocal.co"
-                                showLoginError = false
+                                password = "servilocal2026"
+                                viewModel.clearLoginFeedback()
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp),
@@ -191,7 +202,8 @@ fun LoginScreen(
                             onClick = {
                                 selectedRole = UserRole.MODERATOR
                                 email = "alejandro.vargas@staff.servilocal.pe"
-                                showLoginError = false
+                                password = "servilocal2026"
+                                viewModel.clearLoginFeedback()
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp),
@@ -218,10 +230,10 @@ fun LoginScreen(
             // Email Field
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it; showLoginError = false; viewModel.clearErrors() },
+                onValueChange = { email = it; if (!isLoading) viewModel.clearLoginFeedback() },
                 label = { Text("Correo electrónico") },
-                isError = showLoginError && authUiState.emailError != null,
-                supportingText = { if (showLoginError && authUiState.emailError != null) Text(authUiState.emailError.orEmpty()) },
+                isError = authUiState.emailError != null,
+                supportingText = { authUiState.emailError?.let { Text(it) } },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -236,10 +248,10 @@ fun LoginScreen(
             // Password Field
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it; showLoginError = false; viewModel.clearErrors() },
+                onValueChange = { password = it; if (!isLoading) viewModel.clearLoginFeedback() },
                 label = { Text("Contraseña") },
-                isError = showLoginError && authUiState.passwordError != null,
-                supportingText = { if (showLoginError && authUiState.passwordError != null) Text(authUiState.passwordError.orEmpty()) },
+                isError = authUiState.passwordError != null,
+                supportingText = { authUiState.passwordError?.let { Text(it) } },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -277,9 +289,9 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            AnimatedVisibility(visible = showLoginError) {
+            AnimatedVisibility(visible = loginError != null) {
                 Text(
-                    "Ingresa un correo válido y una contraseña de al menos 6 caracteres.",
+                    text = loginError.orEmpty(),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
@@ -288,13 +300,8 @@ fun LoginScreen(
 
             // Submit Button
             Button(
-                onClick = {
-                    if (viewModel.login(email, password)) onAuthenticated(selectedRole)
-                    else {
-                        showLoginError = true
-                        coroutineScope.launch { snackbarHostState.showSnackbar("Revisa el correo y la contraseña para continuar.") }
-                    }
-                },
+                onClick = { viewModel.login(email, password) },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
@@ -302,12 +309,20 @@ fun LoginScreen(
                 shape = RoundedCornerShape(26.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                Text(
-                    text = if (selectedRole == UserRole.USER) "Iniciar Sesión como Usuario" else "Iniciar Sesión como Moderador",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Iniciar sesión",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -351,7 +366,7 @@ fun LoginScreen(
 fun RegisterScreen(
     viewModel: AuthViewModel,
     onBack: () -> Unit,
-    onRegistered: () -> Unit
+    onRegistered: (String) -> Unit
 ) {
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -362,11 +377,23 @@ fun RegisterScreen(
     var isSubmitted by remember { mutableStateOf(false) }
     val authState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
+    val registerResult = authState.registerResult
+    val isLoading = registerResult is RequestResult.Loading
+    val registerError = (registerResult as? RequestResult.Failure)?.errorMessage
 
     val passwordsMatch = password.isNotEmpty() && password == confirmPassword
-    val validEmail = email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
+    val validEmail = Validators.isValidEmail(email)
     val validForm = fullName.isNotBlank() && validEmail && password.length >= 8 && passwordsMatch && termsAccepted
+
+    LaunchedEffect(registerResult) {
+        if (registerResult is RequestResult.Success) {
+            delay(800)
+            onRegistered(authState.registeredEmail ?: email.trim())
+        }
+    }
+    LaunchedEffect(registerError) {
+        registerError?.let { snackbarHostState.showSnackbar(it) }
+    }
 
     Box(Modifier.fillMaxSize()) {
     Surface(
@@ -426,10 +453,13 @@ fun RegisterScreen(
             // Full Name
             OutlinedTextField(
                 value = fullName,
-                onValueChange = { fullName = it },
+                onValueChange = { fullName = it; if (!isLoading) viewModel.clearRegisterFeedback() },
                 label = { Text("Nombre completo") },
-                isError = isSubmitted && fullName.isBlank(),
-                supportingText = { if (isSubmitted && fullName.isBlank()) Text("Escribe tu nombre completo.") },
+                isError = (isSubmitted && fullName.isBlank()) || authState.nameError != null,
+                supportingText = {
+                    (authState.nameError ?: if (isSubmitted && fullName.isBlank()) "Escribe tu nombre completo." else null)
+                        ?.let { Text(it) }
+                },
                 placeholder = { Text("Ej. Jerónimo Guerrero") },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                 singleLine = true,
@@ -442,10 +472,13 @@ fun RegisterScreen(
             // Email
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { email = it; if (!isLoading) viewModel.clearRegisterFeedback() },
                 label = { Text("Correo electrónico") },
-                isError = isSubmitted && (authState.emailError != null || !validEmail),
-                supportingText = { if (isSubmitted && (authState.emailError != null || !validEmail)) Text(authState.emailError ?: "Ingresa un correo válido.") },
+                isError = (isSubmitted && !validEmail) || authState.emailError != null,
+                supportingText = {
+                    (authState.emailError ?: if (isSubmitted && !validEmail) "Ingresa un correo válido." else null)
+                        ?.let { Text(it) }
+                },
                 placeholder = { Text("ejemplo@correo.com") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 singleLine = true,
@@ -459,10 +492,13 @@ fun RegisterScreen(
             // Password
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = { password = it; if (!isLoading) viewModel.clearRegisterFeedback() },
                 label = { Text("Contraseña (mínimo 8 caracteres)") },
-                isError = isSubmitted && password.length < 8,
-                supportingText = { if (isSubmitted && password.length < 8) Text("Usa al menos 8 caracteres.") },
+                isError = (isSubmitted && password.length < 8) || authState.passwordError != null,
+                supportingText = {
+                    (authState.passwordError ?: if (isSubmitted && password.length < 8) "Usa al menos 8 caracteres." else null)
+                        ?.let { Text(it) }
+                },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -483,7 +519,7 @@ fun RegisterScreen(
             // Confirm Password
             OutlinedTextField(
                 value = confirmPassword,
-                onValueChange = { confirmPassword = it },
+                onValueChange = { confirmPassword = it; if (!isLoading) viewModel.clearRegisterFeedback() },
                 label = { Text("Repetir contraseña") },
                 isError = isSubmitted && !passwordsMatch,
                 supportingText = { if (isSubmitted && !passwordsMatch) Text("Las contraseñas no coinciden.") },
@@ -529,7 +565,7 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            AnimatedVisibility(visible = isSubmitted) {
+            AnimatedVisibility(visible = registerResult is RequestResult.Success) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                     shape = RoundedCornerShape(12.dp),
@@ -542,7 +578,7 @@ fun RegisterScreen(
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Text(
-                            text = "¡Cuenta creada con éxito! Redirigiendo...",
+                            text = "¡Cuenta creada con éxito! Volviendo al inicio de sesión...",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -554,25 +590,29 @@ fun RegisterScreen(
             Button(
                 onClick = {
                     if (validForm) {
-                        if (viewModel.register(fullName, email.trim())) {
-                            isSubmitted = true
-                            onRegistered()
-                        }
+                        viewModel.register(fullName, email.trim(), password)
                     } else {
                         isSubmitted = true
-                        viewModel.register(fullName, email.trim())
-                        coroutineScope.launch { snackbarHostState.showSnackbar("Revisa los campos marcados antes de crear la cuenta.") }
                     }
                 },
+                enabled = !isLoading && registerResult !is RequestResult.Success,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
                     .testTag("submit_register_button"),
                 shape = RoundedCornerShape(26.dp)
             ) {
-                Icon(Icons.Default.PersonAdd, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Crear Cuenta", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Default.PersonAdd, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Crear Cuenta", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

@@ -1,11 +1,15 @@
 package com.servilocal.core.di
 
 import com.servilocal.core.data.repository.MockDataRepository
+import com.servilocal.data.repository.memory.SessionRepositoryImpl
+import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PostRepository
+import com.servilocal.domain.repository.SessionRepository
+import com.servilocal.domain.repository.UserRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -34,4 +38,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindModerationRepository(repository: MockDataRepository): ModerationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUserRepository(repository: UserRepositoryImpl): UserRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSessionRepository(repository: SessionRepositoryImpl): SessionRepository
 }
