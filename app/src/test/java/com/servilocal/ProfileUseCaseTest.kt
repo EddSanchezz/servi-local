@@ -12,6 +12,7 @@ import com.servilocal.domain.usecase.profile.AddPointsUseCase
 import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
 import com.servilocal.domain.usecase.profile.GetProfileStatsUseCase
 import com.servilocal.domain.usecase.profile.ObserveUserBadgesUseCase
+import com.servilocal.domain.usecase.user.GetCurrentUserUseCase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -39,7 +40,11 @@ class ProfileUseCaseTest {
         badges = BadgeRepositoryImpl()
         posts = MockDataRepository()
         addPoints = AddPointsUseCase(users)
-        getProfileStats = GetProfileStatsUseCase(sessions, users, posts, badges)
+        getProfileStats = GetProfileStatsUseCase(
+            GetCurrentUserUseCase(sessions, users),
+            posts,
+            badges
+        )
         observeUserBadges = ObserveUserBadgesUseCase(sessions, badges)
         checkAndAwardBadges = CheckAndAwardBadgesUseCase(
             sessions,

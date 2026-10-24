@@ -4,8 +4,7 @@ import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.repository.BadgeRepository
 import com.servilocal.domain.repository.PostRepository
-import com.servilocal.domain.repository.SessionRepository
-import com.servilocal.domain.repository.UserRepository
+import com.servilocal.domain.usecase.user.GetCurrentUserUseCase
 import jakarta.inject.Inject
 
 /**
@@ -13,14 +12,12 @@ import jakarta.inject.Inject
  * las estadísticas del perfil y del dashboard de gamificación.
  */
 class GetProfileStatsUseCase @Inject constructor(
-    private val sessionRepository: SessionRepository,
-    private val userRepository: UserRepository,
+    private val getCurrentUser: GetCurrentUserUseCase,
     private val postRepository: PostRepository,
     private val badgeRepository: BadgeRepository
 ) {
     suspend operator fun invoke(): ProfileStats? {
-        val session = sessionRepository.session.value ?: return null
-        val user = userRepository.findById(session.userId) ?: return null
+        val user = getCurrentUser() ?: return null
 
         val userPosts = postRepository.posts.value.filter { post ->
             post.providerId == user.id || post.providerName == user.name
