@@ -6,7 +6,7 @@ package com.servilocal.domain.model
  */
 
 data class UserProfile(
-    val id: String,
+    val id: Long,
     val name: String,
     val email: String,
     val role: UserRole,
@@ -37,7 +37,7 @@ data class ServicePost(
     val category: String,
     val description: String,
     val providerName: String,
-    val providerId: String? = null,
+    val providerId: Long? = null,
     val providerAvatar: String? = null,
     val providerLevel: String = "Maestro 🏆",
     val minPrice: Int = 25000,

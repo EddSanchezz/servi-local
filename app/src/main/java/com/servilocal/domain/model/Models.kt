@@ -60,7 +60,7 @@ enum class ReportStatus { PENDING, REVIEWED }
 
 /** Tabla users */
 data class User(
-    val id: String,
+    val id: Long = 0L,
     val name: String,
     val email: String,
     val passwordHash: String,
@@ -73,8 +73,8 @@ data class User(
 /** Tabla posts (la oferta de servicio) */
 data class Post(
     val id: String,
-    val userId: String,                     // autor / proveedor
-    val moderatorId: String? = null,        // quien verificó o rechazó
+    val userId: Long,                     // autor / proveedor
+    val moderatorId: Long? = null,        // quien verificó o rechazó
     val title: String,
     val category: PostCategory,
     val description: String,
@@ -105,7 +105,7 @@ data class PostLocation(
 data class Comment(
     val id: String,
     val postId: String,
-    val userId: String,
+    val userId: Long,
     val content: String,
     val createdAtMillis: Long = System.currentTimeMillis()
 )
@@ -113,7 +113,7 @@ data class Comment(
 /** Tabla likes ("Es importante" / "Me interesa") */
 data class Like(
     val id: String,
-    val userId: String,
+    val userId: Long,
     val postId: String
 )
 
@@ -124,7 +124,7 @@ data class Like(
 data class ServiceRequest(
     val id: String,
     val postId: String,
-    val clientId: String,
+    val clientId: Long,
     val contactPhone: String,
     val exactAddress: String,
     val problemDescription: String,
@@ -136,7 +136,7 @@ data class ServiceRequest(
 data class ChatMessage(
     val id: String,
     val serviceRequestId: String,
-    val senderId: String,
+    val senderId: Long,
     val message: String,
     val sentAtMillis: Long = System.currentTimeMillis()
 )
@@ -144,7 +144,7 @@ data class ChatMessage(
 /** Tabla notifications (se llama AppNotification para no chocar con android.app.Notification) */
 data class AppNotification(
     val id: String,
-    val userId: String,                     // destinatario
+    val userId: Long,                     // destinatario
     val title: String,
     val body: String,
     val type: NotificationType = NotificationType.SYSTEM,
@@ -166,7 +166,7 @@ data class Badge(
 /** Tabla user_badges (insignias ganadas por cada usuario) */
 data class UserBadge(
     val id: String,
-    val userId: String,
+    val userId: Long,
     val badgeId: String,
     val awardedAtMillis: Long = System.currentTimeMillis()
 )
@@ -174,7 +174,7 @@ data class UserBadge(
 /** Tabla reports (referencia polimórfica: targetType + targetId) */
 data class Report(
     val id: String,
-    val reporterId: String,
+    val reporterId: Long,
     val targetType: ReportTargetType,
     val targetId: String,
     val reason: String,
@@ -186,6 +186,6 @@ data class Report(
 
 /** Sesión en memoria (fase 2). No existe en el ERD. */
 data class UserSession(
-    val userId: String,
+    val userId: Long,
     val role: UserRole
 )

@@ -39,12 +39,12 @@ class MockDataRepository @Inject constructor(
 
     private val erdPosts = MutableStateFlow<List<Post>>(
         listOf(
-            Post("pub_1", "user_val_1", title = "Instalación Eléctrica Residencial y Reparaciones", category = PostCategory.HOGAR, description = "Ingeniero Eléctrico con certificación técnica oficial.", minPrice = 25000, maxPrice = 45000, status = PostStatus.APPROVED),
-            Post("pub_2", "user_val_1", title = "Plomería y Destapes de Urgencia 24/7", category = PostCategory.HOGAR, description = "Atención inmediata para fugas de agua y destapes.", minPrice = 25000, maxPrice = 50000, status = PostStatus.APPROVED),
-            Post("pub_3", "user_val_1", title = "Clases Particulares de Matemáticas y Física", category = PostCategory.EDUCACION, description = "Docente universitaria de matemáticas puras.", minPrice = 15000, maxPrice = 30000, status = PostStatus.APPROVED),
-            Post("pub_4", "user_val_1", title = "Paseo y Cuidado Canino Personalizado", category = PostCategory.MASCOTAS, description = "Paseos recreativos individuales o en grupos reducidos.", minPrice = 8000, maxPrice = 18000, status = PostStatus.APPROVED),
-            Post("pub_5", "user_val_1", title = "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas", category = PostCategory.HOGAR, description = "Servicio de cerrajería rápido a domicilio.", minPrice = 30000, maxPrice = 60000, status = PostStatus.PENDING_VERIFICATION),
-            Post("pub_6", "user_val_1", title = "Mantenimiento e Instalación de Tableros Eléctricos", category = PostCategory.TECNOLOGIA, description = "Levantamiento de planos y detección de fugas.", minPrice = 35000, maxPrice = 85000, status = PostStatus.PENDING_VERIFICATION)
+            Post("pub_1", 1L, title = "Instalación Eléctrica Residencial y Reparaciones", category = PostCategory.HOGAR, description = "Ingeniero Eléctrico con certificación técnica oficial.", minPrice = 25000, maxPrice = 45000, status = PostStatus.APPROVED),
+            Post("pub_2", 1L, title = "Plomería y Destapes de Urgencia 24/7", category = PostCategory.HOGAR, description = "Atención inmediata para fugas de agua y destapes.", minPrice = 25000, maxPrice = 50000, status = PostStatus.APPROVED),
+            Post("pub_3", 1L, title = "Clases Particulares de Matemáticas y Física", category = PostCategory.EDUCACION, description = "Docente universitaria de matemáticas puras.", minPrice = 15000, maxPrice = 30000, status = PostStatus.APPROVED),
+            Post("pub_4", 1L, title = "Paseo y Cuidado Canino Personalizado", category = PostCategory.MASCOTAS, description = "Paseos recreativos individuales o en grupos reducidos.", minPrice = 8000, maxPrice = 18000, status = PostStatus.APPROVED),
+            Post("pub_5", 1L, title = "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas", category = PostCategory.HOGAR, description = "Servicio de cerrajería rápido a domicilio.", minPrice = 30000, maxPrice = 60000, status = PostStatus.PENDING_VERIFICATION),
+            Post("pub_6", 1L, title = "Mantenimiento e Instalación de Tableros Eléctricos", category = PostCategory.TECNOLOGIA, description = "Levantamiento de planos y detección de fugas.", minPrice = 35000, maxPrice = 85000, status = PostStatus.PENDING_VERIFICATION)
         )
     )
 
@@ -399,7 +399,7 @@ class MockDataRepository @Inject constructor(
         _notifications.update { current -> current + notification }
     }
 
-    override suspend fun markRead(notificationId: String, userId: String, isRead: Boolean): Boolean {
+    override suspend fun markRead(notificationId: String, userId: Long, isRead: Boolean): Boolean {
         var updated = false
         _notifications.update { current ->
             current.map { notification ->
@@ -414,7 +414,7 @@ class MockDataRepository @Inject constructor(
         return updated
     }
 
-    override suspend fun markAllRead(userId: String) {
+    override suspend fun markAllRead(userId: Long) {
         _notifications.update { current ->
             current.map { notification ->
                 if (notification.userId == userId) notification.copy(isRead = true) else notification
@@ -435,7 +435,7 @@ class MockDataRepository @Inject constructor(
             category = "Hogar",
             description = "Ingeniero Eléctrico con certificación técnica oficial. Realizo diagnóstico, instalación y reparación de cableados domiciliarios.",
             providerName = "Carlos Mendoza",
-            providerId = "user_car_1",
+            providerId = 2L,
             providerLevel = "Maestro 🏆",
             minPrice = 25000,
             maxPrice = 45000,
@@ -479,7 +479,7 @@ class MockDataRepository @Inject constructor(
             category = "Educación",
             description = "Docente universitaria de matemáticas puras. Apoyo escolar y universitario.",
             providerName = "Valentina M.",
-            providerId = "user_val_1",
+            providerId = 1L,
             providerLevel = "Maestro 🏆",
             minPrice = 15000,
             maxPrice = 30000,
@@ -636,7 +636,7 @@ class MockDataRepository @Inject constructor(
         return listOf(
             AppNotification(
                 id = "notif_1",
-                userId = "user_val_1",
+                userId = 1L,
                 title = "Nueva solicitud de servicio recibida",
                 body = "Francisca Valenzuela ha solicitado tu servicio.",
                 type = NotificationType.REQUEST,
@@ -645,7 +645,7 @@ class MockDataRepository @Inject constructor(
             ),
             AppNotification(
                 id = "notif_2",
-                userId = "user_val_1",
+                userId = 1L,
                 title = "¡Publicación aprobada!",
                 body = "La publicación 'Instalación Eléctrica' está disponible en el Feed.",
                 type = NotificationType.SYSTEM,
@@ -654,7 +654,7 @@ class MockDataRepository @Inject constructor(
             ),
             AppNotification(
                 id = "notif_3",
-                userId = "user_val_1",
+                userId = 1L,
                 title = "Nuevo comentario en tu anuncio",
                 body = "Matías Sepúlveda preguntó por instalación de cargadores.",
                 type = NotificationType.COMMENT,
@@ -663,7 +663,7 @@ class MockDataRepository @Inject constructor(
             ),
             AppNotification(
                 id = "notif_4",
-                userId = "user_val_1",
+                userId = 1L,
                 title = "¡Nuevo logro desbloqueado: Súper Proveedor!",
                 body = "Completaste 10 servicios con 5 estrellas.",
                 type = NotificationType.ACHIEVEMENT,
@@ -672,7 +672,7 @@ class MockDataRepository @Inject constructor(
             ),
             AppNotification(
                 id = "notif_5",
-                userId = "user_val_1",
+                userId = 1L,
                 title = "A 5 vecinos les interesó tu servicio",
                 body = "Tu publicación tuvo alta interacción.",
                 type = NotificationType.INTERACTION,
@@ -694,7 +694,7 @@ class MockDataRepository @Inject constructor(
         }.timeInMillis
 
     private fun defaultCurrentUser(): UserProfile = UserProfile(
-        id = "user_val_1",
+        id = 1L,
         name = "Valentina Morales",
         email = "valentina.morales@servilocal.co",
         role = UserRole.USER,
@@ -705,7 +705,7 @@ class MockDataRepository @Inject constructor(
     )
 
     private fun defaultModeratorUser(): UserProfile = UserProfile(
-        id = "mod_ale_1",
+        id = 3L,
         name = "Alejandro Vargas",
         email = "alejandro.vargas@staff.servilocal.pe",
         role = UserRole.MODERATOR,

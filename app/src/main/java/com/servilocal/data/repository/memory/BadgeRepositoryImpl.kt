@@ -20,8 +20,8 @@ class BadgeRepositoryImpl @Inject constructor() : BadgeRepository {
     private val _userBadges = MutableStateFlow(seedUserBadges())
     override val userBadges: StateFlow<List<UserBadge>> = _userBadges.asStateFlow()
 
-    override suspend fun award(userId: String, badgeId: String): Boolean {
-        if (userId.isBlank() || _badges.value.none { it.id == badgeId }) return false
+    override suspend fun award(userId: Long, badgeId: String): Boolean {
+        if (userId <= 0L || _badges.value.none { it.id == badgeId }) return false
 
         val alreadyAwarded = _userBadges.value.any {
             it.userId == userId && it.badgeId == badgeId
@@ -70,7 +70,7 @@ class BadgeRepositoryImpl @Inject constructor() : BadgeRepository {
     )
 
     private fun seedUserBadges(): List<UserBadge> = listOf(
-        UserBadge(id = "user_badge_val_1", userId = "user_val_1", badgeId = "badge_1"),
-        UserBadge(id = "user_badge_val_2", userId = "user_val_1", badgeId = "badge_2")
+        UserBadge(id = "user_badge_val_1", userId = 1L, badgeId = "badge_1"),
+        UserBadge(id = "user_badge_val_2", userId = 1L, badgeId = "badge_2")
     )
 }

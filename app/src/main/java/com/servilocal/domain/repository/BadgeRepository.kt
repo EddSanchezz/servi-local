@@ -12,5 +12,5 @@ interface BadgeRepository {
     val userBadges: StateFlow<List<UserBadge>>
 
     /** Otorga una insignia una sola vez. Devuelve true si se otorgó ahora. */
-    suspend fun award(userId: String, badgeId: String): Boolean
+    suspend fun award(userId: Long, badgeId: String): Boolean
 }

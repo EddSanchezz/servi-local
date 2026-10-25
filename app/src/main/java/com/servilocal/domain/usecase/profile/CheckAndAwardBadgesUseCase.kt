@@ -19,7 +19,7 @@ class CheckAndAwardBadgesUseCase @Inject constructor(
     private val badgeRepository: BadgeRepository,
     private val createNotification: CreateNotificationUseCase
 ) {
-    suspend operator fun invoke(userId: String? = null): List<Badge> {
+    suspend operator fun invoke(userId: Long? = null): List<Badge> {
         val targetUserId = userId ?: sessionRepository.session.value?.userId ?: return emptyList()
         val user = userRepository.findById(targetUserId) ?: return emptyList()
         val awardedIds = badgeRepository.userBadges.value

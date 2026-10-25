@@ -15,7 +15,7 @@ class SessionRepositoryImpl @Inject constructor() : SessionRepository {
     private val _session = MutableStateFlow<UserSession?>(null)
     override val session: StateFlow<UserSession?> = _session.asStateFlow()
 
-    override suspend fun saveSession(userId: String, role: UserRole) {
+    override suspend fun saveSession(userId: Long, role: UserRole) {
         _session.value = UserSession(userId = userId, role = role)
     }
 

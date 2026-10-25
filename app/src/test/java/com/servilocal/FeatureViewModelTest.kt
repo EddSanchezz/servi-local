@@ -107,7 +107,7 @@ class FeatureViewModelTest {
 
         assertTrue(viewModel.uiState.value.loginResult is RequestResult.Success)
         assertEquals(UserRole.USER, viewModel.uiState.value.authenticatedRole)
-        assertEquals("user_val_1", sessions.session.value?.userId)
+        assertEquals(1L, sessions.session.value?.userId)
     }
 
     @Test

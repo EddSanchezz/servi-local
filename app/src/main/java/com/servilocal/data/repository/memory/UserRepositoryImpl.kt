@@ -9,19 +9,27 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import java.util.concurrent.atomic.AtomicLong
 
 @Singleton
 class UserRepositoryImpl @Inject constructor() : UserRepository {
 
     private val users = MutableStateFlow(seedUsers())
+    private val idCounter = AtomicLong(seedUsers().maxOfOrNull { it.id } ?: 0L)
 
-    override suspend fun save(user: User) {
-        users.update { current ->
-            current.filterNot { it.id == user.id } + user
+    override suspend fun save(user: User): User {
+        val userToSave = if (user.id == 0L) {
+            user.copy(id = idCounter.incrementAndGet())
+        } else {
+            user
         }
+        users.update { current ->
+            current.filterNot { it.id == userToSave.id } + userToSave
+        }
+        return userToSave
     }
 
-    override suspend fun findById(id: String): User? =
+    override suspend fun findById(id: Long): User? =
         users.value.firstOrNull { it.id == id }
 
     override suspend fun findByEmail(email: String): User? {
@@ -34,7 +42,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         return user.takeIf { it.passwordHash == PasswordHasher.hash(password) }
     }
 
-    override suspend fun updatePassword(userId: String, passwordHash: String) {
+    override suspend fun updatePassword(userId: Long, passwordHash: String) {
         users.update { current ->
             current.map { user ->
                 if (user.id == userId) user.copy(passwordHash = passwordHash) else user
@@ -44,7 +52,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
 
     private fun seedUsers(): List<User> = listOf(
         User(
-            id = "user_val_1",
+            id = 1L,
             name = "Valentina Morales",
             email = "valentina.morales@servilocal.co",
             passwordHash = PasswordHasher.hash("servilocal2026"),
@@ -53,7 +61,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
             level = UserLevel.MAESTRO
         ),
         User(
-            id = "user_car_1",
+            id = 2L,
             name = "Carlos Mendoza",
             email = "carlos.mendoza@servilocal.co",
             passwordHash = PasswordHasher.hash("servilocal2026"),
@@ -62,7 +70,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
             level = UserLevel.PROFESIONAL
         ),
         User(
-            id = "mod_ale_1",
+            id = 3L,
             name = "Alejandro Vargas",
             email = "alejandro.vargas@staff.servilocal.pe",
             passwordHash = PasswordHasher.hash("servilocal2026"),
@@ -71,7 +79,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
             level = UserLevel.MAESTRO
         ),
         User(
-            id = "user_jero_1",
+            id = 4L,
             name = "Jero",
             email = "my@gmail.com",
             passwordHash = PasswordHasher.hash("Jero1234"),

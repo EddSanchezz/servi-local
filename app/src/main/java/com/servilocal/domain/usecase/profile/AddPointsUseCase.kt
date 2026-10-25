@@ -13,7 +13,7 @@ import jakarta.inject.Inject
 class AddPointsUseCase @Inject constructor(
     private val userRepository: UserRepository
 ) {
-    suspend operator fun invoke(userId: String, points: Int): User? {
+    suspend operator fun invoke(userId: Long, points: Int): User? {
         val user = userRepository.findById(userId) ?: return null
         val updatedPoints = (user.points + points).coerceAtLeast(0)
         val updatedUser = user.copy(

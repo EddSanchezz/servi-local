@@ -36,12 +36,12 @@ class NotificationUseCaseTest {
 
     @Test
     fun `observe notifications filters by session and sorts the newest first`() = runTest {
-        sessions.saveSession("user_val_1", UserRole.USER)
+        sessions.saveSession(1L, UserRole.USER)
 
         val result = observeNotifications().first()
 
         assertEquals(5, result.size)
-        assertTrue(result.all { it.userId == "user_val_1" })
+        assertTrue(result.all { it.userId == 1L })
         assertEquals(result.sortedByDescending { it.createdAtMillis }, result)
     }
 
@@ -52,10 +52,10 @@ class NotificationUseCaseTest {
 
     @Test
     fun `create notification delivers the event to the recipient`() = runTest {
-        sessions.saveSession("user_val_1", UserRole.USER)
+        sessions.saveSession(1L, UserRole.USER)
 
         val created = createNotification(
-            userId = "user_val_1",
+            userId = 1L,
             title = "Nuevo comentario",
             body = "Alguien respondió a tu publicación.",
             type = NotificationType.COMMENT,
@@ -69,9 +69,9 @@ class NotificationUseCaseTest {
 
     @Test
     fun `mark notification read only touches the session user`() = runTest {
-        sessions.saveSession("user_val_1", UserRole.USER)
-        val own = createNotification("user_val_1", "Aviso", "Mensaje para Valentina")
-        val foreign = createNotification("user_car_1", "Aviso", "Mensaje para Carlos")
+        sessions.saveSession(1L, UserRole.USER)
+        val own = createNotification(1L, "Aviso", "Mensaje para Valentina")
+        val foreign = createNotification(2L, "Aviso", "Mensaje para Carlos")
         assertNotNull(own)
         assertNotNull(foreign)
 
@@ -86,14 +86,14 @@ class NotificationUseCaseTest {
 
     @Test
     fun `mark all read only affects the notifications of the session user`() = runTest {
-        sessions.saveSession("user_val_1", UserRole.USER)
-        createNotification("user_car_1", "Aviso", "Mensaje para Carlos")
+        sessions.saveSession(1L, UserRole.USER)
+        createNotification(2L, "Aviso", "Mensaje para Carlos")
 
         assertTrue(markNotificationRead())
 
         val all = notifications.notifications.value
-        assertTrue(all.filter { it.userId == "user_val_1" }.all { it.isRead })
-        assertTrue(all.filter { it.userId == "user_car_1" }.none { it.isRead })
+        assertTrue(all.filter { it.userId == 1L }.all { it.isRead })
+        assertTrue(all.filter { it.userId == 2L }.none { it.isRead })
     }
 
     @Test

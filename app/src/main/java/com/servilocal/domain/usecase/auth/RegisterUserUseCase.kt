@@ -6,7 +6,6 @@ import com.servilocal.domain.model.User
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
-import java.util.UUID
 
 sealed interface RegisterResult {
     data class Success(val user: User) : RegisterResult
@@ -29,14 +28,14 @@ class RegisterUserUseCase @Inject constructor(
         if (userRepository.findByEmail(normalizedEmail) != null) return RegisterResult.EmailAlreadyExists
 
         val user = User(
-            id = UUID.randomUUID().toString(),
+            id = 0L,
             name = normalizedName,
             email = normalizedEmail,
             passwordHash = PasswordHasher.hash(password),
             role = UserRole.USER
         )
-        userRepository.save(user)
-        return RegisterResult.Success(user)
+        val savedUser = userRepository.save(user)
+        return RegisterResult.Success(savedUser)
     }
 
     private companion object {

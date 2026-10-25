@@ -56,7 +56,7 @@ class ProfileUseCaseTest {
 
     @Test
     fun `add points recalculates the level`() = runTest {
-        val updated = addPoints("user_val_1", 50)
+        val updated = addPoints(1L, 50)
 
         assertEquals(270, updated?.points)
         assertEquals(UserLevel.EXPERTO, updated?.level)
@@ -64,20 +64,20 @@ class ProfileUseCaseTest {
 
     @Test
     fun `check and award badges grants new badges and creates a notification`() = runTest {
-        sessions.saveSession("user_val_1", UserRole.USER)
-        addPoints("user_val_1", 50)
+        sessions.saveSession(1L, UserRole.USER)
+        addPoints(1L, 50)
 
         val awarded = checkAndAwardBadges()
 
         assertEquals(listOf("badge_3"), awarded.map { it.id })
         assertTrue(
             badges.userBadges.value.any {
-                it.userId == "user_val_1" && it.badgeId == "badge_3"
+                it.userId == 1L && it.badgeId == "badge_3"
             }
         )
         assertTrue(
             posts.notifications.value.any {
-                it.userId == "user_val_1" &&
+                it.userId == 1L &&
                     it.type == NotificationType.ACHIEVEMENT &&
                     it.title.contains("Súper Proveedor")
             }
@@ -86,8 +86,8 @@ class ProfileUseCaseTest {
 
     @Test
     fun `check and award badges does not duplicate an existing badge`() = runTest {
-        sessions.saveSession("user_val_1", UserRole.USER)
-        addPoints("user_val_1", 50)
+        sessions.saveSession(1L, UserRole.USER)
+        addPoints(1L, 50)
 
         assertEquals(1, checkAndAwardBadges().size)
         assertTrue(checkAndAwardBadges().isEmpty())
@@ -95,7 +95,7 @@ class ProfileUseCaseTest {
 
     @Test
     fun `observe user badges exposes the catalog with unlocked state`() = runTest {
-        sessions.saveSession("user_val_1", UserRole.USER)
+        sessions.saveSession(1L, UserRole.USER)
 
         val catalog = observeUserBadges().first()
 
@@ -107,12 +107,12 @@ class ProfileUseCaseTest {
 
     @Test
     fun `profile stats combine points posts and badges`() = runTest {
-        sessions.saveSession("user_val_1", UserRole.USER)
+        sessions.saveSession(1L, UserRole.USER)
 
         val stats = getProfileStats()
 
         assertNotNull(stats)
-        assertEquals("user_val_1", stats?.user?.id)
+        assertEquals(1L, stats?.user?.id)
         assertEquals(220, stats?.user?.points)
         assertEquals(2, stats?.badgeCount)
         assertTrue((stats?.totalPosts ?: 0) >= 1)

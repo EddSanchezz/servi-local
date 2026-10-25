@@ -7,6 +7,6 @@ import kotlinx.coroutines.flow.StateFlow
 interface SessionRepository {
     val session: StateFlow<UserSession?>
 
-    suspend fun saveSession(userId: String, role: UserRole)
+    suspend fun saveSession(userId: Long, role: UserRole)
     suspend fun clearSession()
 }

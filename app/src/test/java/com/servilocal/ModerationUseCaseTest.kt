@@ -93,7 +93,7 @@ class ModerationUseCaseTest {
 
     private class FakeAuthRepository(
         role: UserRole = UserRole.MODERATOR,
-        userId: String = "mod_1",
+        userId: Long = 3L,
         userName: String = "Mod"
     ) : AuthRepository {
         private val _user = MutableStateFlow(
