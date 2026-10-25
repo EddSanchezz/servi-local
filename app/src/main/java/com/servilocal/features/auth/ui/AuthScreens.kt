@@ -64,7 +64,7 @@ fun LoginScreen(
 
     Box(Modifier.fillMaxSize()) {
     Surface(
-        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
+        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding(),
         color = MaterialTheme.colorScheme.background
     ) {
         Column(
@@ -395,7 +395,7 @@ fun RegisterScreen(
 
     Box(Modifier.fillMaxSize()) {
     Surface(
-        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
+        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding(),
         color = MaterialTheme.colorScheme.background
     ) {
         Column(

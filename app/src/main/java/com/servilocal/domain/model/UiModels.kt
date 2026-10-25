@@ -126,6 +126,7 @@ data class ModerationReportItem(
     val targetTitle: String,
     val description: String,
     val targetPostId: String,
+    val reporterId: Long = 1L,
     val reporterName: String = "Usuario",
     val status: ReportStatus = ReportStatus.PENDING,
     val createdAtMillis: Long = System.currentTimeMillis()

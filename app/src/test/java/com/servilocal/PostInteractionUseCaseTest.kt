@@ -2,6 +2,7 @@ package com.servilocal
 
 import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.domain.model.PostStatus
+import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.posts.AddPostCommentUseCase
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import org.junit.Assert.assertEquals
@@ -14,10 +15,10 @@ class PostInteractionUseCaseTest {
     private fun repository() = MockDataRepository()
 
     private fun toggleLikeUseCase(repository: MockDataRepository) =
-        TogglePostLikeUseCase(repository, repository, repository)
+        TogglePostLikeUseCase(repository, repository, repository, CreateNotificationUseCase(repository))
 
     private fun addCommentUseCase(repository: MockDataRepository) =
-        AddPostCommentUseCase(repository, repository, repository)
+        AddPostCommentUseCase(repository, repository, repository, CreateNotificationUseCase(repository))
 
     @Test
     fun `a user can like another users post only once and remove that like`() {

@@ -2,9 +2,7 @@ package com.servilocal.features.profile.ui
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -56,7 +56,7 @@ fun UserProfileScreen(
     var editValidationMessage by remember { mutableStateOf(false) }
     val ownedPosts = posts.filter { it.providerId == currentUser.id || it.providerName == currentUser.name }
     val votedPosts = posts.filter { it.userUpvoted }
-    val displayBadges = badges.ifEmpty { currentUser.badges }
+    val displayBadges = badges
     val points = stats?.user?.points ?: currentUser.points
     val nextLevelPoints = stats?.nextLevelPoints ?: currentUser.nextLevelPoints
     val progress = stats?.progress ?: if (nextLevelPoints > 0) {
@@ -290,7 +290,7 @@ fun UserProfileScreen(
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
                         ProfileNavRow(
-                            icon = Icons.Default.Assignment,
+                            icon = Icons.AutoMirrored.Filled.Assignment,
                             title = "Mis Publicaciones",
                             subtitle = "Gestionar servicios activos e inactivos",
                             onClick = { activeDialog = "Mis Publicaciones" }
@@ -352,7 +352,7 @@ fun UserProfileScreen(
                     ),
                     modifier = Modifier.fillMaxWidth().height(48.dp).testTag("logout_button")
                 ) {
-                    Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Cerrar Sesión", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                 }

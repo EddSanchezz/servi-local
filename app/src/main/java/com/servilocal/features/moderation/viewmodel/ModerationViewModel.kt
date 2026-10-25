@@ -14,6 +14,7 @@ import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseC
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
 import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
 import com.servilocal.domain.usecase.moderation.ResolveReportUseCase
+import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
@@ -40,11 +41,12 @@ class ModerationViewModel @Inject constructor(
     private val moderationRepository: ModerationRepository,
     observeNotifications: ObserveNotificationsUseCase,
     private val authRepository: AuthRepository,
+    private val createNotification: CreateNotificationUseCase,
     private val observePendingPostsUseCase: ObservePendingPostsUseCase = ObservePendingPostsUseCase(postRepository),
     private val filterPendingPostsByCategoryUseCase: FilterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
-    private val approvePendingPostUseCase: ApprovePendingPostUseCase = ApprovePendingPostUseCase(postRepository, authRepository),
-    private val rejectPendingPostUseCase: RejectPendingPostUseCase = RejectPendingPostUseCase(postRepository, authRepository),
-    private val resolveReportUseCase: ResolveReportUseCase = ResolveReportUseCase(moderationRepository, postRepository, authRepository)
+    private val approvePendingPostUseCase: ApprovePendingPostUseCase = ApprovePendingPostUseCase(postRepository, authRepository, createNotification),
+    private val rejectPendingPostUseCase: RejectPendingPostUseCase = RejectPendingPostUseCase(postRepository, authRepository, createNotification),
+    private val resolveReportUseCase: ResolveReportUseCase = ResolveReportUseCase(moderationRepository, postRepository, authRepository, createNotification)
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ModerationUiState())

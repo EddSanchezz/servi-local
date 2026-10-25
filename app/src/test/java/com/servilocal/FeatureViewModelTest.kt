@@ -228,7 +228,7 @@ class FeatureViewModelTest {
                 CreateNotificationUseCase(repository)
             )
         )
-        val viewModel = CreatePostViewModel(CreateServicePostUseCase(repository), awardPublicationPoints)
+        val viewModel = CreatePostViewModel(CreateServicePostUseCase(repository, repository, CreateNotificationUseCase(repository)), awardPublicationPoints)
 
         assertFalse(viewModel.createPost("", "Hogar", "", 0, 0, false, ""))
         assertNotNull(viewModel.uiState.value.submissionError)
@@ -244,7 +244,7 @@ class FeatureViewModelTest {
             repository,
             repository,
             ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
-            TogglePostLikeUseCase(repository, repository, repository)
+            TogglePostLikeUseCase(repository, repository, repository, CreateNotificationUseCase(repository))
         )
 
         viewModel.setSearchQuery("electricista")
@@ -263,7 +263,8 @@ class FeatureViewModelTest {
             repository,
             repository,
             ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
-            repository
+            repository,
+            CreateNotificationUseCase(repository)
         )
 
         assertTrue(repository.currentUser.value.workingHours.contains("sábado"))

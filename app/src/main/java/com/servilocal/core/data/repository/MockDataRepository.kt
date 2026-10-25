@@ -532,6 +532,7 @@ class MockDataRepository @Inject constructor(
                     targetTitle = targetTitle,
                     description = description,
                     targetPostId = targetPostId,
+                    reporterId = currentUser.id,
                     reporterName = currentUser.name
                 )
             ) + list
@@ -628,7 +629,7 @@ class MockDataRepository @Inject constructor(
         _reports.update { list -> list.filterNot { it.targetPostId == postId } }
     }
 
-    override suspend fun create(notification: AppNotification) {
+    override fun create(notification: AppNotification) {
         _notifications.update { current -> current + notification }
     }
 

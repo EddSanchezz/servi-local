@@ -16,6 +16,7 @@ import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
 import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
 import com.servilocal.domain.usecase.moderation.ResolveReportUseCase
+import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import kotlinx.coroutines.Dispatchers
@@ -223,7 +224,7 @@ class ModerationUseCaseTest {
 
         val postRepo = FakePostRepository(listOf(pendingPost, approvedPost))
         val authRepo = FakeAuthRepository(UserRole.MODERATOR)
-        val useCase = ApprovePendingPostUseCase(postRepo, authRepo)
+        val useCase = ApprovePendingPostUseCase(postRepo, authRepo, CreateNotificationUseCase(MockDataRepository()))
 
         val successFirst = useCase("post_pending")
         assertTrue(successFirst)
@@ -243,12 +244,12 @@ class ModerationUseCaseTest {
 
         val postRepo = FakePostRepository(listOf(pendingPost))
         val userAuthRepo = FakeAuthRepository(UserRole.USER)
-        val rejectUseCaseUser = RejectPendingPostUseCase(postRepo, userAuthRepo)
+        val rejectUseCaseUser = RejectPendingPostUseCase(postRepo, userAuthRepo, CreateNotificationUseCase(MockDataRepository()))
 
         assertFalse(rejectUseCaseUser("post_pending", "Spam", "Notas"))
 
         val modAuthRepo = FakeAuthRepository(UserRole.MODERATOR)
-        val rejectUseCaseMod = RejectPendingPostUseCase(postRepo, modAuthRepo)
+        val rejectUseCaseMod = RejectPendingPostUseCase(postRepo, modAuthRepo, CreateNotificationUseCase(MockDataRepository()))
 
         // Blank reason fails
         assertFalse(rejectUseCaseMod("post_pending", "", "Notas"))
@@ -293,7 +294,7 @@ class ModerationUseCaseTest {
         val modRepo = FakeModerationRepository()
         modRepo.createReport("Estafa", "Detalles", "P1", "post_1")
         val reportId = modRepo.reports.value.first().id
-        val useCase = ResolveReportUseCase(modRepo, postRepo, authRepo)
+        val useCase = ResolveReportUseCase(modRepo, postRepo, authRepo, CreateNotificationUseCase(MockDataRepository()))
 
         assertTrue(useCase(reportId, ReportResolution.DISMISSED, "No se pudo comprobar el cobro externo"))
         assertEquals(0, modRepo.reports.value.size)
@@ -311,7 +312,7 @@ class ModerationUseCaseTest {
         val modRepo = FakeModerationRepository()
         modRepo.createReport("Solicitud de pago externo", "Detalles", "P1", "post_1")
         val reportId = modRepo.reports.value.first().id
-        val useCase = ResolveReportUseCase(modRepo, postRepo, authRepo)
+        val useCase = ResolveReportUseCase(modRepo, postRepo, authRepo, CreateNotificationUseCase(MockDataRepository()))
 
         assertTrue(
             useCase(
@@ -336,7 +337,7 @@ class ModerationUseCaseTest {
         val modRepo = FakeModerationRepository()
         modRepo.createReport("Estafa", "Detalles", "P1", "post_1")
         val reportId = modRepo.reports.value.first().id
-        val useCase = ResolveReportUseCase(modRepo, postRepo, authRepo)
+        val useCase = ResolveReportUseCase(modRepo, postRepo, authRepo, CreateNotificationUseCase(MockDataRepository()))
 
         assertFalse(useCase(reportId, ReportResolution.DISMISSED, "Comentario"))
         assertEquals(1, modRepo.reports.value.size)
@@ -356,7 +357,8 @@ class ModerationUseCaseTest {
             postRepository = postRepo,
             moderationRepository = modRepo,
             observeNotifications = ObserveNotificationsUseCase(SessionRepositoryImpl(), notifRepo),
-            authRepository = authRepo
+            authRepository = authRepo,
+            createNotification = CreateNotificationUseCase(notifRepo)
         )
 
         testScheduler.advanceUntilIdle()

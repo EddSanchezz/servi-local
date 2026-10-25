@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 interface NotificationRepository {
     val notifications: StateFlow<List<AppNotification>>
 
-    suspend fun create(notification: AppNotification)
+    fun create(notification: AppNotification)
 
     /** Marca una notificación solo si pertenece al usuario indicado. */
     suspend fun markRead(notificationId: String, userId: Long, isRead: Boolean): Boolean

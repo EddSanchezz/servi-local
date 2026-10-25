@@ -13,7 +13,7 @@ import java.util.UUID
 class CreateNotificationUseCase @Inject constructor(
     private val notificationRepository: NotificationRepository
 ) {
-    suspend operator fun invoke(
+    operator fun invoke(
         userId: Long,
         title: String,
         body: String,

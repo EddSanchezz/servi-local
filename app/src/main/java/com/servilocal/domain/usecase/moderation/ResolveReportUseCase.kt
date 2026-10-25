@@ -1,5 +1,6 @@
 package com.servilocal.domain.usecase.moderation
 
+import com.servilocal.domain.model.NotificationType
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ReportResolution
 import com.servilocal.domain.model.ReportStatus
@@ -7,6 +8,7 @@ import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.PostRepository
+import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import jakarta.inject.Inject
 
 /**
@@ -19,7 +21,8 @@ import jakarta.inject.Inject
 class ResolveReportUseCase @Inject constructor(
     private val moderationRepository: ModerationRepository,
     private val postRepository: PostRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val createNotification: CreateNotificationUseCase
 ) {
     operator fun invoke(
         reportId: String,
@@ -37,7 +40,8 @@ class ResolveReportUseCase @Inject constructor(
         if (statusChange != null && statusChange != PostStatus.REJECTED && statusChange != PostStatus.FINISHED) {
             return false
         }
-        if (statusChange != null && postRepository.posts.value.none { it.id == report.targetPostId }) {
+        val post = postRepository.posts.value.firstOrNull { it.id == report.targetPostId }
+        if (statusChange != null && post == null) {
             return false
         }
 
@@ -45,14 +49,34 @@ class ResolveReportUseCase @Inject constructor(
             return false
         }
 
-        if (statusChange != null) {
+        if (statusChange != null && post != null) {
             postRepository.moderatePost(
                 postId = report.targetPostId,
                 status = statusChange,
                 reason = if (statusChange == PostStatus.REJECTED) "Reporte: ${report.reasonTitle}" else null,
                 notes = moderatorComment.trim()
             )
+
+            val authorId = post.providerId ?: 2L
+            val statusLabel = if (statusChange == PostStatus.REJECTED) "rechazada" else "finalizada"
+            createNotification(
+                userId = authorId,
+                title = "Publicación $statusLabel por reporte",
+                body = "Tu publicación '${post.title}' fue $statusLabel tras la revisión de un reporte. Comentario del moderador: ${moderatorComment.trim()}",
+                type = NotificationType.SYSTEM,
+                relatedPostId = post.id
+            )
         }
+
+        // Notificar al denunciante
+        createNotification(
+            userId = report.reporterId,
+            title = "Estado de reporte",
+            body = "El reporte sobre '${report.targetTitle}' ha sido resuelto por moderación.",
+            type = NotificationType.SYSTEM,
+            relatedPostId = report.targetPostId
+        )
+
         return true
     }
 }
