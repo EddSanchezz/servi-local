@@ -4,41 +4,32 @@ import androidx.lifecycle.ViewModel
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.PostRepository
-import com.servilocal.domain.usecase.chat.CreateServiceRequestUseCase
+import com.servilocal.domain.usecase.chat.StartConversationUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-
-data class ServiceDetailUiState(val showRequestSheet: Boolean = false)
 
 @HiltViewModel
 class ServiceDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
-    private val createServiceRequestUseCase: CreateServiceRequestUseCase,
+    private val startConversationUseCase: StartConversationUseCase,
     private val moderationRepository: ModerationRepository,
     private val reportPostUseCase: ReportPostUseCase = ReportPostUseCase(postRepository, authRepository, moderationRepository)
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(ServiceDetailUiState())
-    val uiState: StateFlow<ServiceDetailUiState> = _uiState.asStateFlow()
     val posts = postRepository.posts
     val currentUser = authRepository.currentUser
 
-    fun showRequestDialog(show: Boolean) = _uiState.update { it.copy(showRequestSheet = show) }
+    fun startConversation(postId: String): String? {
+        val post = posts.value.firstOrNull { it.id == postId } ?: return null
+        if (post.providerId == currentUser.value.id) return null
+        return startConversationUseCase(postId)
+    }
     fun toggleUpvote(postId: String) = postRepository.toggleUpvote(postId)
     fun addComment(postId: String, text: String) {
         val post = posts.value.firstOrNull { it.id == postId } ?: return
         val author = currentUser.value.name
         postRepository.addComment(postId, text, author, author == post.providerName)
-    }
-    fun submitServiceRequest(postId: String, name: String, contact: String, address: String, description: String): String {
-        val chatId = createServiceRequestUseCase(postId, name, contact, address, description)
-        showRequestDialog(false)
-        return chatId
     }
     fun reportPost(postId: String, reason: String, description: String): Boolean {
         return reportPostUseCase(postId, reason, description)

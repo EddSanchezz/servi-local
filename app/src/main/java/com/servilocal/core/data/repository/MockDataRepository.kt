@@ -76,7 +76,20 @@ class MockDataRepository @Inject constructor(
             if (chat.clientId == currentUserId || chat.providerId == currentUserId) {
                 val isClient = chat.clientId == currentUserId
                 val recipient = if (isClient) chat.providerName else chat.clientName
-                chat.copy(isClientRole = isClient, recipientName = recipient)
+                val currentUserName = _currentUser.value.name
+                val normalizedMessages = chat.messages.map { message ->
+                    when (message.senderName) {
+                        chat.clientName -> message.copy(isFromMe = chat.clientId == currentUserId)
+                        chat.providerName -> message.copy(isFromMe = chat.providerId == currentUserId)
+                        currentUserName -> message.copy(isFromMe = true)
+                        else -> message
+                    }
+                }
+                chat.copy(
+                    isClientRole = isClient,
+                    recipientName = recipient,
+                    messages = normalizedMessages
+                )
             } else {
                 null
             }
@@ -202,6 +215,74 @@ class MockDataRepository @Inject constructor(
         return newPost
     }
 
+    override fun updatePost(
+        postId: String,
+        title: String,
+        category: String,
+        description: String,
+        minPrice: Int,
+        maxPrice: Int,
+        isPriceToAgree: Boolean,
+        location: String
+    ): Boolean {
+        val post = _posts.value.firstOrNull { it.id == postId } ?: return false
+        if (!canManagePost(post)) return false
+        if (title.isBlank() || description.isBlank() || location.isBlank()) return false
+        if (!isPriceToAgree && (minPrice <= 0 || maxPrice < minPrice)) return false
+
+        val categoryEnum = try {
+            PostCategory.valueOf(category.uppercase())
+        } catch (_: Exception) {
+            PostCategory.HOGAR
+        }
+
+        _posts.update { list ->
+            list.map {
+                if (it.id == postId) {
+                    it.copy(
+                        title = title,
+                        category = category,
+                        description = description,
+                        minPrice = minPrice,
+                        maxPrice = maxPrice,
+                        isPriceToAgree = isPriceToAgree,
+                        location = location
+                    )
+                } else it
+            }
+        }
+        erdPosts.update { list ->
+            list.map {
+                if (it.id == postId) {
+                    it.copy(
+                        title = title,
+                        category = categoryEnum,
+                        description = description,
+                        minPrice = minPrice,
+                        maxPrice = maxPrice
+                    )
+                } else it
+            }
+        }
+        return true
+    }
+
+    override fun finishPost(postId: String): Boolean {
+        val post = _posts.value.firstOrNull { it.id == postId } ?: return false
+        if (!canManagePost(post)) return false
+
+        _posts.update { list ->
+            list.map { if (it.id == postId) it.copy(status = PostStatus.FINISHED) else it }
+        }
+        erdPosts.update { list ->
+            list.map { if (it.id == postId) it.copy(status = PostStatus.FINISHED) else it }
+        }
+        return true
+    }
+
+    private fun canManagePost(post: ServicePost): Boolean =
+        post.providerId == _currentUser.value.id && post.status == PostStatus.APPROVED
+
     override fun approvePost(postId: String) {
         erdPosts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it } }
         _posts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it } }
@@ -216,6 +297,42 @@ class MockDataRepository @Inject constructor(
                 } else post
             }
         }
+    }
+
+    override fun moderatePost(
+        postId: String,
+        status: PostStatus,
+        reason: String?,
+        notes: String?
+    ): Boolean {
+        if (_moderatorUser.value.role != UserRole.MODERATOR) return false
+        if (status != PostStatus.REJECTED && status != PostStatus.FINISHED) return false
+        if (_posts.value.none { it.id == postId }) return false
+
+        val moderatorId = _moderatorUser.value.id
+        erdPosts.update { list ->
+            list.map { post ->
+                if (post.id == postId) {
+                    post.copy(
+                        status = status,
+                        moderatorId = moderatorId,
+                        rejectionReason = if (status == PostStatus.REJECTED) reason else post.rejectionReason
+                    )
+                } else post
+            }
+        }
+        _posts.update { list ->
+            list.map { post ->
+                if (post.id == postId) {
+                    post.copy(
+                        status = status,
+                        rejectionReason = if (status == PostStatus.REJECTED) reason else post.rejectionReason,
+                        rejectionNotes = if (status == PostStatus.REJECTED) notes else post.rejectionNotes
+                    )
+                } else post
+            }
+        }
+        return true
     }
 
     override fun sendMessage(conversationId: String, text: String) {
@@ -252,6 +369,9 @@ class MockDataRepository @Inject constructor(
         val currentUserName = _currentUser.value.name
         val providerId = post.providerId ?: 2L
         val providerName = post.providerName
+
+        // Un usuario no puede iniciar una conversación consigo mismo.
+        if (providerId == currentUserId) return null
 
         val existing = _allConversations.value.firstOrNull {
             it.clientId == currentUserId && it.providerId == providerId && it.postId == postId
@@ -332,41 +452,32 @@ class MockDataRepository @Inject constructor(
     override fun createReport(
         reason: String,
         description: String,
-        targetType: String,
         targetTitle: String,
-        targetPostId: String?,
-        targetChatId: String?
+        targetPostId: String
     ) {
+        val currentUser = _currentUser.value
         val newErdReport = Report(
             id = "rep_${System.currentTimeMillis()}",
-            reporterId = _currentUser.value.id,
-            targetType = if (targetPostId != null) ReportTargetType.POST else ReportTargetType.CHAT_MESSAGE,
-            targetId = targetPostId ?: targetChatId ?: "unknown",
+            reporterId = currentUser.id,
+            targetType = ReportTargetType.POST,
+            targetId = targetPostId,
             reason = reason,
+            description = description,
             status = ReportStatus.PENDING
         )
         erdReports.update { listOf(newErdReport) + it }
-
-        val existing = _reports.value.firstOrNull {
-            it.targetPostId == targetPostId && it.targetChatId == targetChatId && it.reasonTitle == reason
-        }
-        if (existing != null) {
-            _reports.update { list -> list.map { if (it.id == existing.id) it.copy(reportCount = it.reportCount + 1) else it } }
-        } else {
-            _reports.update { list ->
-                listOf(
-                    ModerationReportItem(
-                        id = newErdReport.id,
-                        reasonTitle = reason,
-                        reportCount = 1,
-                        targetType = targetType,
-                        targetTitle = targetTitle,
-                        description = description,
-                        targetPostId = targetPostId,
-                        targetChatId = targetChatId
-                    )
-                ) + list
-            }
+        _reports.update { list ->
+            listOf(
+                ModerationReportItem(
+                    id = newErdReport.id,
+                    reasonTitle = reason,
+                    targetType = "Publicación",
+                    targetTitle = targetTitle,
+                    description = description,
+                    targetPostId = targetPostId,
+                    reporterName = currentUser.name
+                )
+            ) + list
         }
     }
 
@@ -427,16 +538,36 @@ class MockDataRepository @Inject constructor(
         return convId
     }
 
-    override fun dismissReport(reportId: String) {
+    override fun resolveReport(
+        reportId: String,
+        resolution: ReportResolution,
+        moderatorComment: String
+    ): Boolean {
+        if (_moderatorUser.value.role != UserRole.MODERATOR) return false
+        val report = _reports.value.firstOrNull { it.id == reportId } ?: return false
+        if (report.status != ReportStatus.PENDING) return false
+
+        val moderator = _moderatorUser.value
+        val resolvedAt = System.currentTimeMillis()
+        erdReports.update { list ->
+            list.map { raw ->
+                if (raw.id == reportId) {
+                    raw.copy(
+                        status = ReportStatus.REVIEWED,
+                        moderatorId = moderator.id,
+                        resolution = resolution,
+                        moderatorComment = moderatorComment,
+                        resolvedAtMillis = resolvedAt
+                    )
+                } else raw
+            }
+        }
         _reports.update { list -> list.filterNot { it.id == reportId } }
+        return true
     }
 
     override fun resolveReportsForPost(postId: String) {
         _reports.update { list -> list.filterNot { it.targetPostId == postId } }
-    }
-
-    override fun resolveReportsForChat(chatId: String) {
-        _reports.update { list -> list.filterNot { it.targetChatId == chatId } }
     }
 
     override suspend fun create(notification: AppNotification) {
@@ -768,12 +899,33 @@ class MockDataRepository @Inject constructor(
     }
 
     private fun getInitialReports(): List<ModerationReportItem> = listOf(
-        // Reporte 1: pub_1 (Carlos Mendoza) - reportado por usuarios
-        ModerationReportItem("rep_1", "Solicitud de pago externo", 3, "Publicación", "Instalación Eléctrica Residencial y Reparaciones", "Pide transferencia previa por WhatsApp.", targetPostId = "pub_1", createdAtMillis = daysAgo(0)),
-        // Reporte 2: pub_5 (Rodrigo Tapia) - reportado por usuarios
-        ModerationReportItem("rep_2", "Datos de contacto en descripción", 1, "Publicación", "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas", "Incluye número privado en la descripción.", targetPostId = "pub_5", createdAtMillis = daysAgo(9)),
-        // Reporte 3: chat_5 (Jorge Palacios) - reportado por usuarios
-        ModerationReportItem("rep_3", "Servicio engañoso o no autorizado", 2, "Chat", "Pintura y Remodelaciones Integrales", "Lenguaje inapropiado e incumplimiento de cita.", targetChatId = "chat_5", createdAtMillis = daysAgo(20))
+        ModerationReportItem(
+            id = "rep_1",
+            reasonTitle = "Solicitud de pago externo",
+            targetTitle = "Instalación Eléctrica Residencial y Reparaciones",
+            description = "Pide transferencia previa por WhatsApp antes de agendar la visita.",
+            targetPostId = "pub_1",
+            reporterName = "Camila Restrepo",
+            createdAtMillis = daysAgo(0)
+        ),
+        ModerationReportItem(
+            id = "rep_2",
+            reasonTitle = "Datos de contacto en descripción",
+            targetTitle = "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas",
+            description = "Incluye un número privado en la descripción del servicio.",
+            targetPostId = "pub_5",
+            reporterName = "Andrés Gómez",
+            createdAtMillis = daysAgo(9)
+        ),
+        ModerationReportItem(
+            id = "rep_3",
+            reasonTitle = "Servicio engañoso o no autorizado",
+            targetTitle = "Plomería y Destapes de Urgencia 24/7",
+            description = "El proveedor no cumple con la visita agendada ni responde los mensajes.",
+            targetPostId = "pub_2",
+            reporterName = "Laura Díaz",
+            createdAtMillis = daysAgo(20)
+        )
     )
 
     private fun daysAgo(days: Int): Long =

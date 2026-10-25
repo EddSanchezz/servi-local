@@ -67,6 +67,7 @@ import com.servilocal.features.home.viewmodel.ServiceDetailViewModel
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.moderation.ui.ModerationDetailScreen
 import com.servilocal.features.moderation.ui.ModerationFeedScreen
+import com.servilocal.features.moderation.ui.ModerationReportDetailScreen
 import com.servilocal.features.moderation.ui.ModerationReportsScreen
 import com.servilocal.features.moderation.ui.ModerationStatsScreen
 import com.servilocal.features.moderation.ui.ModeratorProfileScreen
@@ -75,7 +76,9 @@ import com.servilocal.features.notifications.ui.NotificationsScreen
 import com.servilocal.features.notifications.viewmodel.NotificationsViewModel
 import com.servilocal.features.onboarding.ui.OnboardingScreen
 import com.servilocal.features.posts.ui.CreatePostScreen
+import com.servilocal.features.posts.ui.EditPostScreen
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
+import com.servilocal.features.posts.viewmodel.EditPostViewModel
 import com.servilocal.features.profile.ui.UserProfileScreen
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
 
@@ -96,12 +99,16 @@ object AppRoute {
     const val MODERATOR_PROFILE = "moderator-profile"
     const val NOTIFICATIONS = "notifications"
     const val SERVICE_DETAIL = "service-detail/{postId}"
+    const val EDIT_POST = "edit-post/{postId}"
     const val CHAT_DETAIL = "chat-detail/{chatId}"
     const val MODERATION_DETAIL = "moderation-detail/{postId}"
+    const val MODERATION_REPORT_DETAIL = "moderation-report-detail/{reportId}"
 
     fun serviceDetail(postId: String) = "service-detail/$postId"
+    fun editPost(postId: String) = "edit-post/$postId"
     fun chatDetail(chatId: String) = "chat-detail/$chatId"
     fun moderationDetail(postId: String) = "moderation-detail/$postId"
+    fun moderationReportDetail(reportId: String) = "moderation-report-detail/$reportId"
     fun passwordReset(email: String) = "password-reset/${Uri.encode(email)}"
 }
 
@@ -294,8 +301,7 @@ private fun DashboardNavigation(
                     viewModel = viewModel,
                     appUiState = appUiState,
                     onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) },
-                    onOpenServiceDetail = { navController.navigate(AppRoute.serviceDetail(it)) },
-                    onOpenChat = { navController.navigate(AppRoute.chatDetail(it)) }
+                    onOpenServiceDetail = { navController.navigate(AppRoute.serviceDetail(it)) }
                 )
             }
             composable(AppRoute.MESSAGES) {
@@ -323,7 +329,7 @@ private fun DashboardNavigation(
             }
             composable(AppRoute.MODERATION_REPORTS) {
                 val viewModel: ModerationViewModel = hiltViewModel()
-                ModerationReportsScreen(viewModel, onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) }, onOpenDetail = { navController.navigate(AppRoute.moderationDetail(it)) }, onOpenChat = { navController.navigate(AppRoute.chatDetail(it)) })
+                ModerationReportsScreen(viewModel, onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) }, onOpenReport = { navController.navigate(AppRoute.moderationReportDetail(it)) })
             }
             composable(AppRoute.MODERATION_STATS) {
                 val viewModel: ModerationViewModel = hiltViewModel()
@@ -350,7 +356,21 @@ private fun DashboardNavigation(
             }
             composable(AppRoute.SERVICE_DETAIL, arguments = listOf(navArgument("postId") { type = NavType.StringType })) { entry ->
                 val viewModel: ServiceDetailViewModel = hiltViewModel()
-                ServiceDetailScreen(entry.arguments?.getString("postId").orEmpty(), viewModel, onBack = { navController.navigateUp() }, onOpenChat = { navController.navigate(AppRoute.chatDetail(it)) })
+                ServiceDetailScreen(
+                    postId = entry.arguments?.getString("postId").orEmpty(),
+                    viewModel = viewModel,
+                    onBack = { navController.navigateUp() },
+                    onOpenChat = { navController.navigate(AppRoute.chatDetail(it)) },
+                    onEditPost = { navController.navigate(AppRoute.editPost(it)) }
+                )
+            }
+            composable(AppRoute.EDIT_POST, arguments = listOf(navArgument("postId") { type = NavType.StringType })) { entry ->
+                val viewModel: EditPostViewModel = hiltViewModel()
+                EditPostScreen(
+                    postId = entry.arguments?.getString("postId").orEmpty(),
+                    viewModel = viewModel,
+                    onBack = { navController.navigateUp() }
+                )
             }
             composable(AppRoute.CHAT_DETAIL, arguments = listOf(navArgument("chatId") { type = NavType.StringType })) { entry ->
                 val viewModel: ChatDetailViewModel = hiltViewModel()
@@ -359,6 +379,14 @@ private fun DashboardNavigation(
             composable(AppRoute.MODERATION_DETAIL, arguments = listOf(navArgument("postId") { type = NavType.StringType })) { entry ->
                 val viewModel: ModerationViewModel = hiltViewModel()
                 ModerationDetailScreen(entry.arguments?.getString("postId").orEmpty(), viewModel, onBack = { navController.navigateUp() })
+            }
+            composable(AppRoute.MODERATION_REPORT_DETAIL, arguments = listOf(navArgument("reportId") { type = NavType.StringType })) { entry ->
+                val viewModel: ModerationViewModel = hiltViewModel()
+                ModerationReportDetailScreen(
+                    reportId = entry.arguments?.getString("reportId").orEmpty(),
+                    viewModel = viewModel,
+                    onBack = { navController.navigateUp() }
+                )
             }
         }
     }

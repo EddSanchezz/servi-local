@@ -25,7 +25,6 @@ class ReportPostUseCase @Inject constructor(
         moderationRepository.createReport(
             reason = reason,
             description = description.ifBlank { "Reporte enviado por la comunidad." },
-            targetType = "Publicación",
             targetTitle = post.title,
             targetPostId = post.id
         )

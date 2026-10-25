@@ -24,7 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.servilocal.domain.model.ServicePost
+import com.servilocal.domain.model.PostStatus
 import com.servilocal.features.home.viewmodel.ServiceDetailViewModel
 import kotlinx.coroutines.launch
 
@@ -35,6 +35,7 @@ fun ServiceDetailScreen(
     viewModel: ServiceDetailViewModel,
     onBack: () -> Unit,
     onOpenChat: (String) -> Unit,
+    onEditPost: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val posts by viewModel.posts.collectAsStateWithLifecycle()
@@ -48,14 +49,20 @@ fun ServiceDetailScreen(
     var showReportDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-    val detailUiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val showRequestSheet = detailUiState.showRequestSheet
 
     if (post == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Publicación no encontrada")
         }
         return
+    }
+
+    val isOwner = post.providerId == currentUser.id
+    val statusLabel = when (post.status) {
+        PostStatus.PENDING_VERIFICATION -> "pendiente de verificación"
+        PostStatus.APPROVED -> "aprobada"
+        PostStatus.REJECTED -> "rechazada"
+        PostStatus.FINISHED -> "finalizada"
     }
 
     Scaffold(
@@ -90,14 +97,16 @@ fun ServiceDetailScreen(
                                     context.startActivity(Intent.createChooser(shareIntent, "Compartir servicio"))
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text("Reportar publicación") },
-                                leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
-                                onClick = {
-                                    isMenuExpanded = false
-                                    showReportDialog = true
-                                }
-                            )
+                            if (!isOwner) {
+                                DropdownMenuItem(
+                                    text = { Text("Reportar publicación") },
+                                    leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
+                                    onClick = {
+                                        isMenuExpanded = false
+                                        showReportDialog = true
+                                    }
+                                )
+                            }
                         }
                     }
                 },
@@ -107,52 +116,78 @@ fun ServiceDetailScreen(
             )
         },
         bottomBar = {
-            // Fixed Bottom Bar with Price, Upvote and Request CTA
-            if (post.status == com.servilocal.domain.model.PostStatus.APPROVED) Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 12.dp,
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding()
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            when {
+                post.status == PostStatus.APPROVED -> Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 12.dp,
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding()
                 ) {
-                    Column {
-                        Text("Tarifa estimada", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        Text(
-                            text = if (post.isPriceToAgree) "A convenir" else "$ ${post.minPrice} - $ ${post.maxPrice} ${post.priceUnit}",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
-                        )
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilledTonalButton(
-                            onClick = { viewModel.toggleUpvote(post.id) },
-                            shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (post.userUpvoted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = if (post.userUpvoted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-                            ),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                            modifier = Modifier.weight(0.85f).height(48.dp)
-                        ) {
-                            Icon(imageVector = if (post.userUpvoted) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = if (post.userUpvoted) "Apoyado" else "Me interesa", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column {
+                            Text("Tarifa estimada", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Text(
+                                text = if (post.isPriceToAgree) "A convenir" else "$ ${post.minPrice} - $ ${post.maxPrice} ${post.priceUnit}",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1
+                            )
                         }
-                        Button(
-                            onClick = { viewModel.showRequestDialog(true) },
-                            shape = RoundedCornerShape(24.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.weight(1.15f).height(48.dp).testTag("request_service_button"),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
-                        ) {
-                            Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Solicitar servicio", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                        if (isOwner) {
+                            Button(
+                                onClick = { onEditPost(post.id) },
+                                shape = RoundedCornerShape(24.dp),
+                                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("edit_post_button"),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Editar publicación", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                            }
+                        } else {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilledTonalButton(
+                                    onClick = { viewModel.toggleUpvote(post.id) },
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = if (post.userUpvoted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = if (post.userUpvoted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                                    modifier = Modifier.weight(0.85f).height(48.dp)
+                                ) {
+                                    Icon(imageVector = if (post.userUpvoted) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = if (post.userUpvoted) "Apoyado" else "Me interesa", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                                }
+                                Button(
+                                    onClick = { viewModel.startConversation(post.id)?.let(onOpenChat) },
+                                    shape = RoundedCornerShape(24.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                    modifier = Modifier.weight(1.15f).height(48.dp).testTag("request_service_button"),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                                ) {
+                                    Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Solicitar servicio", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                                }
+                            }
                         }
                     }
+                }
+                isOwner -> Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 12.dp,
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+                ) {
+                    Text(
+                        text = "Tu publicación está $statusLabel y no se puede editar.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
         },
@@ -700,18 +735,6 @@ fun ServiceDetailScreen(
         }
     }
 
-    // Modal Bottom Sheet for Service Request
-    if (showRequestSheet) {
-        ServiceRequestSheet(
-            post = post,
-            initialName = currentUser.name,
-            onDismiss = { viewModel.showRequestDialog(false) },
-            onSubmit = { name, phone, address, problem ->
-                onOpenChat(viewModel.submitServiceRequest(post.id, name, phone, address, problem))
-            }
-        )
-    }
-
     if (showReportDialog) {
         ReportContentDialog(
             title = "Reportar publicación",
@@ -757,155 +780,3 @@ fun SpecTile(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ServiceRequestSheet(
-    post: ServicePost,
-    initialName: String,
-    onDismiss: () -> Unit,
-    onSubmit: (name: String, phone: String, address: String, problem: String) -> Unit
-) {
-    var name by remember { mutableStateOf(initialName) }
-    var phone by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
-    var problem by remember { mutableStateOf("") }
-    var attemptedSubmit by remember { mutableStateOf(false) }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = MaterialTheme.colorScheme.surface
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-                .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Solicitar Servicio",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Text(
-                        text = "Completa los datos para coordinar con el profesional",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar")
-                }
-            }
-
-            // Summary Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(post.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1)
-                        Text("con ${post.providerName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Text(
-                        if (post.isPriceToAgree) "A convenir" else "$ ${post.minPrice} COP",
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            // Fields
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Nombre del solicitante") },
-                isError = attemptedSubmit && name.isBlank(),
-                supportingText = { if (attemptedSubmit && name.isBlank()) Text("Este dato es obligatorio.") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = phone,
-                onValueChange = { phone = it },
-                label = { Text("Medio de contacto (Teléfono / WhatsApp)") },
-                isError = attemptedSubmit && phone.isBlank(),
-                supportingText = { if (attemptedSubmit && phone.isBlank()) Text("Escribe un teléfono o medio de contacto.") },
-                leadingIcon = { Icon(Icons.Default.Call, contentDescription = null) },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = address,
-                onValueChange = { address = it },
-                label = { Text("Dirección exacta") },
-                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-                singleLine = true,
-                isError = attemptedSubmit && address.isBlank(),
-                supportingText = { if (attemptedSubmit && address.isBlank()) Text("Indica dónde se realizará el servicio.") },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = problem,
-                onValueChange = { problem = it },
-                label = { Text("Descripción del problema o necesidad") },
-                leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
-                isError = attemptedSubmit && problem.isBlank(),
-                supportingText = { if (attemptedSubmit && problem.isBlank()) Text("Cuéntanos qué necesitas resolver.") },
-                maxLines = 3,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Submit Button
-            Button(
-                onClick = {
-                    attemptedSubmit = true
-                    if (name.isNotBlank() && phone.isNotBlank() && address.isNotBlank() && problem.isNotBlank()) {
-                        onSubmit(name, phone, address, problem)
-                    }
-                },
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth().height(50.dp).testTag("confirm_service_request_button")
-            ) {
-                Icon(Icons.Default.Send, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Enviar Solicitud y Abrir Chat", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
-            }
-            if (attemptedSubmit && (name.isBlank() || phone.isBlank() || address.isBlank() || problem.isBlank())) {
-                Text("Completa todos los campos para enviar la solicitud.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-    }
-}

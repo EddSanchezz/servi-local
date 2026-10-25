@@ -125,11 +125,11 @@ data class NotificationItem(
 data class ModerationReportItem(
     val id: String,
     val reasonTitle: String,
-    val reportCount: Int,
-    val targetType: String,
+    val targetType: String = "Publicación",
     val targetTitle: String,
     val description: String,
-    val targetPostId: String? = null,
-    val targetChatId: String? = null,
+    val targetPostId: String,
+    val reporterName: String = "Usuario",
+    val status: ReportStatus = ReportStatus.PENDING,
     val createdAtMillis: Long = System.currentTimeMillis()
 )

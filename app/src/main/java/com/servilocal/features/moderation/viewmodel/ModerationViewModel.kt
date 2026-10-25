@@ -2,6 +2,8 @@ package com.servilocal.features.moderation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.servilocal.domain.model.PostStatus
+import com.servilocal.domain.model.ReportResolution
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.AuthRepository
@@ -11,6 +13,7 @@ import com.servilocal.domain.usecase.moderation.ApprovePendingPostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
 import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
+import com.servilocal.domain.usecase.moderation.ResolveReportUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
@@ -40,7 +43,8 @@ class ModerationViewModel @Inject constructor(
     private val observePendingPostsUseCase: ObservePendingPostsUseCase = ObservePendingPostsUseCase(postRepository),
     private val filterPendingPostsByCategoryUseCase: FilterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
     private val approvePendingPostUseCase: ApprovePendingPostUseCase = ApprovePendingPostUseCase(postRepository, authRepository),
-    private val rejectPendingPostUseCase: RejectPendingPostUseCase = RejectPendingPostUseCase(postRepository, authRepository)
+    private val rejectPendingPostUseCase: RejectPendingPostUseCase = RejectPendingPostUseCase(postRepository, authRepository),
+    private val resolveReportUseCase: ResolveReportUseCase = ResolveReportUseCase(moderationRepository, postRepository, authRepository)
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ModerationUiState())
@@ -117,7 +121,22 @@ class ModerationViewModel @Inject constructor(
         }
     }
 
-    fun dismissReport(id: String) = moderationRepository.dismissReport(id)
+    fun resolveReport(
+        reportId: String,
+        resolution: ReportResolution,
+        moderatorComment: String,
+        newPostStatus: PostStatus? = null
+    ): Boolean {
+        val success = resolveReportUseCase(reportId, resolution, moderatorComment, newPostStatus)
+        _uiState.update {
+            it.copy(
+                actionResult = if (success) "Reporte resuelto" else null,
+                error = if (success) null else "No se pudo resolver el reporte. Revisa el comentario y tu rol."
+            )
+        }
+        return success
+    }
+
     fun resolveReportsForPost(id: String) = moderationRepository.resolveReportsForPost(id)
     fun toggleModeratorShift() = authRepository.toggleModeratorShift()
 }

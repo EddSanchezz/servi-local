@@ -270,19 +270,15 @@ fun ConversationItemCard(
                         )
                     }
 
-                    // Service Chip tag
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.padding(vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = conversation.serviceTitle,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                    // Service title (higher hierarchy than the contact name)
+                    Text(
+                        text = conversation.serviceTitle,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
 
                     Text(
                         text = conversation.lastMessage,

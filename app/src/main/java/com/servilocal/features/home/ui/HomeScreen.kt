@@ -39,10 +39,10 @@ fun HomeScreen(
     appUiState: AppUiState,
     onOpenNotifications: () -> Unit,
     onOpenServiceDetail: (String) -> Unit,
-    onOpenChat: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery = uiState.searchQuery
     val selectedCategory = uiState.selectedCategory
@@ -304,8 +304,8 @@ fun HomeScreen(
                         ServiceCardItem(
                             post = post,
                             onDetailClick = { onOpenServiceDetail(post.id) },
-                            onContactClick = { viewModel.startConversation(post.id)?.let(onOpenChat) },
-                            onUpvoteClick = { viewModel.toggleUpvote(post.id) }
+                            onUpvoteClick = { viewModel.toggleUpvote(post.id) },
+                            showUpvote = post.providerId != currentUser.id
                         )
                     }
                 }
@@ -324,8 +324,8 @@ fun HomeScreen(
 fun ServiceCardItem(
     post: ServicePost,
     onDetailClick: () -> Unit,
-    onContactClick: () -> Unit,
-    onUpvoteClick: () -> Unit
+    onUpvoteClick: () -> Unit,
+    showUpvote: Boolean = true
 ) {
     Card(
         modifier = Modifier
@@ -397,13 +397,15 @@ fun ServiceCardItem(
                     }
                 }
 
-                // Favorite / Upvote Heart Icon
-                IconButton(onClick = onUpvoteClick) {
-                    Icon(
-                        imageVector = if (post.userUpvoted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Me interesa",
-                        tint = if (post.userUpvoted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
-                    )
+                // Favorite / Upvote Heart Icon (hidden on the user's own posts)
+                if (showUpvote) {
+                    IconButton(onClick = onUpvoteClick) {
+                        Icon(
+                            imageVector = if (post.userUpvoted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Me interesa",
+                            tint = if (post.userUpvoted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
+                        )
+                    }
                 }
             }
 
@@ -543,33 +545,6 @@ fun ServiceCardItem(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Action Buttons (Contactar & Ver Perfil)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = onContactClick,
-                    modifier = Modifier.weight(1f).height(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Contactar", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                }
-
-                OutlinedButton(
-                    onClick = onDetailClick,
-                    modifier = Modifier.weight(1f).height(44.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Ver Perfil", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                 }
             }
         }

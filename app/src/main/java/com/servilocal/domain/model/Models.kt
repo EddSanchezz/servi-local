@@ -50,11 +50,17 @@ enum class PostStatus {
  */
 enum class ServiceRequestStatus { NEW_REQUEST, PENDING, IN_PROGRESS, COMPLETED, DECLINED }
 
-/** reports.target_type — POST, COMMENT, PROFILE, CHAT_MESSAGE */
-enum class ReportTargetType { POST, COMMENT, PROFILE, CHAT_MESSAGE }
+/** reports.target_type — en ServiLocal solo se reportan publicaciones */
+enum class ReportTargetType { POST }
 
 /** reports.status — PENDIENTE, REVISADO */
 enum class ReportStatus { PENDING, REVIEWED }
+
+/** Resultado de la revisión del moderador */
+enum class ReportResolution {
+    DISMISSED,  // El reporte no es válido y se descarta
+    UPHELD      // El reporte es procedente
+}
 
 // ───────────────────────── ENTIDADES ─────────────────────────
 
@@ -171,15 +177,20 @@ data class UserBadge(
     val awardedAtMillis: Long = System.currentTimeMillis()
 )
 
-/** Tabla reports (referencia polimórfica: targetType + targetId) */
+/** Tabla reports. En ServiLocal targetType siempre es POST y targetId es el id de la publicación. */
 data class Report(
     val id: String,
     val reporterId: Long,
-    val targetType: ReportTargetType,
+    val targetType: ReportTargetType = ReportTargetType.POST,
     val targetId: String,
     val reason: String,
+    val description: String = "",
     val status: ReportStatus = ReportStatus.PENDING,
-    val createdAtMillis: Long = System.currentTimeMillis()
+    val moderatorId: Long? = null,
+    val resolution: ReportResolution? = null,
+    val moderatorComment: String? = null,
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val resolvedAtMillis: Long? = null
 )
 
 // ───────────────────────── NO ES TABLA ─────────────────────────

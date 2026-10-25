@@ -26,7 +26,6 @@ import com.servilocal.domain.model.ChatStatus
 import com.servilocal.domain.model.UserRole
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.chat.viewmodel.ChatDetailViewModel
-import com.servilocal.features.home.ui.ReportContentDialog
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,8 +43,6 @@ fun ChatDetailScreen(
 
     var messageInput by remember { mutableStateOf("") }
     var messageError by remember { mutableStateOf(false) }
-    var isMenuExpanded by remember { mutableStateOf(false) }
-    var showReportDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -95,28 +92,6 @@ fun ChatDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
-                    }
-                },
-                actions = {
-                    Box {
-                        IconButton(onClick = { isMenuExpanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Opciones")
-                        }
-                        DropdownMenu(expanded = isMenuExpanded, onDismissRequest = { isMenuExpanded = false }) {
-                            DropdownMenuItem(
-                                text = { Text(if (activeRole == UserRole.MODERATOR) "Cerrar reporte" else "Reportar conversación") },
-                                leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
-                                onClick = {
-                                    isMenuExpanded = false
-                                    if (activeRole == UserRole.MODERATOR) {
-                                        viewModel.resolveReportsForChat(conversation.id)
-                                        onBack()
-                                    } else {
-                                        showReportDialog = true
-                                    }
-                                }
-                            )
-                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -397,16 +372,6 @@ fun ChatDetailScreen(
         }
     }
 
-    if (showReportDialog && activeRole == UserRole.USER) {
-        ReportContentDialog(
-            title = "Reportar conversación",
-            onDismiss = { showReportDialog = false },
-            onSubmit = { reason, details ->
-                viewModel.reportConversation(conversation.id, reason, details)
-                showReportDialog = false
-            }
-        )
-    }
 }
 
 @Composable

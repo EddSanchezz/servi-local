@@ -2,6 +2,7 @@ package com.servilocal
 
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.domain.model.PostStatus
+import com.servilocal.domain.model.ReportResolution
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserProfile
 import com.servilocal.domain.model.UserRole
@@ -14,6 +15,7 @@ import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseC
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
 import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
+import com.servilocal.domain.usecase.moderation.ResolveReportUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import kotlinx.coroutines.Dispatchers
@@ -78,6 +80,19 @@ class ModerationUseCaseTest {
             return post
         }
 
+        override fun updatePost(
+            postId: String,
+            title: String,
+            category: String,
+            description: String,
+            minPrice: Int,
+            maxPrice: Int,
+            isPriceToAgree: Boolean,
+            location: String
+        ): Boolean = false
+
+        override fun finishPost(postId: String): Boolean = false
+
         override fun approvePost(postId: String) {
             _posts.value = _posts.value.map {
                 if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it
@@ -88,6 +103,26 @@ class ModerationUseCaseTest {
             _posts.value = _posts.value.map {
                 if (it.id == postId) it.copy(status = PostStatus.REJECTED, rejectionReason = reason, rejectionNotes = notes) else it
             }
+        }
+
+        override fun moderatePost(
+            postId: String,
+            status: PostStatus,
+            reason: String?,
+            notes: String?
+        ): Boolean {
+            if (status != PostStatus.REJECTED && status != PostStatus.FINISHED) return false
+            if (_posts.value.none { it.id == postId }) return false
+            _posts.value = _posts.value.map {
+                if (it.id == postId) {
+                    it.copy(
+                        status = status,
+                        rejectionReason = if (status == PostStatus.REJECTED) reason else it.rejectionReason,
+                        rejectionNotes = if (status == PostStatus.REJECTED) notes else it.rejectionNotes
+                    )
+                } else it
+            }
+            return true
         }
     }
 
@@ -113,26 +148,27 @@ class ModerationUseCaseTest {
         override fun createReport(
             reason: String,
             description: String,
-            targetType: String,
             targetTitle: String,
-            targetPostId: String?,
-            targetChatId: String?
+            targetPostId: String
         ) {
             val report = com.servilocal.domain.model.ModerationReportItem(
                 id = "rep_${System.currentTimeMillis()}",
                 reasonTitle = reason,
-                reportCount = 1,
-                targetType = targetType,
                 targetTitle = targetTitle,
                 description = description,
-                targetPostId = targetPostId,
-                targetChatId = targetChatId
+                targetPostId = targetPostId
             )
             _reports.value = listOf(report) + _reports.value
         }
 
-        override fun dismissReport(reportId: String) {
+        override fun resolveReport(
+            reportId: String,
+            resolution: ReportResolution,
+            moderatorComment: String
+        ): Boolean {
+            val exists = _reports.value.any { it.id == reportId }
             _reports.value = _reports.value.filter { it.id != reportId }
+            return exists
         }
 
         override fun resolveReportsForPost(postId: String) {
@@ -246,6 +282,66 @@ class ModerationUseCaseTest {
         assertTrue(reportOtherResult)
         assertEquals(1, modRepo.reports.value.size)
         assertEquals("post_1", modRepo.reports.value.first().targetPostId)
+    }
+
+    @Test
+    fun `ResolveReportUseCase dismisses an invalid report without changing the post`() {
+        val post = ServicePost(
+            id = "post_1", title = "P1", category = "Hogar", description = "Desc",
+            providerName = "Other User", providerId = 2L, status = PostStatus.APPROVED
+        )
+        val postRepo = FakePostRepository(listOf(post))
+        val authRepo = FakeAuthRepository(role = UserRole.MODERATOR, userId = 3L, userName = "Mod")
+        val modRepo = FakeModerationRepository()
+        modRepo.createReport("Estafa", "Detalles", "P1", "post_1")
+        val reportId = modRepo.reports.value.first().id
+        val useCase = ResolveReportUseCase(modRepo, postRepo, authRepo)
+
+        assertTrue(useCase(reportId, ReportResolution.DISMISSED, "No se pudo comprobar el cobro externo"))
+        assertEquals(0, modRepo.reports.value.size)
+        assertEquals(PostStatus.APPROVED, postRepo.posts.value.first { it.id == "post_1" }.status)
+    }
+
+    @Test
+    fun `ResolveReportUseCase upheld can reject the reported post`() {
+        val post = ServicePost(
+            id = "post_1", title = "P1", category = "Hogar", description = "Desc",
+            providerName = "Other User", providerId = 2L, status = PostStatus.APPROVED
+        )
+        val postRepo = FakePostRepository(listOf(post))
+        val authRepo = FakeAuthRepository(role = UserRole.MODERATOR, userId = 3L, userName = "Mod")
+        val modRepo = FakeModerationRepository()
+        modRepo.createReport("Solicitud de pago externo", "Detalles", "P1", "post_1")
+        val reportId = modRepo.reports.value.first().id
+        val useCase = ResolveReportUseCase(modRepo, postRepo, authRepo)
+
+        assertTrue(
+            useCase(
+                reportId,
+                ReportResolution.UPHELD,
+                "Se confirmó el cobro fuera de la plataforma",
+                PostStatus.REJECTED
+            )
+        )
+        assertEquals(0, modRepo.reports.value.size)
+        assertEquals(PostStatus.REJECTED, postRepo.posts.value.first { it.id == "post_1" }.status)
+    }
+
+    @Test
+    fun `ResolveReportUseCase rejects resolutions from non moderators`() {
+        val post = ServicePost(
+            id = "post_1", title = "P1", category = "Hogar", description = "Desc",
+            providerName = "Other User", providerId = 2L, status = PostStatus.APPROVED
+        )
+        val postRepo = FakePostRepository(listOf(post))
+        val authRepo = FakeAuthRepository(role = UserRole.USER, userId = 1L, userName = "User")
+        val modRepo = FakeModerationRepository()
+        modRepo.createReport("Estafa", "Detalles", "P1", "post_1")
+        val reportId = modRepo.reports.value.first().id
+        val useCase = ResolveReportUseCase(modRepo, postRepo, authRepo)
+
+        assertFalse(useCase(reportId, ReportResolution.DISMISSED, "Comentario"))
+        assertEquals(1, modRepo.reports.value.size)
     }
 
     @Test

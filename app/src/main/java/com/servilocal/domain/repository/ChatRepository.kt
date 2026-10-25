@@ -18,5 +18,4 @@ interface ChatRepository {
         address: String,
         description: String
     ): String
-    fun resolveReportsForChat(chatId: String)
 }

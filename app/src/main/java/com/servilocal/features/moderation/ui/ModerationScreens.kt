@@ -335,7 +335,7 @@ fun ModerationDetailScreen(
     val providerPosts = posts.filter { it.providerName == post.providerName }
     val providerApproved = providerPosts.count { it.status == PostStatus.APPROVED }
     val providerRejected = providerPosts.count { it.status == PostStatus.REJECTED }
-    val postReportCount = reports.filter { it.targetPostId == post.id }.sumOf { it.reportCount }
+    val postReportCount = reports.count { it.targetPostId == post.id }
 
     Scaffold(
         topBar = {
@@ -738,8 +738,7 @@ fun RejectionReasonBottomSheet(
 fun ModerationReportsScreen(
     viewModel: ModerationViewModel,
     onOpenNotifications: () -> Unit,
-    onOpenDetail: (String) -> Unit,
-    onOpenChat: (String) -> Unit,
+    onOpenReport: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val reports by viewModel.reports.collectAsStateWithLifecycle()
@@ -810,7 +809,9 @@ fun ModerationReportsScreen(
             ) {
                 items(filteredReports, key = { it.id }) { r ->
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenReport(r.id) },
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                     ) {
@@ -820,15 +821,27 @@ fun ModerationReportsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
                                     Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                    Text(r.reasonTitle, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                    Text(
+                                        r.reasonTitle,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        maxLines = 1
+                                    )
                                 }
                                 Surface(
                                     color = MaterialTheme.colorScheme.errorContainer,
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text("${r.reportCount} denuncias", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                    Text(
+                                        "Pendiente",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
                                 }
                             }
 
@@ -844,26 +857,11 @@ fun ModerationReportsScreen(
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                TextButton(onClick = { viewModel.dismissReport(r.id) }) {
-                                    Text("Descartar")
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = {
-                                        when {
-                                            r.targetPostId != null -> onOpenDetail(r.targetPostId)
-                                            r.targetChatId != null -> onOpenChat(r.targetChatId)
-                                            else -> viewModel.dismissReport(r.id)
-                                        }
-                                    },
-                                    shape = RoundedCornerShape(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text(if (r.targetPostId == null && r.targetChatId == null) "Cerrar" else "Revisar incidencia", style = MaterialTheme.typography.labelSmall)
-                                }
+                                Text("Reportado por ${r.reporterName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text(formatReportDate(r.createdAtMillis), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                             }
                         }
                     }
@@ -1236,3 +1234,6 @@ fun ModeratorProfileScreen(
         )
     }
 }
+
+internal fun formatReportDate(millis: Long): String =
+    java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.forLanguageTag("es-CO")).format(java.util.Date(millis))

@@ -1,6 +1,7 @@
 package com.servilocal.domain.repository
 
 import com.servilocal.domain.model.ModerationReportItem
+import com.servilocal.domain.model.ReportResolution
 import kotlinx.coroutines.flow.StateFlow
 
 interface ModerationRepository {
@@ -9,11 +10,13 @@ interface ModerationRepository {
     fun createReport(
         reason: String,
         description: String,
-        targetType: String,
         targetTitle: String,
-        targetPostId: String? = null,
-        targetChatId: String? = null
+        targetPostId: String
     )
-    fun dismissReport(reportId: String)
+    fun resolveReport(
+        reportId: String,
+        resolution: ReportResolution,
+        moderatorComment: String
+    ): Boolean
     fun resolveReportsForPost(postId: String)
 }
