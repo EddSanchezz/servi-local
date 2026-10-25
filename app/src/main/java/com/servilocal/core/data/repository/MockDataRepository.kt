@@ -3,6 +3,8 @@ package com.servilocal.core.data.repository
 import com.servilocal.domain.model.*
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ChatRepository
+import com.servilocal.domain.repository.CommentRepository
+import com.servilocal.domain.repository.LikeRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PostRepository
@@ -26,6 +28,8 @@ class MockDataRepository @Inject constructor(
 ) :
     AuthRepository,
     PostRepository,
+    CommentRepository,
+    LikeRepository,
     ChatRepository,
     NotificationRepository,
     ModerationRepository {
@@ -53,10 +57,15 @@ class MockDataRepository @Inject constructor(
         )
     )
 
+    private val erdComments = MutableStateFlow<List<Comment>>(emptyList())
+    private val erdLikes = MutableStateFlow<List<Like>>(emptyList())
     private val erdRequests = MutableStateFlow<List<ServiceRequest>>(emptyList())
     private val erdMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     private val erdNotifications = MutableStateFlow<List<AppNotification>>(emptyList())
     private val erdReports = MutableStateFlow<List<Report>>(emptyList())
+
+    override val comments: StateFlow<List<Comment>> = erdComments.asStateFlow()
+    override val likes: StateFlow<List<Like>> = erdLikes.asStateFlow()
 
     // ───────────────────────── FLUJOS DE ESTADO REPACTADOS PARA LA UI ─────────────────────────
 
@@ -97,6 +106,15 @@ class MockDataRepository @Inject constructor(
         _conversations.value = mapped
     }
 
+    private val _posts = MutableStateFlow<List<ServicePost>>(getInitialPosts())
+    override val posts: StateFlow<List<ServicePost>> = _posts.asStateFlow()
+
+    private val _notifications = MutableStateFlow<List<AppNotification>>(getInitialNotifications())
+    override val notifications: StateFlow<List<AppNotification>> = _notifications.asStateFlow()
+
+    private val _reports = MutableStateFlow<List<ModerationReportItem>>(getInitialReports())
+    override val reports: StateFlow<List<ModerationReportItem>> = _reports.asStateFlow()
+
     init {
         val users = userRepository
         val sessions = sessionRepository
@@ -116,52 +134,87 @@ class MockDataRepository @Inject constructor(
                         }
                     }
                     refreshConversations()
+                    refreshLikeState()
                 }
             }
         }
         refreshConversations()
+        refreshLikeState()
     }
-
-    private val _posts = MutableStateFlow<List<ServicePost>>(getInitialPosts())
-    override val posts: StateFlow<List<ServicePost>> = _posts.asStateFlow()
-
-    private val _notifications = MutableStateFlow<List<AppNotification>>(getInitialNotifications())
-    override val notifications: StateFlow<List<AppNotification>> = _notifications.asStateFlow()
-
-    private val _reports = MutableStateFlow<List<ModerationReportItem>>(getInitialReports())
-    override val reports: StateFlow<List<ModerationReportItem>> = _reports.asStateFlow()
 
     // ───────────────────────── MÉTODOS DE REPOSITORIO ─────────────────────────
 
-    override fun toggleUpvote(postId: String) {
+    private fun refreshLikeState() {
+        val userId = _currentUser.value.id
         _posts.update { list ->
             list.map { post ->
-                if (post.id == postId) {
-                    val newUpvoted = !post.userUpvoted
-                    val newCount = if (newUpvoted) post.upvotesCount + 1 else (post.upvotesCount - 1).coerceAtLeast(0)
-                    post.copy(userUpvoted = newUpvoted, upvotesCount = newCount)
-                } else post
+                post.copy(
+                    userUpvoted = erdLikes.value.any { it.postId == post.id && it.userId == userId }
+                )
             }
         }
     }
 
-    override fun addComment(postId: String, text: String, authorName: String, isAuthorReply: Boolean) {
-        if (text.isBlank()) return
+    override fun toggleLike(postId: String, userId: Long): Boolean {
+        if (_posts.value.none { it.id == postId }) return false
+
+        val existing = erdLikes.value.firstOrNull { it.postId == postId && it.userId == userId }
+        if (existing == null) {
+            erdLikes.update { current ->
+                current + Like(
+                    id = "like_${postId}_$userId",
+                    userId = userId,
+                    postId = postId
+                )
+            }
+        } else {
+            erdLikes.update { current -> current.filterNot { it.id == existing.id } }
+        }
+
+        val liked = existing == null
         _posts.update { list ->
             list.map { post ->
                 if (post.id == postId) {
-                    val newComment = ServiceComment(
-                        id = "c_${System.currentTimeMillis()}",
-                        authorName = authorName,
-                        date = "Justo ahora",
-                        text = text,
-                        isAuthorReply = isAuthorReply,
-                        isRecommended = true
+                    post.copy(
+                        userUpvoted = liked,
+                        upvotesCount = if (liked) post.upvotesCount + 1 else (post.upvotesCount - 1).coerceAtLeast(0)
                     )
-                    post.copy(comments = listOf(newComment) + post.comments)
                 } else post
             }
         }
+        return true
+    }
+
+    override fun hasLiked(postId: String, userId: Long): Boolean =
+        erdLikes.value.any { it.postId == postId && it.userId == userId }
+
+    override fun addComment(postId: String, userId: Long, authorName: String, content: String): Boolean {
+        if (content.isBlank()) return false
+        val post = _posts.value.firstOrNull { it.id == postId } ?: return false
+
+        val newComment = Comment(
+            id = "c_${System.currentTimeMillis()}_$userId",
+            postId = postId,
+            userId = userId,
+            content = content
+        )
+        erdComments.update { listOf(newComment) + it }
+
+        val uiComment = ServiceComment(
+            id = newComment.id,
+            authorName = authorName,
+            date = "Justo ahora",
+            text = content,
+            isAuthorReply = post.providerId == userId,
+            isRecommended = true,
+            authorId = userId
+        )
+        _posts.update { list ->
+            list.map {
+                if (it.id == postId) it.copy(comments = listOf(uiComment) + it.comments) else it
+            }
+        }
+        return true
     }
 
     override fun createPost(
@@ -205,8 +258,8 @@ class MockDataRepository @Inject constructor(
             distance = "A 0.5 km - Armenia",
             rating = 5.0f,
             reviewCount = 0,
-            upvotesCount = 1,
-            userUpvoted = true,
+            upvotesCount = 0,
+            userUpvoted = false,
             status = PostStatus.PENDING_VERIFICATION,
             responseTime = "< 20 min",
             comments = emptyList()
@@ -392,6 +445,7 @@ class MockDataRepository @Inject constructor(
             status = ServiceRequestStatus.IN_PROGRESS,
             lastMessage = "Inicia la conversación",
             lastTime = "Ahora",
+            unreadCount = 1,
             isClientRole = true
         )
         _allConversations.update { listOf(newConversation) + it }
@@ -518,7 +572,7 @@ class MockDataRepository @Inject constructor(
             status = ServiceRequestStatus.PENDING,
             lastMessage = description,
             lastTime = "Ahora",
-            unreadCount = 0,
+            unreadCount = 1,
             isClientRole = true,
             requestAddress = address,
             requestProblem = description,
@@ -534,7 +588,8 @@ class MockDataRepository @Inject constructor(
                 )
             )
         )
-        _conversations.update { listOf(newConv) + it }
+        _allConversations.update { listOf(newConv) + it }
+        refreshConversations()
         return convId
     }
 
@@ -707,7 +762,7 @@ class MockDataRepository @Inject constructor(
             distance = "A 2.1 km",
             rating = 4.6f,
             reviewCount = 8,
-            upvotesCount = 27,
+            upvotesCount = 0,
             status = PostStatus.PENDING_VERIFICATION,
             warrantyMonths = 3,
             responseTime = "< 25 min",
@@ -728,7 +783,7 @@ class MockDataRepository @Inject constructor(
             distance = "A 1.8 km",
             rating = 5.0f,
             reviewCount = 2,
-            upvotesCount = 15,
+            upvotesCount = 0,
             status = PostStatus.PENDING_VERIFICATION,
             warrantyMonths = 6,
             responseTime = "< 45 min",

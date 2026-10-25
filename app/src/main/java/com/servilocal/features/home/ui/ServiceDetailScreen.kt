@@ -647,34 +647,41 @@ fun ServiceDetailScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // Comment input bar
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                            .padding(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = newCommentText,
-                            onValueChange = { newCommentText = it },
-                            placeholder = { Text("Escribe una pregunta al autor...", style = MaterialTheme.typography.bodySmall) },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedBorderColor = Color.Transparent
-                            )
-                        )
-                        IconButton(
-                            onClick = {
-                                if (newCommentText.isNotBlank()) {
-                                    viewModel.addComment(post.id, newCommentText)
-                                    newCommentText = ""
-                                }
-                            }
+                    if (post.status == PostStatus.APPROVED) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                                .padding(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Send, contentDescription = "Enviar", tint = MaterialTheme.colorScheme.primary)
+                            OutlinedTextField(
+                                value = newCommentText,
+                                onValueChange = { newCommentText = it },
+                                placeholder = {
+                                    Text(
+                                        text = if (isOwner) "Responde a los comentarios..." else "Escribe una pregunta al autor...",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedBorderColor = Color.Transparent,
+                                    focusedBorderColor = Color.Transparent
+                                )
+                            )
+                            IconButton(
+                                onClick = {
+                                    if (newCommentText.isNotBlank()) {
+                                        viewModel.addComment(post.id, newCommentText)
+                                        newCommentText = ""
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Default.Send, contentDescription = "Enviar", tint = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
 
@@ -705,19 +712,17 @@ fun ServiceDetailScreen(
                                 )
                                 Text(comment.date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                             }
-                            if (comment.isRecommended) {
+                            if (comment.isAuthorReply) {
                                 Surface(
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                    ) {
-                                        Icon(Icons.Default.ThumbUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
-                                        Text("Recomendado 👍", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                    }
+                                    Text(
+                                        text = "Autor",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
                                 }
                             }
                         }

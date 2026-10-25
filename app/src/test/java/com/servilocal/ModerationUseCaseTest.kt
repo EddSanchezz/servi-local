@@ -53,8 +53,6 @@ class ModerationUseCaseTest {
         private val _posts = MutableStateFlow(initialPosts)
         override val posts: StateFlow<List<ServicePost>> = _posts
 
-        override fun toggleUpvote(postId: String) {}
-        override fun addComment(postId: String, text: String, authorName: String, isAuthorReply: Boolean) {}
         override fun createPost(
             title: String,
             category: String,

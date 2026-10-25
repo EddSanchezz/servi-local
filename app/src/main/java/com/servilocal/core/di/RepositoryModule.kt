@@ -8,6 +8,8 @@ import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.BadgeRepository
 import com.servilocal.domain.repository.ChatRepository
+import com.servilocal.domain.repository.CommentRepository
+import com.servilocal.domain.repository.LikeRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PasswordResetRepository
@@ -30,6 +32,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindPostRepository(repository: MockDataRepository): PostRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCommentRepository(repository: MockDataRepository): CommentRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLikeRepository(repository: MockDataRepository): LikeRepository
 
     @Binds
     @Singleton

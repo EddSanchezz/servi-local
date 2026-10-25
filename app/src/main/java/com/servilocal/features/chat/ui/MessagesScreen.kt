@@ -3,6 +3,7 @@ package com.servilocal.features.chat.ui
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -211,6 +212,7 @@ fun ConversationItemCard(
     conversation: ChatConversation,
     onClick: () -> Unit
 ) {
+    val hasUnread = conversation.unreadCount > 0
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -218,7 +220,12 @@ fun ConversationItemCard(
             .testTag("conversation_item_${conversation.id}"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = if (hasUnread) {
+            BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            null
+        }
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -282,8 +289,10 @@ fun ConversationItemCard(
 
                     Text(
                         text = conversation.lastMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = if (hasUnread) FontWeight.Bold else FontWeight.Normal
+                        ),
+                        color = if (hasUnread) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -321,12 +330,13 @@ fun ConversationItemCard(
                     )
                 }
 
-                if (conversation.unreadCount > 0) {
+                if (hasUnread) {
                     Box(
                         modifier = Modifier
                             .size(22.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.error),
+                            .background(MaterialTheme.colorScheme.error)
+                            .testTag("conversation_unread_${conversation.id}"),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(

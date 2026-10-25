@@ -6,6 +6,8 @@ import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.usecase.chat.StartConversationUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
+import com.servilocal.domain.usecase.posts.AddPostCommentUseCase
+import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 
@@ -15,6 +17,8 @@ class ServiceDetailViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val startConversationUseCase: StartConversationUseCase,
     private val moderationRepository: ModerationRepository,
+    private val togglePostLikeUseCase: TogglePostLikeUseCase,
+    private val addPostCommentUseCase: AddPostCommentUseCase,
     private val reportPostUseCase: ReportPostUseCase = ReportPostUseCase(postRepository, authRepository, moderationRepository)
 ) : ViewModel() {
     val posts = postRepository.posts
@@ -25,12 +29,8 @@ class ServiceDetailViewModel @Inject constructor(
         if (post.providerId == currentUser.value.id) return null
         return startConversationUseCase(postId)
     }
-    fun toggleUpvote(postId: String) = postRepository.toggleUpvote(postId)
-    fun addComment(postId: String, text: String) {
-        val post = posts.value.firstOrNull { it.id == postId } ?: return
-        val author = currentUser.value.name
-        postRepository.addComment(postId, text, author, author == post.providerName)
-    }
+    fun toggleUpvote(postId: String): Boolean = togglePostLikeUseCase(postId)
+    fun addComment(postId: String, text: String): Boolean = addPostCommentUseCase(postId, text)
     fun reportPost(postId: String, reason: String, description: String): Boolean {
         return reportPostUseCase(postId, reason, description)
     }

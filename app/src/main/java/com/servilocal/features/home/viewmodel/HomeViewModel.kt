@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
+import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,8 @@ enum class ViewDisplayMode { LIST, MAP }
 class HomeViewModel @Inject constructor(
     private val postRepository: PostRepository,
     authRepository: AuthRepository,
-    observeNotifications: ObserveNotificationsUseCase
+    observeNotifications: ObserveNotificationsUseCase,
+    private val togglePostLikeUseCase: TogglePostLikeUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -42,5 +44,5 @@ class HomeViewModel @Inject constructor(
     fun setSearchQuery(value: String) = _uiState.update { it.copy(searchQuery = value) }
     fun setSelectedCategory(value: String) = _uiState.update { it.copy(selectedCategory = value) }
     fun setDisplayMode(value: ViewDisplayMode) = _uiState.update { it.copy(displayMode = value) }
-    fun toggleUpvote(postId: String) = postRepository.toggleUpvote(postId)
+    fun toggleUpvote(postId: String): Boolean = togglePostLikeUseCase(postId)
 }
