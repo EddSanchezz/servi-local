@@ -1,10 +1,17 @@
 package com.servilocal
 
 import com.servilocal.core.data.repository.MockDataRepository
+import com.servilocal.domain.model.NotificationType
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
+import com.servilocal.domain.usecase.posts.AddCommentResult
 import com.servilocal.domain.usecase.posts.AddPostCommentUseCase
+import com.servilocal.domain.usecase.posts.ObservePostCommentsUseCase
+import com.servilocal.domain.usecase.posts.ObservePostLikesUseCase
+import com.servilocal.domain.usecase.posts.ToggleLikeResult
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -27,14 +34,14 @@ class PostInteractionUseCaseTest {
         val post = repository.posts.value.first { it.id == "pub_1" }
         val initialCount = post.upvotesCount
 
-        assertTrue(useCase(post.id))
+        assertEquals(ToggleLikeResult.Success(liked = true), useCase(post.id))
 
         val liked = repository.posts.value.first { it.id == post.id }
         assertTrue(liked.userUpvoted)
         assertEquals(initialCount + 1, liked.upvotesCount)
         assertEquals(1, repository.likes.value.size)
 
-        assertTrue(useCase(post.id))
+        assertEquals(ToggleLikeResult.Success(liked = false), useCase(post.id))
 
         val unliked = repository.posts.value.first { it.id == post.id }
         assertFalse(unliked.userUpvoted)
@@ -43,12 +50,28 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
+    fun `removing a like does not notify the author again`() {
+        val repository = repository()
+        val useCase = toggleLikeUseCase(repository)
+        val authorId = repository.posts.value.first { it.id == "pub_1" }.providerId
+        fun likeNotifications() = repository.notifications.value.count {
+            it.userId == authorId && it.type == NotificationType.INTERACTION
+        }
+        val before = likeNotifications()
+
+        useCase("pub_1")
+        useCase("pub_1")
+
+        assertEquals(before + 1, likeNotifications())
+    }
+
+    @Test
     fun `a user cannot like their own post but can comment on it as the author`() {
         val repository = repository()
         val ownPost = repository.posts.value.first { it.providerId == repository.currentUser.value.id }
 
-        assertFalse(toggleLikeUseCase(repository)(ownPost.id))
-        assertTrue(addCommentUseCase(repository)(ownPost.id, "Comentario propio"))
+        assertEquals(ToggleLikeResult.OwnPost, toggleLikeUseCase(repository)(ownPost.id))
+        assertEquals(AddCommentResult.Success, addCommentUseCase(repository)(ownPost.id, "Comentario propio"))
 
         val comment = repository.posts.value.first { it.id == ownPost.id }.comments.first()
         assertTrue(comment.isAuthorReply)
@@ -60,16 +83,31 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
+    fun `posts that are not verified cannot be liked or commented`() {
+        val repository = repository()
+        val pending = repository.posts.value.first { it.status == PostStatus.PENDING_VERIFICATION }
+
+        assertEquals(ToggleLikeResult.PostNotVerified, toggleLikeUseCase(repository)(pending.id))
+        assertEquals(AddCommentResult.PostNotVerified, addCommentUseCase(repository)(pending.id, "Hola"))
+        assertEquals(ToggleLikeResult.PostNotFound, toggleLikeUseCase(repository)("no_existe"))
+        assertEquals(AddCommentResult.PostNotFound, addCommentUseCase(repository)("no_existe", "Hola"))
+        assertTrue(repository.likes.value.isEmpty())
+        assertTrue(repository.comments.value.isEmpty())
+    }
+
+    @Test
     fun `a user can leave multiple comments on another users post`() {
         val repository = repository()
         val useCase = addCommentUseCase(repository)
         val post = repository.posts.value.first { it.id == "pub_2" }
 
-        assertTrue(useCase(post.id, "Primer comentario"))
-        assertTrue(useCase(post.id, "Segundo comentario"))
+        assertEquals(AddCommentResult.Success, useCase(post.id, "Primer comentario"))
+        assertEquals(AddCommentResult.Success, useCase(post.id, "Segundo comentario"))
 
         assertEquals(2, repository.comments.value.count { it.postId == post.id })
         assertEquals(2, repository.posts.value.first { it.id == post.id }.comments.size)
+        // Los ids deben ser únicos porque la lista de la UI los usa como key.
+        assertEquals(2, repository.comments.value.map { it.id }.toSet().size)
     }
 
     @Test
@@ -102,7 +140,44 @@ class PostInteractionUseCaseTest {
         val repository = repository()
         val post = repository.posts.value.first { it.id == "pub_2" }
 
-        assertFalse(addCommentUseCase(repository)(post.id, "   "))
+        assertEquals(AddCommentResult.EmptyContent, addCommentUseCase(repository)(post.id, "   "))
         assertTrue(repository.comments.value.isEmpty())
+    }
+
+    @Test
+    fun `comments longer than the limit are rejected`() {
+        val repository = repository()
+        val tooLong = "a".repeat(AddPostCommentUseCase.MAX_LENGTH + 1)
+
+        assertEquals(AddCommentResult.TooLong, addCommentUseCase(repository)("pub_2", tooLong))
+        assertTrue(repository.comments.value.isEmpty())
+    }
+
+    @Test
+    fun `observe likes reflects the count and whether the current user liked the post`() = runTest {
+        val repository = repository()
+        val observeLikes = ObservePostLikesUseCase(repository, repository, repository)
+        val initial = observeLikes("pub_1").first()
+        assertFalse(initial.likedByCurrentUser)
+
+        toggleLikeUseCase(repository)("pub_1")
+
+        val afterLike = observeLikes("pub_1").first()
+        assertTrue(afterLike.likedByCurrentUser)
+        assertEquals(initial.count + 1, afterLike.count)
+    }
+
+    @Test
+    fun `observe comments returns the newest comment first`() = runTest {
+        val repository = repository()
+        val observeComments = ObservePostCommentsUseCase(repository)
+        val initialSize = observeComments("pub_2").first().size
+
+        addCommentUseCase(repository)("pub_2", "¿Atienden los domingos?")
+
+        val comments = observeComments("pub_2").first()
+        assertEquals(initialSize + 1, comments.size)
+        assertEquals("¿Atienden los domingos?", comments.first().text)
+        assertTrue(observeComments("no_existe").first().isEmpty())
     }
 }

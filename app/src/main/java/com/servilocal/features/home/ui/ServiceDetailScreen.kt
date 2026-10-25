@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.servilocal.core.util.RequestResult
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.features.home.viewmodel.ServiceDetailViewModel
 import kotlinx.coroutines.launch
@@ -40,6 +41,9 @@ fun ServiceDetailScreen(
 ) {
     val posts by viewModel.posts.collectAsStateWithLifecycle()
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val likes by viewModel.likes.collectAsStateWithLifecycle()
+    val comments by viewModel.comments.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val post = posts.find { it.id == postId }
     val context = LocalContext.current
 
@@ -49,6 +53,16 @@ fun ServiceDetailScreen(
     var showReportDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+
+    // Las reglas de likes y comentarios que fallan se muestran como Failure en un snackbar.
+    val interactionError = (uiState.likeResult as? RequestResult.Failure)?.errorMessage
+        ?: (uiState.commentResult as? RequestResult.Failure)?.errorMessage
+    LaunchedEffect(uiState) {
+        interactionError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearInteractionFeedback()
+        }
+    }
 
     if (post == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -154,15 +168,15 @@ fun ServiceDetailScreen(
                                     onClick = { viewModel.toggleUpvote(post.id) },
                                     shape = RoundedCornerShape(20.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = if (post.userUpvoted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                                        contentColor = if (post.userUpvoted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                                        containerColor = if (likes.likedByCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = if (likes.likedByCurrentUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
                                     ),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                                     modifier = Modifier.weight(0.85f).height(48.dp)
                                 ) {
-                                    Icon(imageVector = if (post.userUpvoted) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Icon(imageVector = if (likes.likedByCurrentUser) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = if (post.userUpvoted) "Apoyado" else "Me interesa", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                                    Text(text = if (likes.likedByCurrentUser) "Apoyado" else "Me interesa", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1)
                                 }
                                 Button(
                                     onClick = { viewModel.startConversation(post.id)?.let(onOpenChat) },
@@ -551,7 +565,7 @@ fun ServiceDetailScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Icon(Icons.Default.ThumbUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                     Text(
-                                        text = "${post.upvotesCount} votos de confianza",
+                                        text = "${likes.count} votos de confianza",
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -578,7 +592,7 @@ fun ServiceDetailScreen(
                             )
                             Badge(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh) {
                                 Text(
-                                    text = post.comments.size.toString(),
+                                    text = comments.size.toString(),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -615,8 +629,7 @@ fun ServiceDetailScreen(
                             )
                             IconButton(
                                 onClick = {
-                                    if (newCommentText.isNotBlank()) {
-                                        viewModel.addComment(post.id, newCommentText)
+                                    if (viewModel.addComment(post.id, newCommentText)) {
                                         newCommentText = ""
                                     }
                                 }
@@ -631,7 +644,7 @@ fun ServiceDetailScreen(
             }
 
             // List of comments
-            items(post.comments, key = { it.id }) { comment ->
+            items(comments, key = { it.id }) { comment ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -12,6 +12,7 @@ import com.servilocal.domain.repository.SessionRepository
 import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -185,7 +186,7 @@ class MockDataRepository @Inject constructor(
                 } else post
             }
         }
-        return true
+        return liked
     }
 
     override fun hasLiked(postId: String, userId: Long): Boolean =
@@ -196,7 +197,7 @@ class MockDataRepository @Inject constructor(
         val post = _posts.value.firstOrNull { it.id == postId } ?: return false
 
         val newComment = Comment(
-            id = "c_${System.currentTimeMillis()}_$userId",
+            id = "c_${UUID.randomUUID()}",
             postId = postId,
             userId = userId,
             content = content
