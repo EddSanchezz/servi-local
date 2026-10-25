@@ -51,41 +51,105 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
     }
 
     private fun seedUsers(): List<User> = listOf(
+        // Usuario principal (cliente/provider)
         User(
             id = 1L,
             name = "Valentina Morales",
-            email = "valentina.morales@servilocal.co",
-            passwordHash = PasswordHasher.hash("servilocal2026"),
+            email = "valentina@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
             role = UserRole.USER,
             points = 220,
             level = UserLevel.MAESTRO
         ),
+        // Carlos Mendoza - Servicios eléctricos y plomería (pub_1, pub_2)
         User(
             id = 2L,
             name = "Carlos Mendoza",
-            email = "carlos.mendoza@servilocal.co",
-            passwordHash = PasswordHasher.hash("servilocal2026"),
+            email = "carlos@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
             role = UserRole.USER,
             points = 120,
             level = UserLevel.PROFESIONAL
         ),
+        // Moderador del sistema
         User(
             id = 3L,
             name = "Alejandro Vargas",
-            email = "alejandro.vargas@staff.servilocal.pe",
-            passwordHash = PasswordHasher.hash("servilocal2026"),
+            email = "alejandro@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
             role = UserRole.MODERATOR,
             points = 500,
             level = UserLevel.MAESTRO
         ),
+        // Matías S. - Servicios de mascotas (pub_4)
         User(
             id = 4L,
-            name = "Jero",
-            email = "my@gmail.com",
-            passwordHash = PasswordHasher.hash("Jero1234"),
+            name = "Matías Sepúlveda",
+            email = "matias@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
             role = UserRole.USER,
-            points = 100,
+            points = 80,
+            level = UserLevel.PROFESIONAL
+        ),
+        // Rodrigo Tapia - Cerrajería (pub_5)
+        User(
+            id = 5L,
+            name = "Rodrigo Tapia",
+            email = "rodrigo@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
+            role = UserRole.USER,
+            points = 25,
             level = UserLevel.PRINCIPIANTE
+        ),
+        // Fernando Lucas - Electricidad (pub_6)
+        User(
+            id = 6L,
+            name = "Fernando Lucas",
+            email = "fernando@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
+            role = UserRole.USER,
+            points = 15,
+            level = UserLevel.PRINCIPIANTE
+        ),
+        // Francisca Valenzuela - Cliente que comenta y solicita servicios
+        User(
+            id = 7L,
+            name = "Francisca Valenzuela",
+            email = "francisca@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
+            role = UserRole.USER,
+            points = 45,
+            level = UserLevel.PROFESIONAL
+        ),
+        // Andrés Gómez - Cliente de servicios de plomería
+        User(
+            id = 8L,
+            name = "Andrés Gómez",
+            email = "andres@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
+            role = UserRole.USER,
+            points = 30,
+            level = UserLevel.PRINCIPIANTE
+        ),
+        // Mariana Rivas - Cliente que solicita servicios
+        User(
+            id = 9L,
+            name = "Mariana Rivas",
+            email = "mariana@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
+            role = UserRole.USER,
+            points = 20,
+            level = UserLevel.PRINCIPIANTE
+        ),
+        // Jorge Palacios - Cliente de servicios de pintura
+        User(
+            id = 10L,
+            name = "Jorge Palacios",
+            email = "jorge@gmail.com",
+            passwordHash = PasswordHasher.hash("password123"),
+            role = UserRole.USER,
+            points = 55,
+            level = UserLevel.PROFESIONAL
         )
     )
 }

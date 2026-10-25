@@ -39,12 +39,17 @@ class MockDataRepository @Inject constructor(
 
     private val erdPosts = MutableStateFlow<List<Post>>(
         listOf(
-            Post("pub_1", 1L, title = "Instalación Eléctrica Residencial y Reparaciones", category = PostCategory.HOGAR, description = "Ingeniero Eléctrico con certificación técnica oficial.", minPrice = 25000, maxPrice = 45000, status = PostStatus.APPROVED),
-            Post("pub_2", 1L, title = "Plomería y Destapes de Urgencia 24/7", category = PostCategory.HOGAR, description = "Atención inmediata para fugas de agua y destapes.", minPrice = 25000, maxPrice = 50000, status = PostStatus.APPROVED),
+            // Carlos Mendoza (userId: 2L) - Servicios eléctricos y plomería
+            Post("pub_1", 2L, title = "Instalación Eléctrica Residencial y Reparaciones", category = PostCategory.HOGAR, description = "Ingeniero Eléctrico con certificación técnica oficial.", minPrice = 25000, maxPrice = 45000, status = PostStatus.APPROVED),
+            Post("pub_2", 2L, title = "Plomería y Destapes de Urgencia 24/7", category = PostCategory.HOGAR, description = "Atención inmediata para fugas de agua y destapes.", minPrice = 25000, maxPrice = 50000, status = PostStatus.APPROVED),
+            // Valentina Morales (userId: 1L) - Clases particulares
             Post("pub_3", 1L, title = "Clases Particulares de Matemáticas y Física", category = PostCategory.EDUCACION, description = "Docente universitaria de matemáticas puras.", minPrice = 15000, maxPrice = 30000, status = PostStatus.APPROVED),
-            Post("pub_4", 1L, title = "Paseo y Cuidado Canino Personalizado", category = PostCategory.MASCOTAS, description = "Paseos recreativos individuales o en grupos reducidos.", minPrice = 8000, maxPrice = 18000, status = PostStatus.APPROVED),
-            Post("pub_5", 1L, title = "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas", category = PostCategory.HOGAR, description = "Servicio de cerrajería rápido a domicilio.", minPrice = 30000, maxPrice = 60000, status = PostStatus.PENDING_VERIFICATION),
-            Post("pub_6", 1L, title = "Mantenimiento e Instalación de Tableros Eléctricos", category = PostCategory.TECNOLOGIA, description = "Levantamiento de planos y detección de fugas.", minPrice = 35000, maxPrice = 85000, status = PostStatus.PENDING_VERIFICATION)
+            // Matías Sepúlveda (userId: 4L) - Servicios de mascotas
+            Post("pub_4", 4L, title = "Paseo y Cuidado Canino Personalizado", category = PostCategory.MASCOTAS, description = "Paseos recreativos individuales o en grupos reducidos.", minPrice = 8000, maxPrice = 18000, status = PostStatus.APPROVED),
+            // Rodrigo Tapia (userId: 5L) - Cerrajería
+            Post("pub_5", 5L, title = "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas", category = PostCategory.HOGAR, description = "Servicio de cerrajería rápido a domicilio.", minPrice = 30000, maxPrice = 60000, status = PostStatus.PENDING_VERIFICATION),
+            // Fernando Lucas (userId: 6L) - Electricidad
+            Post("pub_6", 6L, title = "Mantenimiento e Instalación de Tableros Eléctricos", category = PostCategory.TECNOLOGIA, description = "Levantamiento de planos y detección de fugas.", minPrice = 35000, maxPrice = 85000, status = PostStatus.PENDING_VERIFICATION)
         )
     )
 
@@ -454,13 +459,15 @@ class MockDataRepository @Inject constructor(
                 ServiceComment("c_3", "Carlos Mendoza (Autor)", "Hace 3 días", "¡Hola Matías! Sí, cuento con certificación.", isAuthorReply = true, isRecommended = true)
             )
         ),
+        // Carlos Mendoza (userId: 2L) - Plomería
         ServicePost(
             id = "pub_2",
             title = "Plomería y Destapes de Urgencia 24/7",
             category = "Hogar",
             description = "Atención inmediata para fugas de agua, cambio de griferías y destapes.",
-            providerName = "Carlos R.",
-            providerLevel = "Experto ★",
+            providerName = "Carlos Mendoza",
+            providerId = 2L,
+            providerLevel = "Profesional",
             minPrice = 25000,
             maxPrice = 50000,
             location = "Armenia, Quindío - Centro",
@@ -473,12 +480,13 @@ class MockDataRepository @Inject constructor(
             responseTime = "< 20 min",
             createdAtMillis = daysAgo(2)
         ),
+        // Valentina Morales (userId: 1L) - Clases particulares
         ServicePost(
             id = "pub_3",
             title = "Clases Particulares de Matemáticas y Física",
             category = "Educación",
             description = "Docente universitaria de matemáticas puras. Apoyo escolar y universitario.",
-            providerName = "Valentina M.",
+            providerName = "Valentina Morales",
             providerId = 1L,
             providerLevel = "Maestro 🏆",
             minPrice = 15000,
@@ -493,12 +501,14 @@ class MockDataRepository @Inject constructor(
             responseTime = "< 15 min",
             createdAtMillis = daysAgo(9)
         ),
+        // Matías Sepúlveda (userId: 4L) - Paseo de mascotas
         ServicePost(
             id = "pub_4",
             title = "Paseo y Cuidado Canino Personalizado",
             category = "Mascotas",
             description = "Paseos recreativos individuales o en grupos reducidos con seguimiento GPS.",
-            providerName = "Matías S.",
+            providerName = "Matías Sepúlveda",
+            providerId = 4L,
             providerLevel = "Profesional",
             minPrice = 8000,
             maxPrice = 18000,
@@ -512,12 +522,14 @@ class MockDataRepository @Inject constructor(
             responseTime = "< 1 hora",
             createdAtMillis = daysAgo(20)
         ),
+        // Rodrigo Tapia (userId: 5L) - Cerrajería
         ServicePost(
             id = "pub_5",
             title = "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas",
             category = "Hogar",
             description = "Servicio de cerrajería rápido a domicilio para casas y autos.",
             providerName = "Rodrigo Tapia",
+            providerId = 5L,
             providerLevel = "Principiante",
             minPrice = 30000,
             maxPrice = 60000,
@@ -531,13 +543,15 @@ class MockDataRepository @Inject constructor(
             responseTime = "< 25 min",
             createdAtMillis = daysAgo(5)
         ),
+        // Fernando Lucas (userId: 6L) - Electricidad
         ServicePost(
             id = "pub_6",
             title = "Mantenimiento e Instalación de Tableros Eléctricos",
             category = "Electricidad",
             description = "Levantamiento de planos, detección de fugas y reemplazo de protecciones.",
             providerName = "Fernando Lucas",
-            providerLevel = "Nuevo",
+            providerId = 6L,
+            providerLevel = "Principiante",
             minPrice = 35000,
             maxPrice = 85000,
             location = "Armenia, Quindío - La Castellana",
@@ -553,9 +567,10 @@ class MockDataRepository @Inject constructor(
     )
 
     private fun getInitialChats(): List<ChatConversation> = listOf(
+        // Chat entre Valentina (cliente, userId: 1L) y Carlos Mendoza (proveedor, userId: 2L)
         ChatConversation(
             id = "chat_1",
-            recipientName = "Carlos R.",
+            recipientName = "Carlos Mendoza",
             serviceTitle = "Instalación Eléctrica Residencial",
             servicePrice = "$ 45.000 COP",
             status = ServiceRequestStatus.IN_PROGRESS,
@@ -567,11 +582,12 @@ class MockDataRepository @Inject constructor(
             requestProblem = "El interruptor principal del circuito de la cocina genera chispas al encender el horno eléctrico. Requiere revisión urgente.",
             requestPhone = "+57 312 456 7890",
             messages = listOf(
-                ChatMessageItem("m1", "Carlos R.", "Hola Valentina, gusto en saludarte. Ya revisé la solicitud.", "10:14 AM", isFromMe = false),
+                ChatMessageItem("m1", "Carlos Mendoza", "Hola Valentina, gusto en saludarte. Ya revisé la solicitud.", "10:14 AM", isFromMe = false),
                 ChatMessageItem("m2", "Valentina Morales", "¡Hola Carlos! Muchas gracias.", "10:16 AM", isFromMe = true, read = true),
-                ChatMessageItem("m3", "Carlos R.", "Perfecto, llevo el multímetro a las 3:00 PM.", "10:20 AM", isFromMe = false)
+                ChatMessageItem("m3", "Carlos Mendoza", "Perfecto, llevo el multímetro a las 3:00 PM.", "10:20 AM", isFromMe = false)
             )
         ),
+        // Chat de clases (usando las publicaciones de Valentina como proveedor)
         ChatConversation(
             id = "chat_2",
             recipientName = "Valentina Morales",
@@ -586,6 +602,7 @@ class MockDataRepository @Inject constructor(
                 ChatMessageItem("m4", "Valentina Morales", "Te adjunto el temario del examen de cálculo para revisarlo.", "Hace 2 h", isFromMe = false)
             )
         ),
+        // Chat entre Andrés Gómez (userId: 8L) y Carlos Mendoza (userId: 2L) - plomería
         ChatConversation(
             id = "chat_3",
             recipientName = "Andrés Gómez",
@@ -600,6 +617,7 @@ class MockDataRepository @Inject constructor(
                 ChatMessageItem("m5", "Andrés Gómez", "Servicio completado exitosamente. ¡Muchas gracias por calificar!", "Ayer", isFromMe = false)
             )
         ),
+        // Francisca Valenzuela (userId: 7L) contacting a provider
         ChatConversation(
             id = "chat_4",
             recipientName = "Francisca Valenzuela",
@@ -611,9 +629,10 @@ class MockDataRepository @Inject constructor(
             unreadCount = 1,
             isClientRole = false,
             messages = listOf(
-                ChatMessageItem("m6", "Mariana Rivas", "¡Hola! ¿Tienes disponibilidad este viernes para revisar una cerradura?", "10:45 AM", isFromMe = false)
+                ChatMessageItem("m6", "Francisca Valenzuela", "¡Hola! ¿Tienes disponibilidad este viernes para revisar una cerradura?", "10:45 AM", isFromMe = false)
             )
         ),
+        // Jorge Palacios (userId: 10L) contacting a provider
         ChatConversation(
             id = "chat_5",
             recipientName = "Jorge Palacios",
@@ -634,33 +653,37 @@ class MockDataRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val minute = 60_000L
         return listOf(
+            // Notificación para Carlos Mendoza (userId: 2L) - nueva solicitud
             AppNotification(
                 id = "notif_1",
-                userId = 1L,
+                userId = 2L,
                 title = "Nueva solicitud de servicio recibida",
                 body = "Francisca Valenzuela ha solicitado tu servicio.",
                 type = NotificationType.REQUEST,
                 relatedChatId = "chat_4",
                 createdAtMillis = now - 10 * minute
             ),
+            // Notificación para Carlos Mendoza (userId: 2L) - publicación aprobada
             AppNotification(
                 id = "notif_2",
-                userId = 1L,
+                userId = 2L,
                 title = "¡Publicación aprobada!",
                 body = "La publicación 'Instalación Eléctrica' está disponible en el Feed.",
                 type = NotificationType.SYSTEM,
                 relatedPostId = "pub_1",
                 createdAtMillis = now - 120 * minute
             ),
+            // Notificación para Carlos Mendoza (userId: 2L) - nuevo comentario
             AppNotification(
                 id = "notif_3",
-                userId = 1L,
+                userId = 2L,
                 title = "Nuevo comentario en tu anuncio",
                 body = "Matías Sepúlveda preguntó por instalación de cargadores.",
                 type = NotificationType.COMMENT,
                 relatedPostId = "pub_1",
                 createdAtMillis = now - 240 * minute
             ),
+            // Notificación para Valentina Morales (userId: 1L) - logro desbloqueado
             AppNotification(
                 id = "notif_4",
                 userId = 1L,
@@ -670,6 +693,7 @@ class MockDataRepository @Inject constructor(
                 isRead = true,
                 createdAtMillis = now - 24 * 60 * minute
             ),
+            // Notificación para Valentina Morales (userId: 1L) - interacción
             AppNotification(
                 id = "notif_5",
                 userId = 1L,
@@ -683,8 +707,11 @@ class MockDataRepository @Inject constructor(
     }
 
     private fun getInitialReports(): List<ModerationReportItem> = listOf(
+        // Reporte 1: pub_1 (Carlos Mendoza) - reportado por usuarios
         ModerationReportItem("rep_1", "Solicitud de pago externo", 3, "Publicación", "Instalación Eléctrica Residencial y Reparaciones", "Pide transferencia previa por WhatsApp.", targetPostId = "pub_1", createdAtMillis = daysAgo(0)),
+        // Reporte 2: pub_5 (Rodrigo Tapia) - reportado por usuarios
         ModerationReportItem("rep_2", "Datos de contacto en descripción", 1, "Publicación", "Cerrajería Móvil Urgencias 24/7 y Apertura de Puertas", "Incluye número privado en la descripción.", targetPostId = "pub_5", createdAtMillis = daysAgo(9)),
+        // Reporte 3: chat_5 (Jorge Palacios) - reportado por usuarios
         ModerationReportItem("rep_3", "Servicio engañoso o no autorizado", 2, "Chat", "Pintura y Remodelaciones Integrales", "Lenguaje inapropiado e incumplimiento de cita.", targetChatId = "chat_5", createdAtMillis = daysAgo(20))
     )
 
@@ -696,18 +723,18 @@ class MockDataRepository @Inject constructor(
     private fun defaultCurrentUser(): UserProfile = UserProfile(
         id = 1L,
         name = "Valentina Morales",
-        email = "valentina.morales@servilocal.co",
+        email = "valentina@gmail.com",
         role = UserRole.USER,
-        level = "Nivel 3: Destacado",
+        level = "Nivel 4: Maestro",
         points = 220,
-        nextLevelPoints = 300,
+        nextLevelPoints = 500,
         workingHours = "Lunes a sábado · 8:00 a. m. - 6:00 p. m."
     )
 
     private fun defaultModeratorUser(): UserProfile = UserProfile(
         id = 3L,
         name = "Alejandro Vargas",
-        email = "alejandro.vargas@staff.servilocal.pe",
+        email = "alejandro@gmail.com",
         role = UserRole.MODERATOR,
         staffId = "MOD-4892",
         activeShift = true,
