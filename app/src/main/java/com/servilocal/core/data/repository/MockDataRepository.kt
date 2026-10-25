@@ -18,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -120,12 +121,14 @@ class MockDataRepository @Inject constructor(
         val sessions = sessionRepository
         if (users != null && sessions != null) {
             scope.launch {
-                sessions.session.collect { session ->
+                combine(sessions.session, users.users) { session, allUsers ->
+                    session to allUsers
+                }.collect { (session, allUsers) ->
                     if (session == null) {
                         _currentUser.value = defaultCurrentUser()
                         _moderatorUser.value = defaultModeratorUser()
                     } else {
-                        users.findById(session.userId)?.let { user ->
+                        allUsers.firstOrNull { it.id == session.userId }?.let { user ->
                             val profile = user.toUserProfile()
                             _currentUser.value = profile
                             if (user.role == UserRole.MODERATOR) {
@@ -250,7 +253,7 @@ class MockDataRepository @Inject constructor(
             description = description,
             providerName = _currentUser.value.name,
             providerId = _currentUser.value.id,
-            providerLevel = "Profesional",
+            providerLevel = _currentUser.value.level.substringAfter(": ", _currentUser.value.level),
             minPrice = minPrice,
             maxPrice = maxPrice,
             isPriceToAgree = isPriceToAgree,
@@ -666,7 +669,7 @@ class MockDataRepository @Inject constructor(
             description = "Ingeniero Eléctrico con certificación técnica oficial. Realizo diagnóstico, instalación y reparación de cableados domiciliarios.",
             providerName = "Carlos Mendoza",
             providerId = 2L,
-            providerLevel = "Maestro 🏆",
+            providerLevel = "Profesional",
             minPrice = 25000,
             maxPrice = 45000,
             location = "Armenia, Quindío - Barrio Granada",
@@ -713,7 +716,7 @@ class MockDataRepository @Inject constructor(
             description = "Docente universitaria de matemáticas puras. Apoyo escolar y universitario.",
             providerName = "Valentina Morales",
             providerId = 1L,
-            providerLevel = "Maestro 🏆",
+            providerLevel = "Profesional",
             minPrice = 15000,
             maxPrice = 30000,
             location = "Armenia, Quindío - Norte",
@@ -734,7 +737,7 @@ class MockDataRepository @Inject constructor(
             description = "Paseos recreativos individuales o en grupos reducidos con seguimiento GPS.",
             providerName = "Matías Sepúlveda",
             providerId = 4L,
-            providerLevel = "Profesional",
+            providerLevel = "Principiante",
             minPrice = 8000,
             maxPrice = 18000,
             location = "Armenia, Quindío - Parque de la Vida",
@@ -935,8 +938,8 @@ class MockDataRepository @Inject constructor(
             AppNotification(
                 id = "notif_4",
                 userId = 1L,
-                title = "¡Nuevo logro desbloqueado: Súper Proveedor!",
-                body = "Completaste 10 servicios con 5 estrellas.",
+                title = "¡Nuevo logro desbloqueado: Influencer!",
+                body = "Alcanzaste 100 puntos de reputación.",
                 type = NotificationType.ACHIEVEMENT,
                 isRead = true,
                 createdAtMillis = now - 24 * 60 * minute
@@ -993,9 +996,9 @@ class MockDataRepository @Inject constructor(
         name = "Valentina Morales",
         email = "valentina@gmail.com",
         role = UserRole.USER,
-        level = "Nivel 4: Maestro",
+        level = "Nivel 2: Profesional",
         points = 220,
-        nextLevelPoints = 500,
+        nextLevelPoints = 250,
         workingHours = "Lunes a sábado · 8:00 a. m. - 6:00 p. m."
     )
 
@@ -1004,6 +1007,9 @@ class MockDataRepository @Inject constructor(
         name = "Alejandro Vargas",
         email = "alejandro@gmail.com",
         role = UserRole.MODERATOR,
+        level = "Nivel 4: Maestro",
+        points = 500,
+        nextLevelPoints = 500,
         staffId = "MOD-4892",
         activeShift = true,
         workingHours = "Lunes a viernes · 8:00 a. m. - 4:30 p. m."
@@ -1011,21 +1017,15 @@ class MockDataRepository @Inject constructor(
 
     /** Convierte la entidad de sesión en el modelo que consumen las pantallas. */
     private fun User.toUserProfile(): UserProfile {
-        val levelLabel = when (level) {
-            UserLevel.PRINCIPIANTE -> "Nivel 1: Principiante"
-            UserLevel.PROFESIONAL -> "Nivel 2: Profesional"
-            UserLevel.EXPERTO -> "Nivel 3: Experto"
-            UserLevel.MAESTRO -> "Nivel 4: Maestro"
-        }
         val isModerator = role == UserRole.MODERATOR
         return UserProfile(
             id = id,
             name = name,
             email = email,
             role = role,
-            level = levelLabel,
+            level = level.displayName(),
             points = points,
-            nextLevelPoints = level.next?.minPoints ?: 1000,
+            nextLevelPoints = level.next?.minPoints ?: level.minPoints,
             staffId = if (isModerator) "MOD-4892" else null,
             activeShift = isModerator,
             workingHours = if (isModerator) {

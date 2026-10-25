@@ -9,10 +9,11 @@ import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.profile.AddPointsUseCase
+import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
 import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
 import com.servilocal.domain.usecase.profile.GetProfileStatsUseCase
 import com.servilocal.domain.usecase.profile.ObserveUserBadgesUseCase
-import com.servilocal.domain.usecase.user.GetCurrentUserUseCase
+import com.servilocal.domain.usecase.user.ObserveCurrentUserUseCase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -29,6 +30,7 @@ class ProfileUseCaseTest {
     private lateinit var badges: BadgeRepositoryImpl
     private lateinit var posts: MockDataRepository
     private lateinit var addPoints: AddPointsUseCase
+    private lateinit var awardPublicationPoints: AwardPublicationPointsUseCase
     private lateinit var getProfileStats: GetProfileStatsUseCase
     private lateinit var observeUserBadges: ObserveUserBadgesUseCase
     private lateinit var checkAndAwardBadges: CheckAndAwardBadgesUseCase
@@ -41,7 +43,7 @@ class ProfileUseCaseTest {
         posts = MockDataRepository()
         addPoints = AddPointsUseCase(users)
         getProfileStats = GetProfileStatsUseCase(
-            GetCurrentUserUseCase(sessions, users),
+            ObserveCurrentUserUseCase(sessions, users),
             posts,
             badges
         )
@@ -50,8 +52,10 @@ class ProfileUseCaseTest {
             sessions,
             users,
             badges,
+            posts,
             CreateNotificationUseCase(posts)
         )
+        awardPublicationPoints = AwardPublicationPointsUseCase(addPoints, checkAndAwardBadges)
     }
 
     @Test
@@ -60,6 +64,21 @@ class ProfileUseCaseTest {
 
         assertEquals(270, updated?.points)
         assertEquals(UserLevel.EXPERTO, updated?.level)
+    }
+
+    @Test
+    fun `award publication points grants reputation and unlocks badges`() = runTest {
+        sessions.saveSession(1L, UserRole.USER)
+
+        val updated = awardPublicationPoints(1L)
+
+        assertEquals(270, updated?.points)
+        assertEquals(UserLevel.EXPERTO, updated?.level)
+        assertTrue(
+            badges.userBadges.value.any {
+                it.userId == 1L && it.badgeId == "badge_3"
+            }
+        )
     }
 
     @Test
@@ -94,6 +113,15 @@ class ProfileUseCaseTest {
     }
 
     @Test
+    fun `first publication badge requires at least one post`() = runTest {
+        sessions.saveSession(4L, UserRole.USER)
+
+        val awarded = checkAndAwardBadges()
+
+        assertEquals(listOf("badge_1"), awarded.map { it.id })
+    }
+
+    @Test
     fun `observe user badges exposes the catalog with unlocked state`() = runTest {
         sessions.saveSession(1L, UserRole.USER)
 
@@ -109,20 +137,35 @@ class ProfileUseCaseTest {
     fun `profile stats combine points posts and badges`() = runTest {
         sessions.saveSession(1L, UserRole.USER)
 
-        val stats = getProfileStats()
+        val stats = getProfileStats().first()
 
         assertNotNull(stats)
         assertEquals(1L, stats?.user?.id)
         assertEquals(220, stats?.user?.points)
         assertEquals(2, stats?.badgeCount)
+        assertEquals(250, stats?.nextLevelPoints)
+        assertEquals(0.8f, stats?.progress ?: 0f, 0.001f)
+        assertEquals(30, stats?.remainingPoints)
         assertTrue((stats?.totalPosts ?: 0) >= 1)
-        assertTrue((stats?.progress ?: 0f) > 0f)
-        assertTrue(stats?.levelLabel?.contains("Nivel") == true)
+        assertTrue(stats?.levelLabel?.contains("Nivel 2") == true)
+    }
+
+    @Test
+    fun `master level exposes full progress without a next level`() = runTest {
+        sessions.saveSession(3L, UserRole.MODERATOR)
+
+        val stats = getProfileStats().first()
+
+        assertNotNull(stats)
+        assertEquals("Nivel 4: Maestro", stats?.levelLabel)
+        assertNull(stats?.nextLevelPoints)
+        assertEquals(1f, stats?.progress ?: 0f, 0.001f)
+        assertEquals(0, stats?.remainingPoints)
     }
 
     @Test
     fun `profile stats and badges are empty without a session`() = runTest {
-        assertNull(getProfileStats())
+        assertNull(getProfileStats().first())
         assertTrue(observeUserBadges().first().isEmpty())
     }
 }

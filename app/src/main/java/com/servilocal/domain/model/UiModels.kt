@@ -10,15 +10,9 @@ data class UserProfile(
     val name: String,
     val email: String,
     val role: UserRole,
-    val level: String = "Nivel 3: Destacado",
-    val points: Int = 220,
-    val nextLevelPoints: Int = 300,
-    val badges: List<BadgeDisplay> = listOf(
-        BadgeDisplay("1", "Primera Publicación", "🥇", true),
-        BadgeDisplay("2", "Influencer", "🔥", true),
-        BadgeDisplay("3", "Súper Proveedor", "⭐", false),
-        BadgeDisplay("4", "Comunitario", "🤝", false)
-    ),
+    val level: String = "Nivel 1: Principiante",
+    val points: Int = 0,
+    val nextLevelPoints: Int = 100,
     val staffId: String? = null,
     val activeShift: Boolean = true,
     val workingHours: String = "Lunes a sábado · 8:00 a. m. - 6:00 p. m."
@@ -27,7 +21,9 @@ data class UserProfile(
 data class BadgeDisplay(
     val id: String,
     val title: String,
+    val description: String,
     val icon: String,
+    val requirement: String,
     val unlocked: Boolean
 )
 
@@ -39,7 +35,7 @@ data class ServicePost(
     val providerName: String,
     val providerId: Long? = null,
     val providerAvatar: String? = null,
-    val providerLevel: String = "Maestro 🏆",
+    val providerLevel: String = "Principiante",
     val minPrice: Int = 25000,
     val maxPrice: Int = 45000,
     val priceUnit: String = "COP",

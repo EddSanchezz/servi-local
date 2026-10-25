@@ -56,15 +56,11 @@ fun UserProfileScreen(
     var editValidationMessage by remember { mutableStateOf(false) }
     val ownedPosts = posts.filter { it.providerId == currentUser.id || it.providerName == currentUser.name }
     val votedPosts = posts.filter { it.userUpvoted }
-    val displayBadges = badges.ifEmpty { currentUser.badges }
+    val displayBadges = badges
     val points = stats?.user?.points ?: currentUser.points
-    val nextLevelPoints = stats?.nextLevelPoints ?: currentUser.nextLevelPoints
-    val progress = stats?.progress ?: if (nextLevelPoints > 0) {
-        (points.toFloat() / nextLevelPoints).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
-    val remainingPoints = stats?.remainingPoints ?: (nextLevelPoints - points).coerceAtLeast(0)
+    val nextLevelPoints = stats?.nextLevelPoints
+    val progress = stats?.progress ?: 0f
+    val remainingPoints = stats?.remainingPoints ?: 0
     val levelLabel = stats?.levelLabel ?: currentUser.level
     val dialogPosts = when (activeDialog) {
         "Mis Publicaciones" -> ownedPosts
@@ -172,7 +168,10 @@ fun UserProfileScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("$points / $nextLevelPoints pts", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                Text(
+                                    text = if (nextLevelPoints != null) "$points / $nextLevelPoints pts" else "$points pts",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                                )
                                 Text("Nivel actual: $levelLabel", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                             }
                             LinearProgressIndicator(
@@ -186,7 +185,15 @@ fun UserProfileScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text("${(progress * 100).roundToInt()}% completado", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                Text("Faltan $remainingPoints pts", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text(
+                                    text = when {
+                                        nextLevelPoints == null -> "Nivel máximo alcanzado"
+                                        remainingPoints == 0 -> "Siguiente nivel disponible"
+                                        else -> "Faltan $remainingPoints pts"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
                             }
                         }
                     }
@@ -221,7 +228,12 @@ fun UserProfileScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Insignias", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                            Text("Ver todas", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                text = "Ver todas",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable { activeDialog = "Insignias" }
+                            )
                         }
 
                         Row(
@@ -409,6 +421,49 @@ fun UserProfileScreen(
                                             Text(post.title, color = MaterialTheme.colorScheme.onSurface)
                                             Text(status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "Insignias" -> {
+                        if (displayBadges.isEmpty()) {
+                            Text("Todavía no hay insignias disponibles.")
+                        } else {
+                            Column(
+                                modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                displayBadges.forEach { badge ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Text(badge.icon, fontSize = 24.sp)
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = badge.title,
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = if (badge.unlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
+                                            )
+                                            Text(
+                                                text = badge.description,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = if (badge.unlocked) "Desbloqueada" else "Bloqueada · ${badge.requirement}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (badge.unlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = if (badge.unlocked) Icons.Default.CheckCircle else Icons.Default.Lock,
+                                            contentDescription = null,
+                                            tint = if (badge.unlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                            modifier = Modifier.size(18.dp)
+                                        )
                                     }
                                 }
                             }
