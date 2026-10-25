@@ -45,9 +45,9 @@ fun LoginScreen(
     onForgotPassword: () -> Unit,
     onAuthenticated: (UserRole) -> Unit
 ) {
-    val startEmail = initialEmail.ifBlank { "valentina.morales@servilocal.co" }
+    val startEmail = initialEmail
     var email by remember(startEmail) { mutableStateOf(startEmail) }
-    var password by remember { mutableStateOf("servilocal2026") }
+    var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var selectedRole by remember { mutableStateOf(UserRole.USER) }
     val authUiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -176,8 +176,6 @@ fun LoginScreen(
                         Button(
                             onClick = {
                                 selectedRole = UserRole.USER
-                                email = "valentina.morales@servilocal.co"
-                                password = "servilocal2026"
                                 viewModel.clearLoginFeedback()
                             },
                             modifier = Modifier.weight(1f),
@@ -201,8 +199,6 @@ fun LoginScreen(
                         Button(
                             onClick = {
                                 selectedRole = UserRole.MODERATOR
-                                email = "alejandro.vargas@staff.servilocal.pe"
-                                password = "servilocal2026"
                                 viewModel.clearLoginFeedback()
                             },
                             modifier = Modifier.weight(1f),

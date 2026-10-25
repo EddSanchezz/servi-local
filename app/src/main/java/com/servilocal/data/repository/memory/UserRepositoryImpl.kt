@@ -69,6 +69,15 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
             role = UserRole.MODERATOR,
             points = 500,
             level = UserLevel.MAESTRO
+        ),
+        User(
+            id = "user_jero_1",
+            name = "Jero",
+            email = "my@gmail.com",
+            passwordHash = PasswordHasher.hash("Jero1234"),
+            role = UserRole.USER,
+            points = 100,
+            level = UserLevel.PRINCIPIANTE
         )
     )
 }

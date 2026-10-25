@@ -54,6 +54,17 @@ class AuthUseCaseTest {
     }
 
     @Test
+    fun `login with new seed user credentials creates the session`() = runTest {
+        val user = login("my@gmail.com", "Jero1234")
+
+        assertNotNull(user)
+        assertEquals("user_jero_1", user?.id)
+        assertEquals("Jero", user?.name)
+        assertEquals(UserRole.USER, sessions.session.value?.role)
+        assertEquals("user_jero_1", sessions.session.value?.userId)
+    }
+
+    @Test
     fun `login normalizes the email before authenticating`() = runTest {
         val user = login("  VALENTINA.MORALES@SERVILOCAL.CO  ", "servilocal2026")
 
