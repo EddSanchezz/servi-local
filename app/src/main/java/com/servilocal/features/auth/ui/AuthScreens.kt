@@ -124,6 +124,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            /*
             // Accesos rápidos para probar los dos roles de demostración
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -220,6 +221,7 @@ fun LoginScreen(
                     }
                 }
             }
+            */
 
             Spacer(modifier = Modifier.height(20.dp))
 

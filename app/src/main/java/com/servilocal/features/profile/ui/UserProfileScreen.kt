@@ -253,8 +253,7 @@ fun UserProfileScreen(
                 }
             }
 
-
-
+            /*
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 shape = RoundedCornerShape(16.dp),
@@ -267,6 +266,7 @@ fun UserProfileScreen(
                     onClick = { activeDialog = "Horario de atención" }
                 )
             }
+             */
 
             // Mi Actividad
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
