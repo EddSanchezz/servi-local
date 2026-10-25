@@ -2,9 +2,9 @@ package com.servilocal.features.home.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.servilocal.domain.repository.AuthRepository
-import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.PostRepository
+import com.servilocal.domain.usecase.chat.CreateServiceRequestUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
@@ -19,7 +19,7 @@ data class ServiceDetailUiState(val showRequestSheet: Boolean = false)
 class ServiceDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
-    private val chatRepository: ChatRepository,
+    private val createServiceRequestUseCase: CreateServiceRequestUseCase,
     private val moderationRepository: ModerationRepository,
     private val reportPostUseCase: ReportPostUseCase = ReportPostUseCase(postRepository, authRepository, moderationRepository)
 ) : ViewModel() {
@@ -36,7 +36,7 @@ class ServiceDetailViewModel @Inject constructor(
         postRepository.addComment(postId, text, author, author == post.providerName)
     }
     fun submitServiceRequest(postId: String, name: String, contact: String, address: String, description: String): String {
-        val chatId = chatRepository.createServiceRequest(postId, name, contact, address, description)
+        val chatId = createServiceRequestUseCase(postId, name, contact, address, description)
         showRequestDialog(false)
         return chatId
     }

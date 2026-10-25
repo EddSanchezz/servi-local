@@ -228,11 +228,11 @@ class ModerationUseCaseTest {
 
     @Test
     fun `ReportPostUseCase allows reporting other users post and prevents reporting own post`() {
-        val postOther = ServicePost(id = "post_1", title = "P1", category = "Hogar", description = "Desc", providerName = "Other User", providerId = "user_other")
-        val postOwn = ServicePost(id = "post_2", title = "P2", category = "Hogar", description = "Desc", providerName = "Test User", providerId = "user_test")
+        val postOther = ServicePost(id = "post_1", title = "P1", category = "Hogar", description = "Desc", providerName = "Other User", providerId = 2L)
+        val postOwn = ServicePost(id = "post_2", title = "P2", category = "Hogar", description = "Desc", providerName = "Test User", providerId = 1L)
 
         val postRepo = FakePostRepository(listOf(postOther, postOwn))
-        val authRepo = FakeAuthRepository(role = UserRole.USER, userId = "user_test", userName = "Test User")
+        val authRepo = FakeAuthRepository(role = UserRole.USER, userId = 1L, userName = "Test User")
         val modRepo = FakeModerationRepository()
         val reportUseCase = ReportPostUseCase(postRepo, authRepo, modRepo)
 

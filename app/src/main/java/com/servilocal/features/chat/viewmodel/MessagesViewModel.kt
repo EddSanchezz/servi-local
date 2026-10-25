@@ -1,23 +1,16 @@
 package com.servilocal.features.chat.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.servilocal.domain.repository.ChatRepository
+import com.servilocal.domain.usecase.chat.MarkConversationReadUseCase
+import com.servilocal.domain.usecase.chat.ObserveChatConversationsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-
-data class MessagesUiState(val segment: String = "client")
 
 @HiltViewModel
 class MessagesViewModel @Inject constructor(
-    private val repository: ChatRepository
+    observeChatConversations: ObserveChatConversationsUseCase,
+    private val markConversationReadUseCase: MarkConversationReadUseCase
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(MessagesUiState())
-    val uiState: StateFlow<MessagesUiState> = _uiState.asStateFlow()
-    val conversations = repository.conversations
-    fun setSegment(value: String) = _uiState.update { it.copy(segment = value) }
-    fun markConversationRead(id: String) = repository.markConversationRead(id)
+    val conversations = observeChatConversations()
+    fun markConversationRead(id: String) = markConversationReadUseCase(id)
 }

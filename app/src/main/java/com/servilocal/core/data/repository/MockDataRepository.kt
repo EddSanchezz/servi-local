@@ -66,6 +66,24 @@ class MockDataRepository @Inject constructor(
     private val _moderatorUser = MutableStateFlow(defaultModeratorUser())
     override val moderatorUser: StateFlow<UserProfile> = _moderatorUser.asStateFlow()
 
+    private val _allConversations = MutableStateFlow<List<ChatConversation>>(getInitialChats())
+    private val _conversations = MutableStateFlow<List<ChatConversation>>(emptyList())
+    override val conversations: StateFlow<List<ChatConversation>> = _conversations.asStateFlow()
+
+    private fun refreshConversations() {
+        val currentUserId = _currentUser.value.id
+        val mapped = _allConversations.value.mapNotNull { chat ->
+            if (chat.clientId == currentUserId || chat.providerId == currentUserId) {
+                val isClient = chat.clientId == currentUserId
+                val recipient = if (isClient) chat.providerName else chat.clientName
+                chat.copy(isClientRole = isClient, recipientName = recipient)
+            } else {
+                null
+            }
+        }
+        _conversations.value = mapped
+    }
+
     init {
         val users = userRepository
         val sessions = sessionRepository
@@ -84,16 +102,15 @@ class MockDataRepository @Inject constructor(
                             }
                         }
                     }
+                    refreshConversations()
                 }
             }
         }
+        refreshConversations()
     }
 
     private val _posts = MutableStateFlow<List<ServicePost>>(getInitialPosts())
     override val posts: StateFlow<List<ServicePost>> = _posts.asStateFlow()
-
-    private val _conversations = MutableStateFlow<List<ChatConversation>>(getInitialChats())
-    override val conversations: StateFlow<List<ChatConversation>> = _conversations.asStateFlow()
 
     private val _notifications = MutableStateFlow<List<AppNotification>>(getInitialNotifications())
     override val notifications: StateFlow<List<AppNotification>> = _notifications.asStateFlow()
@@ -211,7 +228,7 @@ class MockDataRepository @Inject constructor(
         )
         erdMessages.update { listOf(newErdMsg) + it }
 
-        _conversations.update { list ->
+        _allConversations.update { list ->
             list.map { chat ->
                 if (chat.id == conversationId) {
                     val newMsg = ChatMessageItem(
@@ -226,19 +243,30 @@ class MockDataRepository @Inject constructor(
                 } else chat
             }
         }
+        refreshConversations()
     }
 
     override fun startConversation(postId: String): String? {
         val post = _posts.value.find { it.id == postId } ?: return null
-        val existing = _conversations.value.firstOrNull {
-            it.isClientRole && it.serviceTitle == post.title && it.recipientName == post.providerName
+        val currentUserId = _currentUser.value.id
+        val currentUserName = _currentUser.value.name
+        val providerId = post.providerId ?: 2L
+        val providerName = post.providerName
+
+        val existing = _allConversations.value.firstOrNull {
+            it.clientId == currentUserId && it.providerId == providerId && it.postId == postId
         }
         if (existing != null) return existing.id
 
         val conversationId = "chat_${System.currentTimeMillis()}"
         val newConversation = ChatConversation(
             id = conversationId,
-            recipientName = post.providerName,
+            clientId = currentUserId,
+            providerId = providerId,
+            postId = postId,
+            clientName = currentUserName,
+            providerName = providerName,
+            recipientName = providerName,
             serviceTitle = post.title,
             servicePrice = if (post.isPriceToAgree) "A convenir" else "$ ${post.minPrice} COP",
             status = ServiceRequestStatus.IN_PROGRESS,
@@ -246,12 +274,14 @@ class MockDataRepository @Inject constructor(
             lastTime = "Ahora",
             isClientRole = true
         )
-        _conversations.update { listOf(newConversation) + it }
+        _allConversations.update { listOf(newConversation) + it }
+        refreshConversations()
         return conversationId
     }
 
     override fun markConversationRead(conversationId: String) {
-        _conversations.update { list -> list.map { if (it.id == conversationId) it.copy(unreadCount = 0) else it } }
+        _allConversations.update { list -> list.map { if (it.id == conversationId) it.copy(unreadCount = 0) else it } }
+        refreshConversations()
     }
 
     override fun updateConversationStatus(conversationId: String, status: ChatStatus) {
@@ -262,7 +292,7 @@ class MockDataRepository @Inject constructor(
             ServiceRequestStatus.NEW_REQUEST -> "Nueva solicitud recibida."
             ServiceRequestStatus.DECLINED -> "Solicitud rechazada."
         }
-        _conversations.update { list ->
+        _allConversations.update { list ->
             list.map { conversation ->
                 if (conversation.id != conversationId) conversation
                 else conversation.copy(
@@ -280,6 +310,7 @@ class MockDataRepository @Inject constructor(
                 )
             }
         }
+        refreshConversations()
     }
 
     override fun updateCurrentUser(name: String, email: String) {
@@ -295,6 +326,7 @@ class MockDataRepository @Inject constructor(
                 }
             }
         }
+        refreshConversations()
     }
 
     override fun createReport(
@@ -347,12 +379,14 @@ class MockDataRepository @Inject constructor(
     ): String {
         val post = _posts.value.find { it.id == postId }
         val recipient = post?.providerName ?: "Carlos Mendoza"
+        val providerId = post?.providerId ?: 2L
+        val currentUserId = _currentUser.value.id
         val convId = "chat_${System.currentTimeMillis()}"
 
         val newErdReq = ServiceRequest(
             id = convId,
             postId = postId,
-            clientId = _currentUser.value.id,
+            clientId = currentUserId,
             contactPhone = contactMethod,
             exactAddress = address,
             problemDescription = description,
@@ -362,6 +396,11 @@ class MockDataRepository @Inject constructor(
 
         val newConv = ChatConversation(
             id = convId,
+            clientId = currentUserId,
+            providerId = providerId,
+            postId = postId,
+            clientName = applicantName,
+            providerName = recipient,
             recipientName = recipient,
             serviceTitle = post?.title ?: "Servicio Solicitado",
             servicePrice = if (post?.isPriceToAgree == true) "A convenir" else "$ ${post?.minPrice ?: 25000} COP",
@@ -570,6 +609,11 @@ class MockDataRepository @Inject constructor(
         // Chat entre Valentina (cliente, userId: 1L) y Carlos Mendoza (proveedor, userId: 2L)
         ChatConversation(
             id = "chat_1",
+            clientId = 1L,
+            providerId = 2L,
+            postId = "pub_1",
+            clientName = "Valentina Morales",
+            providerName = "Carlos Mendoza",
             recipientName = "Carlos Mendoza",
             serviceTitle = "Instalación Eléctrica Residencial",
             servicePrice = "$ 45.000 COP",
@@ -581,6 +625,7 @@ class MockDataRepository @Inject constructor(
             requestAddress = "Calle 14 # 23-45, Barrio Granada, Armenia, Quindío",
             requestProblem = "El interruptor principal del circuito de la cocina genera chispas al encender el horno eléctrico. Requiere revisión urgente.",
             requestPhone = "+57 312 456 7890",
+            requesterName = "Valentina Morales",
             messages = listOf(
                 ChatMessageItem("m1", "Carlos Mendoza", "Hola Valentina, gusto en saludarte. Ya revisé la solicitud.", "10:14 AM", isFromMe = false),
                 ChatMessageItem("m2", "Valentina Morales", "¡Hola Carlos! Muchas gracias.", "10:16 AM", isFromMe = true, read = true),
@@ -590,7 +635,12 @@ class MockDataRepository @Inject constructor(
         // Chat de clases (usando las publicaciones de Valentina como proveedor)
         ChatConversation(
             id = "chat_2",
-            recipientName = "Valentina Morales",
+            clientId = 1L,
+            providerId = 2L,
+            postId = "pub_3",
+            clientName = "Valentina Morales",
+            providerName = "Carlos Mendoza",
+            recipientName = "Carlos Mendoza",
             serviceTitle = "Clases de Matemáticas",
             servicePrice = "$ 15.000 COP / hr",
             status = ServiceRequestStatus.PENDING,
@@ -605,7 +655,12 @@ class MockDataRepository @Inject constructor(
         // Chat entre Andrés Gómez (userId: 8L) y Carlos Mendoza (userId: 2L) - plomería
         ChatConversation(
             id = "chat_3",
-            recipientName = "Andrés Gómez",
+            clientId = 8L,
+            providerId = 2L,
+            postId = "pub_2",
+            clientName = "Andrés Gómez",
+            providerName = "Carlos Mendoza",
+            recipientName = "Carlos Mendoza",
             serviceTitle = "Plomería y Destapes 24/7",
             servicePrice = "$ 30.000 COP",
             status = ServiceRequestStatus.COMPLETED,
@@ -620,7 +675,12 @@ class MockDataRepository @Inject constructor(
         // Francisca Valenzuela (userId: 7L) contacting a provider
         ChatConversation(
             id = "chat_4",
-            recipientName = "Francisca Valenzuela",
+            clientId = 7L,
+            providerId = 2L,
+            postId = "pub_1",
+            clientName = "Francisca Valenzuela",
+            providerName = "Carlos Mendoza",
+            recipientName = "Carlos Mendoza",
             serviceTitle = "Instalación Eléctrica Residencial",
             servicePrice = "$ 40.000 COP",
             status = ServiceRequestStatus.NEW_REQUEST,
@@ -635,7 +695,12 @@ class MockDataRepository @Inject constructor(
         // Jorge Palacios (userId: 10L) contacting a provider
         ChatConversation(
             id = "chat_5",
-            recipientName = "Jorge Palacios",
+            clientId = 10L,
+            providerId = 2L,
+            postId = "pub_2",
+            clientName = "Jorge Palacios",
+            providerName = "Carlos Mendoza",
+            recipientName = "Carlos Mendoza",
             serviceTitle = "Pintura y Remodelaciones Integrales",
             servicePrice = "$ 65.000 COP",
             status = ServiceRequestStatus.IN_PROGRESS,
@@ -653,37 +718,34 @@ class MockDataRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val minute = 60_000L
         return listOf(
-            // Notificación para Carlos Mendoza (userId: 2L) - nueva solicitud
+            // Notificación para Valentina Morales (userId: 1L)
             AppNotification(
                 id = "notif_1",
-                userId = 2L,
+                userId = 1L,
                 title = "Nueva solicitud de servicio recibida",
                 body = "Francisca Valenzuela ha solicitado tu servicio.",
                 type = NotificationType.REQUEST,
                 relatedChatId = "chat_4",
                 createdAtMillis = now - 10 * minute
             ),
-            // Notificación para Carlos Mendoza (userId: 2L) - publicación aprobada
             AppNotification(
                 id = "notif_2",
-                userId = 2L,
+                userId = 1L,
                 title = "¡Publicación aprobada!",
                 body = "La publicación 'Instalación Eléctrica' está disponible en el Feed.",
                 type = NotificationType.SYSTEM,
                 relatedPostId = "pub_1",
                 createdAtMillis = now - 120 * minute
             ),
-            // Notificación para Carlos Mendoza (userId: 2L) - nuevo comentario
             AppNotification(
                 id = "notif_3",
-                userId = 2L,
+                userId = 1L,
                 title = "Nuevo comentario en tu anuncio",
                 body = "Matías Sepúlveda preguntó por instalación de cargadores.",
                 type = NotificationType.COMMENT,
                 relatedPostId = "pub_1",
                 createdAtMillis = now - 240 * minute
             ),
-            // Notificación para Valentina Morales (userId: 1L) - logro desbloqueado
             AppNotification(
                 id = "notif_4",
                 userId = 1L,
@@ -693,7 +755,6 @@ class MockDataRepository @Inject constructor(
                 isRead = true,
                 createdAtMillis = now - 24 * 60 * minute
             ),
-            // Notificación para Valentina Morales (userId: 1L) - interacción
             AppNotification(
                 id = "notif_5",
                 userId = 1L,

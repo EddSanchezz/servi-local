@@ -45,7 +45,7 @@ class AuthUseCaseTest {
 
     @Test
     fun `login with seed credentials creates the session`() = runTest {
-        val user = login("valentina.morales@servilocal.co", "servilocal2026")
+        val user = login("valentina@gmail.com", "password123")
 
         assertNotNull(user)
         assertEquals(1L, user?.id)
@@ -55,25 +55,25 @@ class AuthUseCaseTest {
 
     @Test
     fun `login with new seed user credentials creates the session`() = runTest {
-        val user = login("my@gmail.com", "Jero1234")
+        val user = login("matias@gmail.com", "password123")
 
         assertNotNull(user)
         assertEquals(4L, user?.id)
-        assertEquals("Jero", user?.name)
+        assertEquals("Matías Sepúlveda", user?.name)
         assertEquals(UserRole.USER, sessions.session.value?.role)
         assertEquals(4L, sessions.session.value?.userId)
     }
 
     @Test
     fun `login normalizes the email before authenticating`() = runTest {
-        val user = login("  VALENTINA.MORALES@SERVILOCAL.CO  ", "servilocal2026")
+        val user = login("  VALENTINA@GMAIL.COM  ", "password123")
 
         assertEquals(1L, user?.id)
     }
 
     @Test
     fun `login with wrong password returns null and keeps the session empty`() = runTest {
-        val user = login("valentina.morales@servilocal.co", "incorrecta")
+        val user = login("valentina@gmail.com", "incorrecta")
 
         assertNull(user)
         assertNull(sessions.session.value)
@@ -81,7 +81,7 @@ class AuthUseCaseTest {
 
     @Test
     fun `login with unknown email returns null`() = runTest {
-        val user = login("nadie@example.com", "servilocal2026")
+        val user = login("nadie@example.com", "password123")
 
         assertNull(user)
         assertNull(sessions.session.value)
@@ -89,13 +89,13 @@ class AuthUseCaseTest {
 
     @Test
     fun `login with blank fields returns null`() = runTest {
-        assertNull(login(" ", "servilocal2026"))
-        assertNull(login("valentina.morales@servilocal.co", " "))
+        assertNull(login(" ", "password123"))
+        assertNull(login("valentina@gmail.com", " "))
     }
 
     @Test
     fun `moderator login preserves the moderator role`() = runTest {
-        val user = login("alejandro.vargas@staff.servilocal.pe", "servilocal2026")
+        val user = login("alejandro@gmail.com", "password123")
 
         assertEquals(UserRole.MODERATOR, user?.role)
         assertEquals(UserRole.MODERATOR, sessions.session.value?.role)
@@ -133,7 +133,7 @@ class AuthUseCaseTest {
 
     @Test
     fun `logout clears the active session`() = runTest {
-        login("valentina.morales@servilocal.co", "servilocal2026")
+        login("valentina@gmail.com", "password123")
         assertNotNull(sessions.session.value)
 
         LogoutUseCase(sessions)()
@@ -146,7 +146,7 @@ class AuthUseCaseTest {
         val observed = ObserveSessionUseCase(sessions)
         assertNull(observed().value)
 
-        login("alejandro.vargas@staff.servilocal.pe", "servilocal2026")
+        login("alejandro@gmail.com", "password123")
 
         assertEquals(3L, observed().value?.userId)
         assertEquals(UserRole.MODERATOR, observed().value?.role)
@@ -160,30 +160,30 @@ class AuthUseCaseTest {
 
     @Test
     fun `recover password generates and stores a five digit code`() = runTest {
-        val result = recover("  VALENTINA.MORALES@SERVILOCAL.CO  ")
+        val result = recover("  VALENTINA@GMAIL.COM  ")
 
         assertTrue(result is RecoverPasswordResult.Success)
         val code = (result as RecoverPasswordResult.Success).code
         assertTrue(code.matches(Regex("\\d{5}")))
-        assertEquals(code, resetCodes.findCode("valentina.morales@servilocal.co"))
+        assertEquals(code, resetCodes.findCode("valentina@gmail.com"))
     }
 
     @Test
     fun `reset password with a valid code updates the credentials and consumes the code`() = runTest {
-        val email = "valentina.morales@servilocal.co"
+        val email = "valentina@gmail.com"
         val code = (recover(email) as RecoverPasswordResult.Success).code
 
         val result = reset(email, code, "nuevaClave2026")
 
         assertEquals(ResetPasswordResult.Success, result)
         assertNull(resetCodes.findCode(email))
-        assertNull(login(email, "servilocal2026"))
+        assertNull(login(email, "password123"))
         assertNotNull(login(email, "nuevaClave2026"))
     }
 
     @Test
     fun `reset password rejects a reused code`() = runTest {
-        val email = "valentina.morales@servilocal.co"
+        val email = "valentina@gmail.com"
         val code = (recover(email) as RecoverPasswordResult.Success).code
 
         assertEquals(ResetPasswordResult.Success, reset(email, code, "nuevaClave2026"))
@@ -192,17 +192,17 @@ class AuthUseCaseTest {
 
     @Test
     fun `reset password rejects a wrong code without changing the password`() = runTest {
-        val email = "valentina.morales@servilocal.co"
+        val email = "valentina@gmail.com"
         val code = (recover(email) as RecoverPasswordResult.Success).code
         val wrongCode = if (code == "00000") "11111" else "00000"
 
         assertEquals(ResetPasswordResult.InvalidCode, reset(email, wrongCode, "nuevaClave2026"))
-        assertNotNull(login(email, "servilocal2026"))
+        assertNotNull(login(email, "password123"))
     }
 
     @Test
     fun `reset password rejects a weak password but keeps the code usable`() = runTest {
-        val email = "valentina.morales@servilocal.co"
+        val email = "valentina@gmail.com"
         val code = (recover(email) as RecoverPasswordResult.Success).code
 
         assertEquals(ResetPasswordResult.WeakPassword, reset(email, code, "1234567"))

@@ -36,19 +36,19 @@ fun MessagesScreen(
     modifier: Modifier = Modifier
 ) {
     val conversations by viewModel.conversations.collectAsStateWithLifecycle()
-    val messagesUiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val chatSegment = messagesUiState.segment
     var searchChatQuery by remember { mutableStateOf("") }
 
-    val filteredConversations = remember(conversations, chatSegment, searchChatQuery) {
+    val filteredConversations = remember(conversations, searchChatQuery) {
         conversations.filter { conv ->
-            val matchSegment = if (chatSegment == "client") conv.isClientRole else !conv.isClientRole
-            val matchQuery = searchChatQuery.isBlank() ||
+            searchChatQuery.isBlank() ||
                     conv.recipientName.contains(searchChatQuery, ignoreCase = true) ||
                     conv.serviceTitle.contains(searchChatQuery, ignoreCase = true) ||
                     conv.lastMessage.contains(searchChatQuery, ignoreCase = true)
-            matchSegment && matchQuery
         }
+    }
+
+    val totalUnread = remember(conversations) {
+        conversations.sumOf { it.unreadCount }
     }
 
     Column(
@@ -88,11 +88,21 @@ fun MessagesScreen(
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = "Mensajes",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Mensajes",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (totalUnread > 0) {
+                            Badge(containerColor = MaterialTheme.colorScheme.error) {
+                                Text(totalUnread.toString())
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -120,80 +130,6 @@ fun MessagesScreen(
                 ),
                 modifier = Modifier.fillMaxWidth().testTag("search_chats_input")
             )
-        }
-
-        // Segmented Button: Contratados vs Solicitudes
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .padding(3.dp)
-            ) {
-                // Client tab (Contratados)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(if (chatSegment == "client") MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                        .clickable { viewModel.setSegment("client") }
-                        .padding(vertical = 9.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Outbox,
-                            contentDescription = null,
-                            tint = if (chatSegment == "client") MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = "Contratados",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (chatSegment == "client") MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Provider tab (Solicitudes)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(if (chatSegment == "provider") MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                        .clickable { viewModel.setSegment("provider") }
-                        .padding(vertical = 9.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.MoveToInbox,
-                            contentDescription = null,
-                            tint = if (chatSegment == "provider") MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = "Solicitudes",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (chatSegment == "provider") MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Badge(containerColor = MaterialTheme.colorScheme.error) {
-                            Text("2")
-                        }
-                    }
-                }
-            }
         }
 
         // Trust Notification Strip
@@ -245,7 +181,7 @@ fun MessagesScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "No hay conversaciones en esta sección",
+                        "No hay conversaciones",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline
                     )

@@ -73,6 +73,11 @@ typealias ChatStatus = ServiceRequestStatus
 
 data class ChatConversation(
     val id: String,
+    val clientId: Long = 1L,
+    val providerId: Long = 2L,
+    val postId: String = "",
+    val clientName: String = "Cliente",
+    val providerName: String = "Proveedor",
     val recipientName: String,
     val recipientAvatar: String? = null,
     val serviceTitle: String,

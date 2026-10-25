@@ -49,6 +49,7 @@ import androidx.navigation.navArgument
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.repository.ModerationRepository
+import com.servilocal.domain.usecase.chat.ObserveChatConversationsUseCase
 import com.servilocal.features.app.viewmodel.AppViewModel
 import com.servilocal.features.auth.ui.LoginScreen
 import com.servilocal.features.auth.ui.PasswordRecoveryScreen
@@ -209,7 +210,8 @@ private fun DashboardNavigation(
     onLogout: () -> Unit
 ) {
     val appUiState by appViewModel.uiState.collectAsStateWithLifecycle()
-    val conversations by chatRepository.conversations.collectAsStateWithLifecycle()
+    val observeConversationsUseCase = remember { ObserveChatConversationsUseCase(chatRepository) }
+    val conversations by observeConversationsUseCase().collectAsStateWithLifecycle()
     val reports by moderationRepository.reports.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()

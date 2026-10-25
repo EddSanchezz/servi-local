@@ -23,6 +23,7 @@ import com.servilocal.domain.usecase.auth.ResetPasswordUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
+import com.servilocal.domain.usecase.chat.StartConversationUseCase
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
 import kotlinx.coroutines.Dispatchers
@@ -223,7 +224,7 @@ class FeatureViewModelTest {
         val repository = MockDataRepository()
         val viewModel = HomeViewModel(
             repository,
-            repository,
+            StartConversationUseCase(repository),
             ObserveNotificationsUseCase(SessionRepositoryImpl(), repository)
         )
 

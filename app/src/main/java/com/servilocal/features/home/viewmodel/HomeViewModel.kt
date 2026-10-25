@@ -2,8 +2,8 @@ package com.servilocal.features.home.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.repository.PostRepository
+import com.servilocal.domain.usecase.chat.StartConversationUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
@@ -25,7 +25,7 @@ enum class ViewDisplayMode { LIST, MAP }
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val postRepository: PostRepository,
-    private val chatRepository: ChatRepository,
+    private val startConversationUseCase: StartConversationUseCase,
     observeNotifications: ObserveNotificationsUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -42,5 +42,5 @@ class HomeViewModel @Inject constructor(
     fun setSelectedCategory(value: String) = _uiState.update { it.copy(selectedCategory = value) }
     fun setDisplayMode(value: ViewDisplayMode) = _uiState.update { it.copy(displayMode = value) }
     fun toggleUpvote(postId: String) = postRepository.toggleUpvote(postId)
-    fun startConversation(postId: String): String? = chatRepository.startConversation(postId)
+    fun startConversation(postId: String): String? = startConversationUseCase(postId)
 }
