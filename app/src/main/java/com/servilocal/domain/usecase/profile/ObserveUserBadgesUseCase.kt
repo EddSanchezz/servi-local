@@ -1,5 +1,7 @@
 package com.servilocal.domain.usecase.profile
 
+import com.servilocal.domain.model.Badge
+import com.servilocal.domain.model.BadgeCriterion
 import com.servilocal.domain.model.BadgeDisplay
 import com.servilocal.domain.repository.BadgeRepository
 import com.servilocal.domain.repository.SessionRepository
@@ -34,11 +36,18 @@ class ObserveUserBadgesUseCase @Inject constructor(
                         BadgeDisplay(
                             id = badge.id,
                             title = badge.name,
+                            description = badge.description,
                             icon = badge.iconUrl,
+                            requirement = badge.requirementLabel(),
                             unlocked = badge.id in awardedIds
                         )
                     }
                 }
             }
         }
+
+    private fun Badge.requirementLabel(): String = when (criterion) {
+        BadgeCriterion.POINTS -> "$threshold puntos"
+        BadgeCriterion.CREATED_POSTS -> if (threshold == 1) "1 publicación" else "$threshold publicaciones"
+    }
 }

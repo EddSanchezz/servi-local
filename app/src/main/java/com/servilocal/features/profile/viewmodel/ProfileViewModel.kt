@@ -55,6 +55,11 @@ class ProfileViewModel @Inject constructor(
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            getProfileStats().collect { stats ->
+                _uiState.update { it.copy(stats = stats, isLoading = false) }
+            }
+        }
         refresh()
     }
 
@@ -62,7 +67,7 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             checkAndAwardBadges()
-            _uiState.update { it.copy(stats = getProfileStats(), isLoading = false) }
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 

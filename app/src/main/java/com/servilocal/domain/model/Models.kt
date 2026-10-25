@@ -27,6 +27,8 @@ enum class UserLevel(val minPoints: Int) {
 
     val next: UserLevel? get() = values().getOrNull(ordinal + 1)
 
+    fun displayName(): String = "Nivel ${ordinal + 1}: ${name.lowercase().replaceFirstChar { it.titlecase() }}"
+
     companion object {
         fun fromPoints(points: Int): UserLevel =
             values().last { points >= it.minPoints }
@@ -160,13 +162,17 @@ data class AppNotification(
     val createdAtMillis: Long = System.currentTimeMillis()
 )
 
+/** Criterio que desbloquea una insignia. */
+enum class BadgeCriterion { POINTS, CREATED_POSTS }
+
 /** Tabla badges (catálogo de insignias) */
 data class Badge(
     val id: String,
     val name: String,
     val description: String,
     val iconUrl: String,                    // por ahora puede contener un emoji
-    val pointsRequired: Int
+    val criterion: BadgeCriterion = BadgeCriterion.POINTS,
+    val threshold: Int = 0
 )
 
 /** Tabla user_badges (insignias ganadas por cada usuario) */

@@ -3,6 +3,7 @@ package com.servilocal
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.servilocal.core.util.RequestResult
+import com.servilocal.data.repository.memory.BadgeRepositoryImpl
 import com.servilocal.data.repository.memory.PasswordResetRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.memory.UserRepositoryImpl
@@ -21,9 +22,13 @@ import com.servilocal.domain.usecase.auth.RecoverPasswordUseCase
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import com.servilocal.domain.usecase.auth.ResetPasswordUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
+import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
+import com.servilocal.domain.usecase.profile.AddPointsUseCase
+import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
+import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
 import kotlinx.coroutines.Dispatchers
@@ -103,7 +108,7 @@ class FeatureViewModelTest {
             RegisterUserUseCase(users)
         )
 
-        viewModel.login("valentina.morales@servilocal.co", "servilocal2026")
+        viewModel.login("valentina@gmail.com", "password123")
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.loginResult is RequestResult.Success)
@@ -121,7 +126,7 @@ class FeatureViewModelTest {
             RegisterUserUseCase(users)
         )
 
-        viewModel.login("valentina.morales@servilocal.co", "incorrecta")
+        viewModel.login("valentina@gmail.com", "incorrecta")
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.loginResult is RequestResult.Failure)
@@ -155,7 +160,7 @@ class FeatureViewModelTest {
             RecoverPasswordUseCase(users, codes),
             ResetPasswordUseCase(users, codes)
         )
-        val email = "valentina.morales@servilocal.co"
+        val email = "valentina@gmail.com"
 
         viewModel.onEmailChange(email)
         viewModel.requestCode()
@@ -187,7 +192,7 @@ class FeatureViewModelTest {
             RecoverPasswordUseCase(users, codes),
             ResetPasswordUseCase(users, codes)
         )
-        val email = "valentina.morales@servilocal.co"
+        val email = "valentina@gmail.com"
 
         viewModel.onEmailChange("correo-invalido")
         viewModel.requestCode()
@@ -210,7 +215,20 @@ class FeatureViewModelTest {
     @Test
     fun `create post validation returns an actionable error and saves valid posts`() {
         val repository = MockDataRepository()
-        val viewModel = CreatePostViewModel(CreateServicePostUseCase(repository))
+        val users = UserRepositoryImpl()
+        val sessions = SessionRepositoryImpl()
+        val badges = BadgeRepositoryImpl()
+        val awardPublicationPoints = AwardPublicationPointsUseCase(
+            AddPointsUseCase(users),
+            CheckAndAwardBadgesUseCase(
+                sessions,
+                users,
+                badges,
+                repository,
+                CreateNotificationUseCase(repository)
+            )
+        )
+        val viewModel = CreatePostViewModel(CreateServicePostUseCase(repository), awardPublicationPoints)
 
         assertFalse(viewModel.createPost("", "Hogar", "", 0, 0, false, ""))
         assertNotNull(viewModel.uiState.value.submissionError)

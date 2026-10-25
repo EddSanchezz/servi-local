@@ -8,13 +8,16 @@ import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.concurrent.atomic.AtomicLong
 
 @Singleton
 class UserRepositoryImpl @Inject constructor() : UserRepository {
 
-    private val users = MutableStateFlow(seedUsers())
+    private val _users = MutableStateFlow(seedUsers())
+    override val users: StateFlow<List<User>> = _users.asStateFlow()
     private val idCounter = AtomicLong(seedUsers().maxOfOrNull { it.id } ?: 0L)
 
     override suspend fun save(user: User): User {
@@ -23,18 +26,18 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         } else {
             user
         }
-        users.update { current ->
+        _users.update { current ->
             current.filterNot { it.id == userToSave.id } + userToSave
         }
         return userToSave
     }
 
     override suspend fun findById(id: Long): User? =
-        users.value.firstOrNull { it.id == id }
+        _users.value.firstOrNull { it.id == id }
 
     override suspend fun findByEmail(email: String): User? {
         val normalizedEmail = email.trim().lowercase()
-        return users.value.firstOrNull { it.email.lowercase() == normalizedEmail }
+        return _users.value.firstOrNull { it.email.lowercase() == normalizedEmail }
     }
 
     override suspend fun login(email: String, password: String): User? {
@@ -43,7 +46,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
     }
 
     override suspend fun updatePassword(userId: Long, passwordHash: String) {
-        users.update { current ->
+        _users.update { current ->
             current.map { user ->
                 if (user.id == userId) user.copy(passwordHash = passwordHash) else user
             }
@@ -59,7 +62,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
             passwordHash = PasswordHasher.hash("password123"),
             role = UserRole.USER,
             points = 220,
-            level = UserLevel.MAESTRO
+            level = UserLevel.PROFESIONAL
         ),
         // Carlos Mendoza - Servicios eléctricos y plomería (pub_1, pub_2)
         User(
@@ -89,7 +92,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
             passwordHash = PasswordHasher.hash("password123"),
             role = UserRole.USER,
             points = 80,
-            level = UserLevel.PROFESIONAL
+            level = UserLevel.PRINCIPIANTE
         ),
         // Rodrigo Tapia - Cerrajería (pub_5)
         User(
@@ -119,7 +122,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
             passwordHash = PasswordHasher.hash("password123"),
             role = UserRole.USER,
             points = 45,
-            level = UserLevel.PROFESIONAL
+            level = UserLevel.PRINCIPIANTE
         ),
         // Andrés Gómez - Cliente de servicios de plomería
         User(
@@ -149,7 +152,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
             passwordHash = PasswordHasher.hash("password123"),
             role = UserRole.USER,
             points = 55,
-            level = UserLevel.PROFESIONAL
+            level = UserLevel.PRINCIPIANTE
         )
     )
 }
