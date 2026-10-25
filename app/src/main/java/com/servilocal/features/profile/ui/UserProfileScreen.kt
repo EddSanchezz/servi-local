@@ -73,8 +73,10 @@ fun UserProfileScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text("Perfil", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
                 actions = {
                     IconButton(onClick = onOpenNotifications) {
@@ -255,19 +257,6 @@ fun UserProfileScreen(
 
 
 
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                ProfileNavRow(
-                    icon = Icons.Default.Schedule,
-                    title = "Horario de atención",
-                    subtitle = currentUser.workingHours,
-                    onClick = { activeDialog = "Horario de atención" }
-                )
-            }
-
             // Mi Actividad
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -393,11 +382,6 @@ fun UserProfileScreen(
                             supportingText = { if (editValidationMessage && !editEmail.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) Text("Ingresa un correo válido.") },
                             singleLine = true
                         )
-                    }
-                    "Horario de atención" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Disponibilidad para coordinar servicios", style = MaterialTheme.typography.bodyMedium)
-                        Text(currentUser.workingHours, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                        Text("Confirma la disponibilidad directamente con cada profesional antes de coordinar una visita.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     "Mis Publicaciones", "Servicios que me importan / Mis Votos" -> {
                         if (dialogPosts.isEmpty()) {

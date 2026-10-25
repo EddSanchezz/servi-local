@@ -66,8 +66,10 @@ fun ServiceDetailScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Text(
                         "Detalle de Publicación",
@@ -411,67 +413,6 @@ fun ServiceDetailScreen(
                                 lineHeight = 20.sp
                             )
 
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // 2x2 Technical Grid
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    SpecTile(
-                                        icon = Icons.Default.VerifiedUser,
-                                        title = "Garantía ${post.warrantyMonths} meses",
-                                        subtitle = "En mano de obra",
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    SpecTile(
-                                        icon = Icons.Default.Handyman,
-                                        title = "Instrumental Calibrado",
-                                        subtitle = "Equipos de precisión",
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    SpecTile(
-                                        icon = Icons.Default.ReceiptLong,
-                                        title = "Factura / Boleta",
-                                        subtitle = "Emitida al terminar",
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    SpecTile(
-                                        icon = Icons.Default.Emergency,
-                                        title = "Urgencias 24/7",
-                                        subtitle = "Cortes y averías",
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Certification chip
-                            Surface(
-                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(Icons.Default.Verified, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                                    Text(
-                                        text = "Certificación Técnica y Registro Habilitado Vigente",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
                         }
                     }
                 }
@@ -756,32 +697,6 @@ fun ServiceDetailScreen(
                 }
             }
         )
-    }
-}
-
-@Composable
-fun SpecTile(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(10.dp),
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
-                Text(subtitle, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.outline)
-            }
-        }
     }
 }
 
