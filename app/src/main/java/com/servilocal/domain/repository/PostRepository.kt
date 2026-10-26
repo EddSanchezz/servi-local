@@ -26,6 +26,7 @@ interface PostRepository {
         isPriceToAgree: Boolean,
         location: String
     ): Boolean
+    fun deletePost(postId: String): Boolean
     fun finishPost(postId: String): Boolean
     fun approvePost(postId: String)
     fun rejectPost(postId: String, reason: String, notes: String? = null)

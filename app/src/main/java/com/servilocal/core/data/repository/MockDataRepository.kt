@@ -12,6 +12,7 @@ import com.servilocal.domain.repository.SessionRepository
 import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -234,12 +235,15 @@ class MockDataRepository @Inject constructor(
         require(description.isNotBlank()) { "La descripción es obligatoria." }
         require(location.isNotBlank()) { "La ubicación es obligatoria." }
         require(isPriceToAgree || (minPrice > 0 && maxPrice >= minPrice)) { "El rango de precios no es válido." }
+        val categoryEnum = parsePostCategory(category)
+            ?: throw IllegalArgumentException("Selecciona una categoría válida.")
+        val coordinates = coordinatesForLocation(location)
 
         val newErdPost = Post(
-            id = "pub_${System.currentTimeMillis()}",
+            id = "pub_${UUID.randomUUID()}",
             userId = _currentUser.value.id,
             title = title,
-            category = try { PostCategory.valueOf(category.uppercase()) } catch (_: Exception) { PostCategory.HOGAR },
+            category = categoryEnum,
             description = description,
             minPrice = minPrice,
             maxPrice = maxPrice,
@@ -259,7 +263,9 @@ class MockDataRepository @Inject constructor(
             maxPrice = maxPrice,
             isPriceToAgree = isPriceToAgree,
             location = location,
-            distance = "A 0.5 km - Armenia",
+            latitude = coordinates?.first,
+            longitude = coordinates?.second,
+            distance = formatDistance(coordinates),
             rating = 5.0f,
             reviewCount = 0,
             upvotesCount = 0,
@@ -287,11 +293,8 @@ class MockDataRepository @Inject constructor(
         if (title.isBlank() || description.isBlank() || location.isBlank()) return false
         if (!isPriceToAgree && (minPrice <= 0 || maxPrice < minPrice)) return false
 
-        val categoryEnum = try {
-            PostCategory.valueOf(category.uppercase())
-        } catch (_: Exception) {
-            PostCategory.HOGAR
-        }
+        val categoryEnum = parsePostCategory(category) ?: return false
+        val coordinates = coordinatesForLocation(location)
 
         _posts.update { list ->
             list.map {
@@ -303,7 +306,10 @@ class MockDataRepository @Inject constructor(
                         minPrice = minPrice,
                         maxPrice = maxPrice,
                         isPriceToAgree = isPriceToAgree,
-                        location = location
+                        location = location,
+                        latitude = coordinates?.first,
+                        longitude = coordinates?.second,
+                        distance = formatDistance(coordinates)
                     )
                 } else it
             }
@@ -324,6 +330,17 @@ class MockDataRepository @Inject constructor(
         return true
     }
 
+    override fun deletePost(postId: String): Boolean {
+        val post = _posts.value.firstOrNull { it.id == postId } ?: return false
+        if (post.providerId != _currentUser.value.id) return false
+
+        _posts.update { posts -> posts.filterNot { it.id == postId } }
+        erdPosts.update { posts -> posts.filterNot { it.id == postId } }
+        erdComments.update { comments -> comments.filterNot { it.postId == postId } }
+        erdLikes.update { likes -> likes.filterNot { it.postId == postId } }
+        return true
+    }
+
     override fun finishPost(postId: String): Boolean {
         val post = _posts.value.firstOrNull { it.id == postId } ?: return false
         if (!canManagePost(post)) return false
@@ -339,6 +356,50 @@ class MockDataRepository @Inject constructor(
 
     private fun canManagePost(post: ServicePost): Boolean =
         post.providerId == _currentUser.value.id && post.status == PostStatus.APPROVED
+
+    private fun parsePostCategory(value: String): PostCategory? = when (
+        value.trim().lowercase()
+            .replace("á", "a")
+            .replace("é", "e")
+            .replace("í", "i")
+            .replace("ó", "o")
+            .replace("ú", "u")
+    ) {
+        "hogar" -> PostCategory.HOGAR
+        "educacion" -> PostCategory.EDUCACION
+        "mascotas" -> PostCategory.MASCOTAS
+        "tecnologia", "electricidad" -> PostCategory.TECNOLOGIA
+        "transporte" -> PostCategory.TRANSPORTE
+        else -> null
+    }
+
+    /** Coordinates are intentionally approximate demo locations around Armenia's city center. */
+    private fun coordinatesForLocation(location: String): Pair<Double, Double>? {
+        val normalized = location.lowercase()
+        return when {
+            "granada" in normalized -> 4.5339 to -75.6703
+            "centro" in normalized -> 4.5369 to -75.6811
+            "norte" in normalized -> 4.5591 to -75.6811
+            "parque de la vida" in normalized -> 4.5403 to -75.6811
+            "los profesionales" in normalized -> 4.5150 to -75.6811
+            "la castellana" in normalized -> 4.5510 to -75.6811
+            "armenia" in normalized -> 4.5339 to -75.6811
+            else -> null
+        }
+    }
+
+    private fun formatDistance(coordinates: Pair<Double, Double>?): String {
+        if (coordinates == null) return "Distancia no calculada"
+        val (latitude, longitude) = coordinates
+        val earthRadiusKm = 6_371.0
+        val latitudeDelta = Math.toRadians(latitude - 4.5339)
+        val longitudeDelta = Math.toRadians(longitude - -75.6811)
+        val a = kotlin.math.sin(latitudeDelta / 2).let { it * it } +
+            kotlin.math.cos(Math.toRadians(4.5339)) * kotlin.math.cos(Math.toRadians(latitude)) *
+            kotlin.math.sin(longitudeDelta / 2).let { it * it }
+        val distanceKm = 2 * earthRadiusKm * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+        return String.format(Locale.ROOT, "A %.1f km", distanceKm)
+    }
 
     override fun approvePost(postId: String) {
         erdPosts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it } }
@@ -675,6 +736,8 @@ class MockDataRepository @Inject constructor(
             minPrice = 25000,
             maxPrice = 45000,
             location = "Armenia, Quindío - Barrio Granada",
+            latitude = 4.5339,
+            longitude = -75.6703,
             distance = "A 1.2 km - Granada",
             rating = 4.9f,
             reviewCount = 38,
@@ -701,7 +764,9 @@ class MockDataRepository @Inject constructor(
             minPrice = 25000,
             maxPrice = 50000,
             location = "Armenia, Quindío - Centro",
-            distance = "A 1.2 km - Centro",
+            latitude = 4.5369,
+            longitude = -75.6811,
+            distance = "A 0.3 km - Centro",
             rating = 4.9f,
             reviewCount = 42,
             upvotesCount = 114,
@@ -722,7 +787,9 @@ class MockDataRepository @Inject constructor(
             minPrice = 15000,
             maxPrice = 30000,
             location = "Armenia, Quindío - Norte",
-            distance = "A 3.5 km - Norte",
+            latitude = 4.5591,
+            longitude = -75.6811,
+            distance = "A 2.8 km - Norte",
             rating = 5.0f,
             reviewCount = 52,
             upvotesCount = 88,
@@ -743,7 +810,9 @@ class MockDataRepository @Inject constructor(
             minPrice = 8000,
             maxPrice = 18000,
             location = "Armenia, Quindío - Parque de la Vida",
-            distance = "A 0.8 km",
+            latitude = 4.5403,
+            longitude = -75.6811,
+            distance = "A 0.7 km",
             rating = 4.8f,
             reviewCount = 19,
             upvotesCount = 49,
@@ -764,6 +833,8 @@ class MockDataRepository @Inject constructor(
             minPrice = 30000,
             maxPrice = 60000,
             location = "Armenia, Quindío - Los Profesionales",
+            latitude = 4.5150,
+            longitude = -75.6811,
             distance = "A 2.1 km",
             rating = 4.6f,
             reviewCount = 8,
@@ -785,7 +856,9 @@ class MockDataRepository @Inject constructor(
             minPrice = 35000,
             maxPrice = 85000,
             location = "Armenia, Quindío - La Castellana",
-            distance = "A 1.8 km",
+            latitude = 4.5510,
+            longitude = -75.6811,
+            distance = "A 1.9 km",
             rating = 5.0f,
             reviewCount = 2,
             upvotesCount = 0,

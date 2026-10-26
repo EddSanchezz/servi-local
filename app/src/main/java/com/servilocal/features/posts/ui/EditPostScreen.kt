@@ -29,8 +29,8 @@ fun EditPostScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val posts by viewModel.posts.collectAsStateWithLifecycle()
-    val post = posts.find { it.id == postId }
+    val observedPost by viewModel.post.collectAsStateWithLifecycle()
+    val post = observedPost
     val formUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()

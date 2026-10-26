@@ -27,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.home.viewmodel.HomeViewModel
@@ -41,11 +40,13 @@ fun HomeScreen(
     onOpenServiceDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val filteredPosts by viewModel.filteredPosts.collectAsStateWithLifecycle()
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery = uiState.searchQuery
     val selectedCategory = uiState.selectedCategory
+    val locationQuery = uiState.locationQuery
+    val maxDistanceKm = uiState.maxDistanceKm
     val viewDisplayMode = uiState.displayMode
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val notificationsEnabled = appUiState.notificationsEnabled
@@ -61,15 +62,7 @@ fun HomeScreen(
         Pair("Transporte", Icons.Default.LocalShipping)
     )
 
-    val filteredPosts = remember(posts, searchQuery, selectedCategory) {
-        posts.filter { post ->
-            post.status == PostStatus.APPROVED &&
-            (selectedCategory == "Todos" || post.category.equals(selectedCategory, ignoreCase = true)) &&
-            (searchQuery.isBlank() || post.title.contains(searchQuery, ignoreCase = true) ||
-             post.description.contains(searchQuery, ignoreCase = true) ||
-             post.providerName.contains(searchQuery, ignoreCase = true))
-        }
-    }
+    var distanceMenuExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -168,6 +161,51 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .testTag("search_services_input")
             )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = locationQuery,
+                onValueChange = viewModel::setLocationQuery,
+                placeholder = { Text("Barrio o zona") },
+                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+                trailingIcon = {
+                    if (locationQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setLocationQuery("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Limpiar ubicación")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.weight(1f).testTag("search_location_input")
+            )
+            Box {
+                FilterChip(
+                    selected = maxDistanceKm != null,
+                    onClick = { distanceMenuExpanded = true },
+                    label = { Text(maxDistanceKm?.let { "${it.toInt()} km" } ?: "Distancia") },
+                    leadingIcon = { Icon(Icons.Default.NearMe, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                )
+                DropdownMenu(
+                    expanded = distanceMenuExpanded,
+                    onDismissRequest = { distanceMenuExpanded = false }
+                ) {
+                    listOf(null, 1.0, 3.0, 5.0, 10.0).forEach { distance ->
+                        DropdownMenuItem(
+                            text = { Text(distance?.let { "Hasta ${it.toInt()} km" } ?: "Cualquier distancia") },
+                            onClick = {
+                                viewModel.setMaxDistanceKm(distance)
+                                distanceMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
         }
 
         // Category Filter Chips (Horizontal Scroll)

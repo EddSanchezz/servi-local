@@ -39,12 +39,12 @@ fun ServiceDetailScreen(
     onEditPost: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val observedPost by viewModel.post.collectAsStateWithLifecycle()
+    val post = observedPost
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val likes by viewModel.likes.collectAsStateWithLifecycle()
     val comments by viewModel.comments.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val post = posts.find { it.id == postId }
     val context = LocalContext.current
 
     var activeSlideIndex by remember { mutableIntStateOf(0) }

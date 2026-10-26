@@ -43,6 +43,7 @@ fun UserProfileScreen(
 ) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val myPosts by viewModel.myPosts.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val profileUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val badges by viewModel.badges.collectAsStateWithLifecycle()
@@ -51,10 +52,12 @@ fun UserProfileScreen(
     val notificationsEnabled = appUiState.notificationsEnabled
     var activeDialog by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var postPendingDeletion by remember { mutableStateOf<com.servilocal.domain.model.ServicePost?>(null) }
+    var deletePostFailed by remember { mutableStateOf(false) }
     var editName by remember(currentUser.id) { mutableStateOf(currentUser.name) }
     var editEmail by remember(currentUser.id) { mutableStateOf(currentUser.email) }
     var editValidationMessage by remember { mutableStateOf(false) }
-    val ownedPosts = posts.filter { it.providerId == currentUser.id || it.providerName == currentUser.name }
+    val ownedPosts = myPosts
     val votedPosts = posts.filter { it.userUpvoted }
     val displayBadges = badges
     val points = stats?.user?.points ?: currentUser.points
@@ -414,16 +417,30 @@ fun UserProfileScreen(
                                         com.servilocal.domain.model.PostStatus.REJECTED -> "Rechazada"
                                         com.servilocal.domain.model.PostStatus.FINISHED -> "Finalizada"
                                     }
-                                    TextButton(
-                                        onClick = {
-                                            activeDialog = null
-                                            onOpenServiceDetail(post.id)
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Column(modifier = Modifier.fillMaxWidth()) {
-                                            Text(post.title, color = MaterialTheme.colorScheme.onSurface)
-                                            Text(status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        TextButton(
+                                            onClick = {
+                                                activeDialog = null
+                                                onOpenServiceDetail(post.id)
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Column(modifier = Modifier.fillMaxWidth()) {
+                                                Text(post.title, color = MaterialTheme.colorScheme.onSurface)
+                                                Text(status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                            }
+                                        }
+                                        if (title == "Mis Publicaciones") {
+                                            IconButton(onClick = {
+                                                deletePostFailed = false
+                                                postPendingDeletion = post
+                                            }) {
+                                                Icon(
+                                                    Icons.Default.DeleteOutline,
+                                                    contentDescription = "Eliminar ${post.title}",
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -464,6 +481,37 @@ fun UserProfileScreen(
                 if (title == "Editar Perfil") {
                     TextButton(onClick = { activeDialog = null }) { Text("Cancelar") }
                 }
+            }
+        )
+    }
+
+    postPendingDeletion?.let { post ->
+        AlertDialog(
+            onDismissRequest = { postPendingDeletion = null; deletePostFailed = false },
+            title = { Text("Eliminar publicación") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("¿Quieres eliminar '${post.title}'? Esta acción no se puede deshacer.")
+                    if (deletePostFailed) {
+                        Text(
+                            "No se pudo eliminar. Verifica que la publicación sea tuya e inténtalo de nuevo.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (viewModel.deletePost(post.id)) {
+                        postPendingDeletion = null
+                        deletePostFailed = false
+                    } else {
+                        deletePostFailed = true
+                    }
+                }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { postPendingDeletion = null; deletePostFailed = false }) { Text("Cancelar") }
             }
         )
     }

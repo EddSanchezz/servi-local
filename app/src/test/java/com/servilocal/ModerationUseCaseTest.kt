@@ -90,6 +90,8 @@ class ModerationUseCaseTest {
             location: String
         ): Boolean = false
 
+        override fun deletePost(postId: String): Boolean = false
+
         override fun finishPost(postId: String): Boolean = false
 
         override fun approvePost(postId: String) {

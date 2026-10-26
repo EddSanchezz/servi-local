@@ -34,11 +34,16 @@ Flujo de datos habitual: `Compose` → `ViewModel` → repositorio. Algunas oper
 
 En esta fase, la aplicación usa datos de demostración en memoria: no hay persistencia, autenticación remota, mapas reales ni carga de imágenes. Las guías de clase y los archivos de referencia del ERD se conservan localmente en `/docs`; esta carpeta está excluida de Git.
 
+El feed permite buscar por texto, filtrar por categoría y zona, y limitar por las distancias de demostración de las publicaciones semilla. La ubicación no usa GPS ni geocodificación real. Desde el perfil se pueden consultar las publicaciones propias y eliminar una publicación propia; editar y finalizar sigue permitido solo para publicaciones aprobadas.
+
 ## Requisitos
 
 - Android Studio con JDK 17 o superior.
 - Gradle Wrapper incluido en el repositorio (Gradle 9.6.0).
 - Android Gradle Plugin 9.4.1 y Kotlin 2.2.10.
+- Android SDK Platform 36.1 y Build Tools 36.0.0 (los define `app/build.gradle.kts`).
+
+En Windows, configura `sdk.dir` en `local.properties` con la ruta local del SDK. Este archivo no se sube a Git. Para instalar en un dispositivo Android, activa las opciones de desarrollador y la depuración USB; para usar el emulador, crea/inicia un AVD compatible desde Android Studio o el SDK Manager.
 
 ## Compilar y probar
 
@@ -57,3 +62,9 @@ En macOS o Linux:
 ```
 
 Las pruebas unitarias de `app/src/test` cubren la sesión, validación de acceso y registro, creación de publicaciones, filtros y horarios. Las pruebas instrumentadas de `app/src/androidTest` verifican la configuración básica del proyecto en Android.
+
+El APK de depuración se genera en `app/build/outputs/apk/debug/app-debug.apk`. Para instalarlo en un dispositivo conectado por ADB:
+
+```powershell
+adb install -r app\build\outputs\apk\debug\app-debug.apk
+```

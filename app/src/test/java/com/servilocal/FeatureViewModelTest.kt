@@ -25,6 +25,10 @@ import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
+import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
+import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
+import com.servilocal.domain.usecase.posts.FilterPostsByQueryUseCase
+import com.servilocal.domain.usecase.posts.ObservePostsUseCase
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import com.servilocal.domain.usecase.profile.AddPointsUseCase
 import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
@@ -242,9 +246,12 @@ class FeatureViewModelTest {
         val repository = MockDataRepository()
         val viewModel = HomeViewModel(
             repository,
-            repository,
             ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
-            TogglePostLikeUseCase(repository, repository, repository, CreateNotificationUseCase(repository))
+            TogglePostLikeUseCase(repository, repository, repository, CreateNotificationUseCase(repository)),
+            ObservePostsUseCase(repository),
+            FilterPostsByCategoryUseCase(),
+            FilterPostsByQueryUseCase(),
+            FilterPostsByLocationUseCase()
         )
 
         viewModel.setSearchQuery("electricista")

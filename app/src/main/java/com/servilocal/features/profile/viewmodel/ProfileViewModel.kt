@@ -10,6 +10,8 @@ import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
 import com.servilocal.domain.usecase.profile.GetProfileStatsUseCase
 import com.servilocal.domain.usecase.profile.ObserveUserBadgesUseCase
 import com.servilocal.domain.usecase.profile.ProfileStats
+import com.servilocal.domain.usecase.posts.DeleteServicePostUseCase
+import com.servilocal.domain.usecase.posts.ObserveMyPostsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,12 +33,16 @@ class ProfileViewModel @Inject constructor(
     postRepository: PostRepository,
     observeNotifications: ObserveNotificationsUseCase,
     observeUserBadges: ObserveUserBadgesUseCase,
+    observeMyPosts: ObserveMyPostsUseCase,
+    private val deleteServicePost: DeleteServicePostUseCase,
     private val getProfileStats: GetProfileStatsUseCase,
     private val checkAndAwardBadges: CheckAndAwardBadgesUseCase
 ) : ViewModel() {
 
     val currentUser = authRepository.currentUser
     val posts = postRepository.posts
+    val myPosts = observeMyPosts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val notifications = observeNotifications()
         .stateIn(
             scope = viewModelScope,
@@ -77,4 +83,6 @@ class ProfileViewModel @Inject constructor(
         refresh()
         return true
     }
+
+    fun deletePost(postId: String): Boolean = deleteServicePost(postId)
 }

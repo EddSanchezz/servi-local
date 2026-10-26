@@ -5,13 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.core.util.RequestResult
 import com.servilocal.domain.model.ServiceComment
+import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.repository.AuthRepository
-import com.servilocal.domain.repository.ModerationRepository
-import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.usecase.chat.StartConversationUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
 import com.servilocal.domain.usecase.posts.AddCommentResult
 import com.servilocal.domain.usecase.posts.AddPostCommentUseCase
+import com.servilocal.domain.usecase.posts.GetPostDetailUseCase
 import com.servilocal.domain.usecase.posts.ObservePostCommentsUseCase
 import com.servilocal.domain.usecase.posts.ObservePostLikesUseCase
 import com.servilocal.domain.usecase.posts.PostLikes
@@ -34,21 +34,21 @@ data class ServiceDetailUiState(
 @HiltViewModel
 class ServiceDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
     private val startConversationUseCase: StartConversationUseCase,
-    private val moderationRepository: ModerationRepository,
     private val togglePostLikeUseCase: TogglePostLikeUseCase,
     private val addPostCommentUseCase: AddPostCommentUseCase,
+    observePostDetail: GetPostDetailUseCase,
     observePostLikes: ObservePostLikesUseCase,
     observePostComments: ObservePostCommentsUseCase,
-    private val reportPostUseCase: ReportPostUseCase = ReportPostUseCase(postRepository, authRepository, moderationRepository)
+    private val reportPostUseCase: ReportPostUseCase
 ) : ViewModel() {
     private val postId: String = savedStateHandle.get<String>("postId").orEmpty()
 
-    val posts = postRepository.posts
     val currentUser = authRepository.currentUser
 
+    val post: StateFlow<ServicePost?> = observePostDetail(postId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val likes: StateFlow<PostLikes> = observePostLikes(postId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PostLikes())
     val comments: StateFlow<List<ServiceComment>> = observePostComments(postId)
@@ -57,11 +57,7 @@ class ServiceDetailViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ServiceDetailUiState())
     val uiState: StateFlow<ServiceDetailUiState> = _uiState.asStateFlow()
 
-    fun startConversation(postId: String): String? {
-        val post = posts.value.firstOrNull { it.id == postId } ?: return null
-        if (post.providerId == currentUser.value.id) return null
-        return startConversationUseCase(postId)
-    }
+    fun startConversation(postId: String): String? = startConversationUseCase(postId)
 
     fun toggleUpvote(postId: String) {
         val result = when (val outcome = togglePostLikeUseCase(postId)) {
