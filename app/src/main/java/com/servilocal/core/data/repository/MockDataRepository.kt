@@ -402,7 +402,10 @@ class MockDataRepository @Inject constructor(
     }
 
     override fun approvePost(postId: String) {
-        erdPosts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it } }
+        val moderatorId = _currentUser.value.takeIf { it.role == UserRole.MODERATOR }?.id ?: return
+        erdPosts.update { list ->
+            list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED, moderatorId = moderatorId) else it }
+        }
         _posts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it } }
     }
 
@@ -423,7 +426,7 @@ class MockDataRepository @Inject constructor(
         reason: String?,
         notes: String?
     ): Boolean {
-        if (_moderatorUser.value.role != UserRole.MODERATOR) return false
+        if (_currentUser.value.role != UserRole.MODERATOR) return false
         if (status != PostStatus.REJECTED && status != PostStatus.FINISHED) return false
         if (_posts.value.none { it.id == postId }) return false
 
@@ -607,12 +610,12 @@ class MockDataRepository @Inject constructor(
         contactMethod: String,
         address: String,
         description: String
-    ): String {
-        val post = _posts.value.find { it.id == postId }
-        val recipient = post?.providerName ?: "Carlos Mendoza"
-        val providerId = post?.providerId ?: 2L
+    ): String? {
+        val post = _posts.value.firstOrNull { it.id == postId } ?: return null
+        val providerId = post.providerId ?: return null
+        val recipient = post.providerName
         val currentUserId = _currentUser.value.id
-        val convId = "chat_${System.currentTimeMillis()}"
+        val convId = "chat_${UUID.randomUUID()}"
 
         val newErdReq = ServiceRequest(
             id = convId,
@@ -633,8 +636,8 @@ class MockDataRepository @Inject constructor(
             clientName = applicantName,
             providerName = recipient,
             recipientName = recipient,
-            serviceTitle = post?.title ?: "Servicio Solicitado",
-            servicePrice = if (post?.isPriceToAgree == true) "A convenir" else "$ ${post?.minPrice ?: 25000} COP",
+            serviceTitle = post.title,
+            servicePrice = if (post.isPriceToAgree) "A convenir" else "$ ${post.minPrice} COP",
             status = ServiceRequestStatus.PENDING,
             lastMessage = description,
             lastTime = "Ahora",
@@ -664,11 +667,11 @@ class MockDataRepository @Inject constructor(
         resolution: ReportResolution,
         moderatorComment: String
     ): Boolean {
-        if (_moderatorUser.value.role != UserRole.MODERATOR) return false
+        if (_currentUser.value.role != UserRole.MODERATOR) return false
         val report = _reports.value.firstOrNull { it.id == reportId } ?: return false
         if (report.status != ReportStatus.PENDING) return false
 
-        val moderator = _moderatorUser.value
+        val moderator = _currentUser.value
         val resolvedAt = System.currentTimeMillis()
         erdReports.update { list ->
             list.map { raw ->

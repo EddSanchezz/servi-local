@@ -24,6 +24,17 @@ import com.servilocal.domain.usecase.auth.ResetPasswordUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
+import com.servilocal.domain.usecase.moderation.ApprovePostUseCase
+import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
+import com.servilocal.domain.usecase.moderation.ObserveModerationPostsUseCase
+import com.servilocal.domain.usecase.moderation.ObserveModeratorProfileUseCase
+import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
+import com.servilocal.domain.usecase.moderation.ObserveReportsUseCase
+import com.servilocal.domain.usecase.moderation.RejectPostUseCase
+import com.servilocal.domain.usecase.moderation.ResolveReportUseCase
+import com.servilocal.domain.usecase.moderation.ResolveReportsForPostUseCase
+import com.servilocal.domain.usecase.moderation.ToggleModeratorShiftUseCase
+import com.servilocal.domain.usecase.posts.MarkPostAsResolvedUseCase
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
@@ -264,22 +275,30 @@ class FeatureViewModelTest {
     }
 
     @Test
-    fun `user and moderator schedules are available and moderator shift can be toggled`() {
+    fun `schedules are available and a regular user cannot toggle the moderator shift`() {
         val repository = MockDataRepository()
+        val notifications = CreateNotificationUseCase(repository)
         val moderationViewModel = ModerationViewModel(
-            repository,
-            repository,
-            ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
-            repository,
-            CreateNotificationUseCase(repository)
+            observeNotifications = ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
+            observePendingPostsUseCase = ObservePendingPostsUseCase(repository),
+            filterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
+            approvePostUseCase = ApprovePostUseCase(repository, repository, notifications),
+            rejectPostUseCase = RejectPostUseCase(repository, repository, notifications),
+            markPostAsResolvedUseCase = MarkPostAsResolvedUseCase(repository, repository),
+            resolveReportUseCase = ResolveReportUseCase(repository, repository, repository, notifications),
+            observeModerationPosts = ObserveModerationPostsUseCase(repository),
+            observeReports = ObserveReportsUseCase(repository),
+            observeModeratorProfile = ObserveModeratorProfileUseCase(repository),
+            resolveReportsForPostUseCase = ResolveReportsForPostUseCase(repository, repository),
+            toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(repository)
         )
 
         assertTrue(repository.currentUser.value.workingHours.contains("sábado"))
         assertTrue(repository.moderatorUser.value.workingHours.contains("viernes"))
         assertTrue(repository.moderatorUser.value.activeShift)
 
-        moderationViewModel.toggleModeratorShift()
-        assertFalse(repository.moderatorUser.value.activeShift)
+        assertFalse(moderationViewModel.toggleModeratorShift())
+        assertTrue(repository.moderatorUser.value.activeShift)
     }
 
     @Test

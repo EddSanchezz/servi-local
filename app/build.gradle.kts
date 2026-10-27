@@ -61,6 +61,7 @@ dependencies {
   implementation(libs.hilt.android)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
+  implementation(libs.osmdroid.android)
 
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

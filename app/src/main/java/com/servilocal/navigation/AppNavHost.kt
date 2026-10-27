@@ -48,8 +48,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.ChatRepository
-import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.usecase.chat.ObserveChatConversationsUseCase
+import com.servilocal.domain.usecase.moderation.ObserveReportsUseCase
 import com.servilocal.features.app.viewmodel.AppViewModel
 import com.servilocal.features.auth.ui.LoginScreen
 import com.servilocal.features.auth.ui.PasswordRecoveryScreen
@@ -115,7 +115,7 @@ object AppRoute {
 @Composable
 fun AppNavHost(
     chatRepository: ChatRepository,
-    moderationRepository: ModerationRepository,
+    observeReports: ObserveReportsUseCase,
     appViewModel: AppViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -195,7 +195,7 @@ fun AppNavHost(
             key(appUiState.activeRole) {
                 DashboardNavigation(
                     chatRepository = chatRepository,
-                    moderationRepository = moderationRepository,
+                    observeReports = observeReports,
                     appViewModel = appViewModel,
                     onLogout = {
                         appViewModel.logout()
@@ -212,14 +212,14 @@ fun AppNavHost(
 @Composable
 private fun DashboardNavigation(
     chatRepository: ChatRepository,
-    moderationRepository: ModerationRepository,
+    observeReports: ObserveReportsUseCase,
     appViewModel: AppViewModel,
     onLogout: () -> Unit
 ) {
     val appUiState by appViewModel.uiState.collectAsStateWithLifecycle()
     val observeConversationsUseCase = remember { ObserveChatConversationsUseCase(chatRepository) }
     val conversations by observeConversationsUseCase().collectAsStateWithLifecycle()
-    val reports by moderationRepository.reports.collectAsStateWithLifecycle()
+    val reports by observeReports().collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route

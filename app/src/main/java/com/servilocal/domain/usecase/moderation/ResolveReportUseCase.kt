@@ -30,7 +30,7 @@ class ResolveReportUseCase @Inject constructor(
         moderatorComment: String,
         newPostStatus: PostStatus? = null
     ): Boolean {
-        if (authRepository.moderatorUser.value.role != UserRole.MODERATOR) return false
+        if (authRepository.currentUser.value.role != UserRole.MODERATOR) return false
         if (resolution == ReportResolution.UPHELD && moderatorComment.isBlank()) return false
 
         val report = moderationRepository.reports.value.firstOrNull { it.id == reportId } ?: return false
@@ -57,15 +57,16 @@ class ResolveReportUseCase @Inject constructor(
                 notes = moderatorComment.trim()
             )
 
-            val authorId = post.providerId ?: 2L
             val statusLabel = if (statusChange == PostStatus.REJECTED) "rechazada" else "finalizada"
-            createNotification(
-                userId = authorId,
-                title = "Publicación $statusLabel por reporte",
-                body = "Tu publicación '${post.title}' fue $statusLabel tras la revisión de un reporte. Comentario del moderador: ${moderatorComment.trim()}",
-                type = NotificationType.SYSTEM,
-                relatedPostId = post.id
-            )
+            post.providerId?.let { authorId ->
+                createNotification(
+                    userId = authorId,
+                    title = "Publicación $statusLabel por reporte",
+                    body = "Tu publicación '${post.title}' fue $statusLabel tras la revisión de un reporte. Comentario del moderador: ${moderatorComment.trim()}",
+                    type = NotificationType.SYSTEM,
+                    relatedPostId = post.id
+                )
+            }
         }
 
         // Notificar al denunciante

@@ -3,6 +3,7 @@ package com.servilocal
 import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.usecase.posts.DeleteServicePostUseCase
+import com.servilocal.domain.usecase.posts.FinishServicePostUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByQueryUseCase
@@ -70,6 +71,18 @@ class PostUseCaseTest {
         assertTrue(DeleteServicePostUseCase(repository)("pub_3"))
         assertNull(detail.invoke("pub_3").first())
         assertFalse(DeleteServicePostUseCase(repository)("pub_3"))
+    }
+
+    @Test
+    fun `shared resolved use case lets the owner finish an approved publication`() {
+        val repository = MockDataRepository()
+        val finishPost = FinishServicePostUseCase(
+            com.servilocal.domain.usecase.posts.MarkPostAsResolvedUseCase(repository, repository)
+        )
+
+        assertTrue(finishPost("pub_3"))
+        assertEquals(PostStatus.FINISHED, repository.posts.value.first { it.id == "pub_3" }.status)
+        assertFalse(finishPost("pub_3"))
     }
 
     @Test

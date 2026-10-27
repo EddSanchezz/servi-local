@@ -17,5 +17,5 @@ interface ChatRepository {
         contactMethod: String,
         address: String,
         description: String
-    ): String
+    ): String?
 }

@@ -1,5 +1,17 @@
 package com.servilocal.features.home.ui
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.os.Build
+import android.os.Looper
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.compose.foundation.background
@@ -22,15 +34,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
+import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
+import kotlinx.coroutines.launch
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 
 @Composable
 fun HomeScreen(
@@ -47,6 +68,8 @@ fun HomeScreen(
     val selectedCategory = uiState.selectedCategory
     val locationQuery = uiState.locationQuery
     val maxDistanceKm = uiState.maxDistanceKm
+    val originLatitude = uiState.originLatitude
+    val originLongitude = uiState.originLongitude
     val viewDisplayMode = uiState.displayMode
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val notificationsEnabled = appUiState.notificationsEnabled
@@ -63,12 +86,32 @@ fun HomeScreen(
     )
 
     var distanceMenuExpanded by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
+    fun loadDeviceLocation() {
+        requestCurrentLocation(context) { location ->
+            if (location == null) {
+                coroutineScope.launch { snackbarHostState.showSnackbar("No se encontró una ubicación. Inténtalo en un área abierta.") }
+            } else {
+                viewModel.setOriginLocation(location.latitude, location.longitude)
+                coroutineScope.launch { snackbarHostState.showSnackbar("Ubicación GPS actualizada.") }
+            }
+        }
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.values.any { it }) loadDeviceLocation()
+        else coroutineScope.launch { snackbarHostState.showSnackbar("Permite el acceso a la ubicación para buscar cerca de ti.") }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+      Column(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+      ) {
         // Top App Bar
         Row(
             modifier = Modifier
@@ -184,6 +227,23 @@ fun HomeScreen(
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.weight(1f).testTag("search_location_input")
             )
+            IconButton(
+                onClick = {
+                    val fineGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val coarseGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    if (fineGranted || coarseGranted) loadDeviceLocation()
+                    else locationPermissionLauncher.launch(
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                    )
+                },
+                modifier = Modifier.testTag("use_device_location_button")
+            ) {
+                Icon(
+                    imageVector = if (originLatitude != null) Icons.Default.MyLocation else Icons.Default.GpsFixed,
+                    contentDescription = "Usar ubicación GPS",
+                    tint = if (originLatitude != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Box {
                 FilterChip(
                     selected = maxDistanceKm != null,
@@ -352,9 +412,16 @@ fun HomeScreen(
             // Interactive Map View of Armenia, Quindío
             InteractiveMapPreview(
                 posts = filteredPosts,
+                originLatitude = originLatitude,
+                originLongitude = originLongitude,
                 onPostSelected = { onOpenServiceDetail(it.id) }
             )
         }
+      }
+      SnackbarHost(
+          hostState = snackbarHostState,
+          modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
+      )
     }
 }
 
@@ -592,140 +659,122 @@ fun ServiceCardItem(
 @Composable
 fun InteractiveMapPreview(
     posts: List<ServicePost>,
+    originLatitude: Double?,
+    originLongitude: Double?,
     onPostSelected: (ServicePost) -> Unit
 ) {
+    val context = LocalContext.current
+    val center = GeoPoint(
+        originLatitude ?: FilterPostsByLocationUseCase.TEST_ORIGIN_LATITUDE,
+        originLongitude ?: FilterPostsByLocationUseCase.TEST_ORIGIN_LONGITUDE
+    )
+    val mapView = remember(context) {
+        Configuration.getInstance().userAgentValue = context.packageName
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            setBuiltInZoomControls(true)
+            controller.setZoom(13.5)
+            controller.setCenter(center)
+        }
+    }
+
+    DisposableEffect(mapView) {
+        mapView.onResume()
+        onDispose {
+            mapView.onPause()
+            mapView.onDetach()
+        }
+    }
+
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        modifier = Modifier.fillMaxSize().padding(16.dp).clip(RoundedCornerShape(20.dp))
     ) {
-        // Map Canvas simulation with streets / grids and service markers in Armenia, Quindío
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+        AndroidView(
+            factory = { mapView },
+            modifier = Modifier.fillMaxSize(),
+            update = { map ->
+                map.overlays.removeAll(map.overlays.filterIsInstance<Marker>())
+                if (originLatitude != null && originLongitude != null) {
+                    map.overlays.add(Marker(map).apply {
+                        position = center
+                        title = "Tu ubicación"
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    })
+                }
+                posts.forEach { post ->
+                    val latitude = post.latitude ?: return@forEach
+                    val longitude = post.longitude ?: return@forEach
+                    map.overlays.add(Marker(map).apply {
+                        position = GeoPoint(latitude, longitude)
+                        title = post.title
+                        snippet = "${post.providerName} · ${post.distance}"
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        setOnMarkerClickListener { _, _ ->
+                            onPostSelected(post)
+                            true
+                        }
+                    })
+                }
+                map.controller.setCenter(center)
+                map.invalidate()
+            }
+        )
+        Surface(
+            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            shape = RoundedCornerShape(8.dp)
         ) {
-            // Location Header Chip
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.95f),
-                shape = RoundedCornerShape(20.dp),
-                shadowElevation = 4.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(Icons.Default.Place, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                    Text(
-                        text = "Armenia, Quindío · Cobertura 15 km",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+            Text(
+                "© OpenStreetMap contributors",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+            )
+        }
+        Surface(
+            modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Text(
+                if (originLatitude == null) "Mapa de Armenia" else "Tu ubicación GPS",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+        }
+    }
+}
 
-            // Interactive Pins Area
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                // Radar ripple
-                Box(
-                    modifier = Modifier
-                        .size(200.dp)
-                        .border(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), CircleShape)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(120.dp)
-                        .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), CircleShape)
-                )
+@SuppressLint("MissingPermission", "DEPRECATION")
+private fun requestCurrentLocation(context: Context, onResult: (Location?) -> Unit) {
+    val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    val provider = when {
+        manager.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
+        manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
+        else -> null
+    }
+    if (provider == null) {
+        onResult(null)
+        return
+    }
 
-                // Current location center pin
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color.White))
-                }
-
-                // Service Pins in surroundings
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-                    posts.take(3).forEachIndexed { idx, p ->
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            shadowElevation = 6.dp,
-                            modifier = Modifier
-                                .offset(y = if (idx % 2 == 0) (-30).dp else 40.dp)
-                                .clickable { onPostSelected(p) }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                Text(
-                                    text = p.providerName.split(" ").first(),
-                                    style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Bottom Map Peek Card
-            posts.firstOrNull()?.let { featured ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPostSelected(featured) },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.secondaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(featured.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1)
-                            Text("${featured.providerName} · ${featured.distance}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                        }
-                        Button(
-                            onClick = { onPostSelected(featured) },
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text("Ver", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
+    try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            manager.getCurrentLocation(provider, null, context.mainExecutor) { location -> onResult(location) }
+        } else {
+            val lastKnown = manager.getLastKnownLocation(provider)
+            if (lastKnown != null) {
+                onResult(lastKnown)
+            } else {
+                manager.requestSingleUpdate(provider, object : LocationListener {
+                    override fun onLocationChanged(location: Location) = onResult(location)
+                    override fun onProviderEnabled(provider: String) = Unit
+                    override fun onProviderDisabled(provider: String) = onResult(null)
+                }, Looper.getMainLooper())
             }
         }
+    } catch (_: SecurityException) {
+        onResult(null)
     }
 }

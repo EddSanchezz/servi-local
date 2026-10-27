@@ -7,7 +7,8 @@ import com.servilocal.core.util.RequestResult
 import com.servilocal.domain.model.ServiceComment
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.repository.AuthRepository
-import com.servilocal.domain.usecase.chat.StartConversationUseCase
+import com.servilocal.domain.usecase.chat.CreateServiceRequestResult
+import com.servilocal.domain.usecase.chat.CreateServiceRequestUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
 import com.servilocal.domain.usecase.posts.AddCommentResult
 import com.servilocal.domain.usecase.posts.AddPostCommentUseCase
@@ -35,7 +36,7 @@ data class ServiceDetailUiState(
 class ServiceDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val authRepository: AuthRepository,
-    private val startConversationUseCase: StartConversationUseCase,
+    private val createServiceRequestUseCase: CreateServiceRequestUseCase,
     private val togglePostLikeUseCase: TogglePostLikeUseCase,
     private val addPostCommentUseCase: AddPostCommentUseCase,
     observePostDetail: GetPostDetailUseCase,
@@ -57,7 +58,19 @@ class ServiceDetailViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ServiceDetailUiState())
     val uiState: StateFlow<ServiceDetailUiState> = _uiState.asStateFlow()
 
-    fun startConversation(postId: String): String? = startConversationUseCase(postId)
+    fun createServiceRequest(
+        postId: String,
+        applicantName: String,
+        contact: String,
+        address: String,
+        description: String
+    ): CreateServiceRequestResult = createServiceRequestUseCase(
+        postId = postId,
+        applicantName = applicantName,
+        contactMethod = contact,
+        address = address,
+        description = description
+    )
 
     fun toggleUpvote(postId: String) {
         val result = when (val outcome = togglePostLikeUseCase(postId)) {

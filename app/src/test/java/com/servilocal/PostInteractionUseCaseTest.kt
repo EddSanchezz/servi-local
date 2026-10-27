@@ -1,6 +1,8 @@
 package com.servilocal
 
 import com.servilocal.core.data.repository.MockDataRepository
+import com.servilocal.data.repository.memory.SessionRepositoryImpl
+import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.model.NotificationType
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
@@ -11,6 +13,7 @@ import com.servilocal.domain.usecase.posts.ObservePostLikesUseCase
 import com.servilocal.domain.usecase.posts.ToggleLikeResult
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -111,8 +114,12 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
-    fun `approving a new post does not add a like automatically`() {
-        val repository = repository()
+    fun `approving a new post does not add a like automatically`() = runTest {
+        val users = UserRepositoryImpl()
+        val session = SessionRepositoryImpl()
+        session.saveSession(userId = 3L, role = com.servilocal.domain.model.UserRole.MODERATOR)
+        val repository = MockDataRepository(users, session)
+        repository.currentUser.first { it.role == com.servilocal.domain.model.UserRole.MODERATOR }
         val newPost = repository.createPost(
             title = "Nuevo servicio",
             category = "Hogar",
@@ -126,7 +133,13 @@ class PostInteractionUseCaseTest {
         assertEquals(0, newPost.upvotesCount)
         assertFalse(newPost.userUpvoted)
 
-        repository.approvePost(newPost.id)
+        assertTrue(
+            com.servilocal.domain.usecase.moderation.ApprovePostUseCase(
+                repository,
+                repository,
+                CreateNotificationUseCase(repository)
+            )(newPost.id)
+        )
 
         val approved = repository.posts.value.first { it.id == newPost.id }
         assertEquals(PostStatus.APPROVED, approved.status)

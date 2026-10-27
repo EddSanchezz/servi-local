@@ -25,6 +25,8 @@ data class HomeUiState(
     val selectedCategory: String = "Todos",
     val locationQuery: String = "",
     val maxDistanceKm: Double? = null,
+    val originLatitude: Double? = null,
+    val originLongitude: Double? = null,
     val displayMode: ViewDisplayMode = ViewDisplayMode.LIST
 )
 
@@ -50,7 +52,13 @@ class HomeViewModel @Inject constructor(
     val filteredPosts = combine(posts, _uiState) { feed, state ->
         val byCategory = filterPostsByCategory(feed, state.selectedCategory)
         val byQuery = filterPostsByQuery(byCategory, state.searchQuery)
-        filterPostsByLocation(byQuery, state.locationQuery, state.maxDistanceKm)
+        filterPostsByLocation(
+            byQuery,
+            state.locationQuery,
+            state.maxDistanceKm,
+            state.originLatitude ?: FilterPostsByLocationUseCase.TEST_ORIGIN_LATITUDE,
+            state.originLongitude ?: FilterPostsByLocationUseCase.TEST_ORIGIN_LONGITUDE
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -68,6 +76,10 @@ class HomeViewModel @Inject constructor(
     fun setSelectedCategory(value: String) = _uiState.update { it.copy(selectedCategory = value) }
     fun setLocationQuery(value: String) = _uiState.update { it.copy(locationQuery = value) }
     fun setMaxDistanceKm(value: Double?) = _uiState.update { it.copy(maxDistanceKm = value) }
+    fun setOriginLocation(latitude: Double, longitude: Double) = _uiState.update {
+        it.copy(originLatitude = latitude, originLongitude = longitude)
+    }
+    fun clearOriginLocation() = _uiState.update { it.copy(originLatitude = null, originLongitude = null) }
     fun setDisplayMode(value: ViewDisplayMode) = _uiState.update { it.copy(displayMode = value) }
     fun toggleUpvote(postId: String): Boolean = togglePostLikeUseCase(postId) is ToggleLikeResult.Success
 }

@@ -30,11 +30,11 @@ app/src/main/java/com/servilocal/
 └── navigation/AppNavHost.kt        # grafo raíz y grafo interno
 ```
 
-Flujo de datos habitual: `Compose` → `ViewModel` → repositorio. Algunas operaciones pasan por un caso de uso antes de llegar al repositorio. Hilt conecta los contratos de repositorio con `MockDataRepository`. Navigation Compose administra un grafo raíz para onboarding y autenticación y un grafo anidado para las pantallas de usuario o moderación. En el dashboard, Explorar es la pestaña inicial; `HomeScreen` está implementada, pero no forma parte de la barra de pestañas actual.
+Flujo de datos previsto: `Compose` → `ViewModel` → casos de uso → interfaces de repositorio. Hilt conecta los contratos con implementaciones singleton en memoria. Navigation Compose tiene un grafo raíz para onboarding/autenticación y un dashboard con navegación distinta según el rol: Home es la pestaña inicial del usuario y Auditoría la del moderador.
 
-En esta fase, la aplicación usa datos de demostración en memoria: no hay persistencia, autenticación remota, mapas reales ni carga de imágenes. Las guías de clase y los archivos de referencia del ERD se conservan localmente en `/docs`; esta carpeta está excluida de Git.
+En esta fase, la aplicación usa datos de demostración en memoria: no hay persistencia, autenticación remota, mapas reales ni carga de imágenes. El PDF de procesos y reparto está en la raíz. La carpeta `/docs` está excluida de Git y no se incluye en esta copia del proyecto.
 
-El feed permite buscar por texto, filtrar por categoría y zona, y limitar por las distancias de demostración de las publicaciones semilla. La ubicación no usa GPS ni geocodificación real. Desde el perfil se pueden consultar las publicaciones propias y eliminar una publicación propia; editar y finalizar sigue permitido solo para publicaciones aprobadas.
+El módulo de publicaciones permite buscar por texto, filtrar por categoría y zona, y limitar por distancias calculadas desde coordenadas aproximadas de prueba en Armenia. No usa GPS ni geocodificación real. Desde el perfil se pueden consultar y eliminar publicaciones propias; editar y finalizar está permitido al autor para publicaciones aprobadas. La moderación ofrece una cola FIFO de pendientes, aprobación, rechazo con motivo obligatorio y resolución de publicaciones/reportes.
 
 ## Requisitos
 
@@ -44,6 +44,21 @@ El feed permite buscar por texto, filtrar por categoría y zona, y limitar por l
 - Android SDK Platform 36.1 y Build Tools 36.0.0 (los define `app/build.gradle.kts`).
 
 En Windows, configura `sdk.dir` en `local.properties` con la ruta local del SDK. Este archivo no se sube a Git. Para instalar en un dispositivo Android, activa las opciones de desarrollador y la depuración USB; para usar el emulador, crea/inicia un AVD compatible desde Android Studio o el SDK Manager.
+
+### GPS y mapas
+
+El feed usa OpenStreetMap mediante osmdroid. La pestaña Mapa muestra tiles reales, marcadores de publicaciones con coordenadas y la ubicación GPS del dispositivo cuando se concede el permiso. Las coordenadas de publicaciones creadas sin geocodificación se calculan solo para zonas demo conocidas; para producción se debe añadir un servicio de geocodificación y respetar sus políticas de uso.
+
+### Firebase Storage e imágenes
+
+La carga remota de imágenes requiere un proyecto Firebase real y no se puede completar solo desde este repositorio. Para activarla:
+
+1. Crea un proyecto en Firebase y registra el paquete `com.aistudio.servilocal.quindio`.
+2. Habilita Cloud Storage y Authentication. Firebase Storage requiere el plan Blaze según la documentación actual de Firebase.
+3. Descarga `google-services.json` y colócalo en `app/google-services.json`; no lo subas a Git.
+4. Define reglas de Storage que permitan a usuarios autenticados subir solo sus propias imágenes.
+
+La implementación actual conserva fotos como datos de la publicación demo; la integración Firebase queda pendiente de ese archivo y de las reglas del bucket. No se han incorporado secretos ni claves ficticias.
 
 ## Compilar y probar
 

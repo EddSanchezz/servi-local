@@ -13,7 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.servilocal.core.ui.theme.MyApplicationTheme
 import com.servilocal.domain.repository.ChatRepository
-import com.servilocal.domain.repository.ModerationRepository
+import com.servilocal.domain.usecase.moderation.ObserveReportsUseCase
 import com.servilocal.features.app.viewmodel.AppViewModel
 import com.servilocal.navigation.AppNavHost
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,7 +22,7 @@ import jakarta.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var chatRepository: ChatRepository
-    @Inject lateinit var moderationRepository: ModerationRepository
+    @Inject lateinit var observeReports: ObserveReportsUseCase
     private val appViewModel: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AppNavHost(
                         chatRepository = chatRepository,
-                        moderationRepository = moderationRepository,
+                        observeReports = observeReports,
                         appViewModel = appViewModel
                     )
                 }

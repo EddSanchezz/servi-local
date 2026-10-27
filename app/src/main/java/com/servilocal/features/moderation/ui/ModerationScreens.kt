@@ -45,6 +45,14 @@ fun ModerationFeedScreen(
     val pendingPosts by viewModel.pendingPosts.collectAsStateWithLifecycle()
     val moderationUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activeFilter = moderationUiState.selectedCategory ?: moderationUiState.filter
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(moderationUiState.error, moderationUiState.actionResult) {
+        val feedback = moderationUiState.error ?: moderationUiState.actionResult
+        if (feedback != null) {
+            snackbarHostState.showSnackbar(feedback)
+            viewModel.clearFeedback()
+        }
+    }
 
     val categories = remember {
         listOf("Todos") + PostCategory.entries.map { cat ->
@@ -58,11 +66,12 @@ fun ModerationFeedScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
         // Top App Bar
         Row(
             modifier = Modifier
@@ -197,6 +206,11 @@ fun ModerationFeedScreen(
                 }
             }
         }
+        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
+        )
     }
 }
 
@@ -323,6 +337,15 @@ fun ModerationDetailScreen(
     var notesList by remember { mutableStateOf(listOf("El número de carnet de instalador fue cotejado con el registro SEC. Pendiente confirmar si el rango tarifario incluye IVA.")) }
     var showDetailMenu by remember { mutableStateOf(false) }
     var showGuidelines by remember { mutableStateOf(false) }
+    val moderationUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(moderationUiState.error, moderationUiState.actionResult) {
+        val feedback = moderationUiState.error ?: moderationUiState.actionResult
+        if (feedback != null) {
+            snackbarHostState.showSnackbar(feedback)
+            viewModel.clearFeedback()
+        }
+    }
 
     if (post == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -338,6 +361,7 @@ fun ModerationDetailScreen(
     val postReportCount = reports.count { it.targetPostId == post.id }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Auditoría de Publicación", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
@@ -356,6 +380,16 @@ fun ModerationDetailScreen(
                                 text = { Text("Criterios de revisión") },
                                 onClick = { showDetailMenu = false; showGuidelines = true }
                             )
+                            if (post.status == PostStatus.PENDING_VERIFICATION || post.status == PostStatus.APPROVED) {
+                                DropdownMenuItem(
+                                    text = { Text("Marcar como resuelta") },
+                                    leadingIcon = { Icon(Icons.Default.TaskAlt, contentDescription = null) },
+                                    onClick = {
+                                        showDetailMenu = false
+                                        if (viewModel.markPostResolved(post.id)) onBack()
+                                    }
+                                )
+                            }
                         }
                     }
                 },
@@ -381,7 +415,7 @@ fun ModerationDetailScreen(
                             Text("Rechazar", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                         Button(
-                            onClick = { viewModel.approvePost(post.id); onBack() },
+                            onClick = { if (viewModel.approvePost(post.id)) onBack() },
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
                         ) {
@@ -398,15 +432,19 @@ fun ModerationDetailScreen(
                 ) {
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(
-                            onClick = { viewModel.resolveReportsForPost(post.id); onBack() },
+                            onClick = { if (viewModel.resolveReportsForPost(post.id)) onBack() },
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
                         ) { Text("Mantener activa") }
                         Button(
                             onClick = {
-                                viewModel.rejectPost(post.id, "Incumplimiento confirmado", "Publicación retirada tras revisar las denuncias.")
-                                viewModel.resolveReportsForPost(post.id)
-                                onBack()
+                                val rejected = viewModel.rejectPost(
+                                    post.id,
+                                    "Incumplimiento confirmado",
+                                    "Publicación retirada tras revisar las denuncias."
+                                )
+                                val reportsResolved = viewModel.resolveReportsForPost(post.id)
+                                if (rejected && reportsResolved) onBack()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             shape = RoundedCornerShape(24.dp),
@@ -420,7 +458,7 @@ fun ModerationDetailScreen(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding()
                 ) {
                     Button(
-                        onClick = { viewModel.resolveReportsForPost(post.id); onBack() },
+                        onClick = { if (viewModel.resolveReportsForPost(post.id)) onBack() },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(48.dp),
                         shape = RoundedCornerShape(24.dp)
                     ) { Text("Cerrar reporte") }
@@ -616,11 +654,13 @@ fun ModerationDetailScreen(
     // Modal Bottom Sheet: Motivo del Rechazo de Publicación (Mandatory Reason)
     if (showRejectSheet) {
         RejectionReasonBottomSheet(
+            errorMessage = moderationUiState.error,
             onDismiss = { showRejectSheet = false },
             onConfirm = { reason, notes ->
-                viewModel.rejectPost(post.id, reason, notes)
-                showRejectSheet = false
-                onBack()
+                if (viewModel.rejectPost(post.id, reason, notes)) {
+                    showRejectSheet = false
+                    onBack()
+                }
             }
         )
     }
@@ -638,6 +678,7 @@ fun ModerationDetailScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RejectionReasonBottomSheet(
+    errorMessage: String? = null,
     onDismiss: () -> Unit,
     onConfirm: (reason: String, notes: String) -> Unit
 ) {
@@ -714,6 +755,10 @@ fun RejectionReasonBottomSheet(
                 maxLines = 3,
                 shape = RoundedCornerShape(12.dp)
             )
+
+            errorMessage?.let { message ->
+                Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
 
             Button(
                 onClick = { onConfirm(selectedReason, notes) },

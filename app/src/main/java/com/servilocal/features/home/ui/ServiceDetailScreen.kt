@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.servilocal.core.util.RequestResult
 import com.servilocal.domain.model.PostStatus
+import com.servilocal.domain.usecase.chat.CreateServiceRequestResult
 import com.servilocal.features.home.viewmodel.ServiceDetailViewModel
 import kotlinx.coroutines.launch
 
@@ -51,6 +52,8 @@ fun ServiceDetailScreen(
     var newCommentText by remember { mutableStateOf("") }
     var isMenuExpanded by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
+    var showServiceRequestDialog by remember { mutableStateOf(false) }
+    var serviceRequestError by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -179,7 +182,10 @@ fun ServiceDetailScreen(
                                     Text(text = if (likes.likedByCurrentUser) "Apoyado" else "Me interesa", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1)
                                 }
                                 Button(
-                                    onClick = { viewModel.startConversation(post.id)?.let(onOpenChat) },
+                                    onClick = {
+                                        serviceRequestError = null
+                                        showServiceRequestDialog = true
+                                    },
                                     shape = RoundedCornerShape(24.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                     modifier = Modifier.weight(1.15f).height(48.dp).testTag("request_service_button"),
@@ -707,6 +713,36 @@ fun ServiceDetailScreen(
                     } else {
                         snackbarHostState.showSnackbar("No puedes reportar tu propia publicación")
                     }
+                }
+            }
+        )
+    }
+
+    if (showServiceRequestDialog) {
+        ServiceRequestDialog(
+            applicantName = currentUser.name,
+            errorMessage = serviceRequestError,
+            onDismiss = { showServiceRequestDialog = false },
+            onSubmit = { applicantName, contact, address, description ->
+                when (val result = viewModel.createServiceRequest(
+                    postId = post.id,
+                    applicantName = applicantName,
+                    contact = contact,
+                    address = address,
+                    description = description
+                )) {
+                    is CreateServiceRequestResult.Success -> {
+                        showServiceRequestDialog = false
+                        onOpenChat(result.conversationId)
+                    }
+                    CreateServiceRequestResult.PostNotFound -> serviceRequestError = "La publicación ya no está disponible."
+                    CreateServiceRequestResult.PostNotApproved -> serviceRequestError = "Solo puedes solicitar publicaciones verificadas."
+                    CreateServiceRequestResult.OwnPost -> serviceRequestError = "No puedes solicitar tu propia publicación."
+                    CreateServiceRequestResult.MissingApplicantName -> serviceRequestError = "Escribe tu nombre."
+                    CreateServiceRequestResult.MissingContactMethod -> serviceRequestError = "Indica un teléfono o medio de contacto."
+                    CreateServiceRequestResult.MissingAddress -> serviceRequestError = "Indica la dirección donde necesitas el servicio."
+                    CreateServiceRequestResult.MissingDescription -> serviceRequestError = "Describe brevemente el servicio que necesitas."
+                    CreateServiceRequestResult.RequestCouldNotBeCreated -> serviceRequestError = "No se pudo crear la solicitud. Inténtalo nuevamente."
                 }
             }
         )

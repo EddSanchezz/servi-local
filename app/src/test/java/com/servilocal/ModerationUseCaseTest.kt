@@ -13,11 +13,17 @@ import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.domain.usecase.moderation.ApprovePendingPostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
+import com.servilocal.domain.usecase.moderation.ObserveModerationPostsUseCase
+import com.servilocal.domain.usecase.moderation.ObserveModeratorProfileUseCase
+import com.servilocal.domain.usecase.moderation.ObserveReportsUseCase
 import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
 import com.servilocal.domain.usecase.moderation.ResolveReportUseCase
+import com.servilocal.domain.usecase.moderation.ResolveReportsForPostUseCase
+import com.servilocal.domain.usecase.moderation.ToggleModeratorShiftUseCase
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
+import com.servilocal.domain.usecase.posts.MarkPostAsResolvedUseCase
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -132,15 +138,46 @@ class ModerationUseCaseTest {
         userId: Long = 3L,
         userName: String = "Mod"
     ) : AuthRepository {
-        private val _user = MutableStateFlow(
+        private val _currentUser = MutableStateFlow(
             UserProfile(id = userId, name = userName, email = "mod@test.com", role = role)
         )
-        override val currentUser: StateFlow<UserProfile> = _user
-        override val moderatorUser: StateFlow<UserProfile> = _user
+        private val _moderatorUser = MutableStateFlow(
+            UserProfile(id = 3L, name = "Mod", email = "mod@test.com", role = UserRole.MODERATOR)
+        )
+        override val currentUser: StateFlow<UserProfile> = _currentUser
+        override val moderatorUser: StateFlow<UserProfile> = _moderatorUser
 
         override fun updateCurrentUser(name: String, email: String) {}
-        override fun toggleModeratorShift() {}
+        override fun toggleModeratorShift() {
+            _moderatorUser.value = _moderatorUser.value.copy(activeShift = !_moderatorUser.value.activeShift)
+        }
     }
+
+    private fun viewModel(
+        postRepository: PostRepository,
+        moderationRepository: ModerationRepository,
+        authRepository: AuthRepository,
+        notifications: MockDataRepository = MockDataRepository()
+    ) = ModerationViewModel(
+        observeNotifications = ObserveNotificationsUseCase(SessionRepositoryImpl(), notifications),
+        observePendingPostsUseCase = ObservePendingPostsUseCase(postRepository),
+        filterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
+        approvePostUseCase = com.servilocal.domain.usecase.moderation.ApprovePostUseCase(
+            postRepository, authRepository, CreateNotificationUseCase(notifications)
+        ),
+        rejectPostUseCase = com.servilocal.domain.usecase.moderation.RejectPostUseCase(
+            postRepository, authRepository, CreateNotificationUseCase(notifications)
+        ),
+        markPostAsResolvedUseCase = MarkPostAsResolvedUseCase(postRepository, authRepository),
+        resolveReportUseCase = ResolveReportUseCase(
+            moderationRepository, postRepository, authRepository, CreateNotificationUseCase(notifications)
+        ),
+        observeModerationPosts = ObserveModerationPostsUseCase(postRepository),
+        observeReports = ObserveReportsUseCase(moderationRepository),
+        observeModeratorProfile = ObserveModeratorProfileUseCase(authRepository),
+        resolveReportsForPostUseCase = ResolveReportsForPostUseCase(moderationRepository, authRepository),
+        toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(authRepository)
+    )
 
     private class FakeModerationRepository : ModerationRepository {
         private val _reports = MutableStateFlow(emptyList<com.servilocal.domain.model.ModerationReportItem>())
@@ -264,6 +301,23 @@ class ModerationUseCaseTest {
     }
 
     @Test
+    fun `RejectPostUseCase can withdraw an approved post after moderator review`() {
+        val approvedPost = ServicePost(
+            id = "post_approved", title = "P", category = "Hogar", description = "Desc",
+            providerName = "Provider", providerId = 2L, status = PostStatus.APPROVED
+        )
+        val postRepo = FakePostRepository(listOf(approvedPost))
+        val authRepo = FakeAuthRepository(UserRole.MODERATOR)
+        val useCase = com.servilocal.domain.usecase.moderation.RejectPostUseCase(
+            postRepo, authRepo, CreateNotificationUseCase(MockDataRepository())
+        )
+
+        assertTrue(useCase("post_approved", "Incumplimiento confirmado", "Revisado por staff"))
+        assertEquals(PostStatus.REJECTED, postRepo.posts.value.single().status)
+        assertEquals("Incumplimiento confirmado", postRepo.posts.value.single().rejectionReason)
+    }
+
+    @Test
     fun `ReportPostUseCase allows reporting other users post and prevents reporting own post`() {
         val postOther = ServicePost(id = "post_1", title = "P1", category = "Hogar", description = "Desc", providerName = "Other User", providerId = 2L)
         val postOwn = ServicePost(id = "post_2", title = "P2", category = "Hogar", description = "Desc", providerName = "Test User", providerId = 1L)
@@ -346,6 +400,62 @@ class ModerationUseCaseTest {
     }
 
     @Test
+    fun `moderation cases authorize the signed in user, not the seeded staff profile`() {
+        val pending = ServicePost(
+            id = "post_pending", title = "P", category = "Hogar", description = "Desc",
+            providerName = "Provider", providerId = 2L, status = PostStatus.PENDING_VERIFICATION
+        )
+        val posts = FakePostRepository(listOf(pending))
+        // This mirrors the real repository: the staff profile is seeded even when a regular user is signed in.
+        val auth = FakeAuthRepository(role = UserRole.USER, userId = 1L, userName = "User")
+        val notifications = MockDataRepository()
+        val initialNotificationCount = notifications.notifications.value.size
+        val approve = com.servilocal.domain.usecase.moderation.ApprovePostUseCase(
+            posts, auth, CreateNotificationUseCase(notifications)
+        )
+        val reject = com.servilocal.domain.usecase.moderation.RejectPostUseCase(
+            posts, auth, CreateNotificationUseCase(notifications)
+        )
+        val markResolved = MarkPostAsResolvedUseCase(posts, auth)
+
+        assertFalse(approve("post_pending"))
+        assertFalse(reject("post_pending", "Spam"))
+        assertFalse(markResolved("post_pending"))
+        assertEquals(PostStatus.PENDING_VERIFICATION, posts.posts.value.single().status)
+        assertEquals(initialNotificationCount, notifications.notifications.value.size)
+    }
+
+    @Test
+    fun `moderator can resolve a pending post and regular users cannot toggle moderator shift`() {
+        val pending = ServicePost(
+            id = "post_pending", title = "P", category = "Hogar", description = "Desc",
+            providerName = "Provider", providerId = 2L, status = PostStatus.PENDING_VERIFICATION
+        )
+        val posts = FakePostRepository(listOf(pending))
+        val moderatorAuth = FakeAuthRepository(UserRole.MODERATOR)
+        val useCase = MarkPostAsResolvedUseCase(posts, moderatorAuth)
+
+        assertTrue(useCase("post_pending"))
+        assertEquals(PostStatus.FINISHED, posts.posts.value.single().status)
+
+        val userAuth = FakeAuthRepository(UserRole.USER, userId = 1L, userName = "User")
+        val initialShift = userAuth.moderatorUser.value.activeShift
+        assertFalse(ToggleModeratorShiftUseCase(userAuth)())
+        assertEquals(initialShift, userAuth.moderatorUser.value.activeShift)
+    }
+
+    @Test
+    fun `moderator status is checked against the active account rather than seeded moderator profile`() {
+        val repository = MockDataRepository()
+        val pendingPost = repository.posts.value.first { it.status == PostStatus.PENDING_VERIFICATION }
+
+        assertEquals(UserRole.MODERATOR, repository.moderatorUser.value.role)
+        assertEquals(UserRole.USER, repository.currentUser.value.role)
+        assertFalse(repository.moderatePost(pendingPost.id, PostStatus.FINISHED))
+        assertEquals(PostStatus.PENDING_VERIFICATION, repository.posts.value.first { it.id == pendingPost.id }.status)
+    }
+
+    @Test
     fun `ModerationViewModel updates pendingPosts on category filter change`() = runTest {
         val post1 = ServicePost(id = "1", title = "Instalación", category = "Hogar", description = "Desc", providerName = "P", status = PostStatus.PENDING_VERIFICATION, createdAtMillis = 100L)
         val post2 = ServicePost(id = "2", title = "Clases", category = "Educación", description = "Desc", providerName = "P", status = PostStatus.PENDING_VERIFICATION, createdAtMillis = 200L)
@@ -355,13 +465,7 @@ class ModerationUseCaseTest {
         val notifRepo = MockDataRepository()
         val authRepo = FakeAuthRepository()
 
-        val viewModel = ModerationViewModel(
-            postRepository = postRepo,
-            moderationRepository = modRepo,
-            observeNotifications = ObserveNotificationsUseCase(SessionRepositoryImpl(), notifRepo),
-            authRepository = authRepo,
-            createNotification = CreateNotificationUseCase(notifRepo)
-        )
+        val viewModel = viewModel(postRepo, modRepo, authRepo, notifRepo)
 
         testScheduler.advanceUntilIdle()
 

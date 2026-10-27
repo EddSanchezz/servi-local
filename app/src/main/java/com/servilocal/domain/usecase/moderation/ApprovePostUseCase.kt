@@ -14,7 +14,7 @@ class ApprovePostUseCase @Inject constructor(
     private val createNotification: CreateNotificationUseCase
 ) {
     operator fun invoke(postId: String): Boolean {
-        if (authRepository.moderatorUser.value.role != UserRole.MODERATOR) {
+        if (authRepository.currentUser.value.role != UserRole.MODERATOR) {
             return false
         }
         val post = postRepository.posts.value.find { it.id == postId }
@@ -23,14 +23,15 @@ class ApprovePostUseCase @Inject constructor(
         }
         postRepository.approvePost(postId)
 
-        val authorId = post.providerId ?: 2L
-        createNotification(
-            userId = authorId,
-            title = "Publicación aprobada",
-            body = "¡Buenas noticias! Tu publicación '${post.title}' ha sido aprobada y ya se encuentra visible.",
-            type = NotificationType.SYSTEM,
-            relatedPostId = post.id
-        )
+        post.providerId?.let { authorId ->
+            createNotification(
+                userId = authorId,
+                title = "Publicación aprobada",
+                body = "¡Buenas noticias! Tu publicación '${post.title}' ha sido aprobada y ya se encuentra visible.",
+                type = NotificationType.SYSTEM,
+                relatedPostId = post.id
+            )
+        }
         return true
     }
 }

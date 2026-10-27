@@ -2,14 +2,15 @@ package com.servilocal.domain.usecase.posts
 
 import com.servilocal.domain.model.ServicePost
 import jakarta.inject.Inject
+import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Filters by a typed neighborhood/city and by Haversine distance from the fixed
- * demo origin in Armenia. Seed coordinates are approximate; GPS/geocoding are out of scope.
+ * Filters by a typed neighborhood/city and by Haversine distance from the supplied
+ * device location. Seed coordinates remain approximate demo points.
  */
 class FilterPostsByLocationUseCase @Inject constructor() {
     operator fun invoke(
@@ -20,7 +21,11 @@ class FilterPostsByLocationUseCase @Inject constructor() {
         originLongitude: Double = TEST_ORIGIN_LONGITUDE
     ): List<ServicePost> {
         val query = locationQuery.trim()
-        return posts.filter { post ->
+        val locatedPosts = posts.map { post ->
+            val distance = distanceFromOriginKm(post, originLatitude, originLongitude)
+            if (distance == null) post else post.copy(distance = formatDistance(distance, post.location))
+        }
+        return locatedPosts.filter { post ->
             val matchesLocation = query.isEmpty() || post.location.contains(query, ignoreCase = true)
             val distance = distanceFromOriginKm(post, originLatitude, originLongitude)
             val matchesDistance = maxDistanceKm == null || (distance != null && distance <= maxDistanceKm)
@@ -46,6 +51,12 @@ class FilterPostsByLocationUseCase @Inject constructor() {
             cos(Math.toRadians(originLatitude)) * cos(Math.toRadians(latitude)) *
             sin(longitudeDelta / 2).let { it * it }
         return 2 * earthRadiusKm * atan2(sqrt(a), sqrt(1 - a))
+    }
+
+    private fun formatDistance(distanceKm: Double, location: String): String {
+        val area = location.substringAfterLast(" - ", "").trim()
+        val suffix = if (area.isEmpty()) "" else " - $area"
+        return String.format(Locale.ROOT, "A %.1f km%s", distanceKm, suffix)
     }
 
     companion object {

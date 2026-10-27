@@ -38,6 +38,7 @@ fun ChatDetailScreen(
     modifier: Modifier = Modifier
 ) {
     val conversations by viewModel.conversations.collectAsStateWithLifecycle()
+    val messages by viewModel.messages.collectAsStateWithLifecycle()
     val activeRole = appUiState.activeRole
     val conversation = conversations.find { it.id == chatId }
 
@@ -145,7 +146,7 @@ fun ChatDetailScreen(
                                 messageError = false
                                 messageInput = ""
                                 coroutineScope.launch {
-                                    listState.animateScrollToItem(conversation.messages.size)
+                                    listState.animateScrollToItem(messages.size)
                                 }
                             } else {
                                 messageError = true
@@ -368,7 +369,7 @@ fun ChatDetailScreen(
                 }
 
                 // Chat bubble list
-                items(conversation.messages, key = { it.id }) { msg ->
+                items(messages, key = { it.id }) { msg ->
                     ChatBubble(message = msg)
                 }
             }

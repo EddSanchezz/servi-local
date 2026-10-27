@@ -7,9 +7,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,10 +39,19 @@ fun MessagesScreen(
     modifier: Modifier = Modifier
 ) {
     val conversations by viewModel.conversations.collectAsStateWithLifecycle()
+    val myRequests by viewModel.myRequests.collectAsStateWithLifecycle(initialValue = emptyList())
+    val receivedRequests by viewModel.receivedRequests.collectAsStateWithLifecycle(initialValue = emptyList())
     var searchChatQuery by remember { mutableStateOf("") }
+    var requestFilter by remember { mutableStateOf("Todos") }
 
-    val filteredConversations = remember(conversations, searchChatQuery) {
-        conversations.filter { conv ->
+    val requestsToShow = when (requestFilter) {
+        "Enviadas" -> myRequests
+        "Recibidas" -> receivedRequests
+        else -> conversations
+    }
+
+    val filteredConversations = remember(conversations, myRequests, receivedRequests, requestFilter, searchChatQuery) {
+        requestsToShow.filter { conv ->
             searchChatQuery.isBlank() ||
                     conv.recipientName.contains(searchChatQuery, ignoreCase = true) ||
                     conv.serviceTitle.contains(searchChatQuery, ignoreCase = true) ||
@@ -133,6 +144,29 @@ fun MessagesScreen(
             )
         }
 
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("Todos", "Enviadas", "Recibidas").forEach { filter ->
+                val selected = requestFilter == filter
+                FilterChip(
+                    selected = selected,
+                    onClick = { requestFilter = filter },
+                    label = {
+                        Text(
+                            when (filter) {
+                                "Enviadas" -> "Solicitudes que hice"
+                                "Recibidas" -> "Solicitudes recibidas"
+                                else -> "Todas"
+                            }
+                        )
+                    }
+                )
+            }
+        }
+
         // Trust Notification Strip
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -182,7 +216,11 @@ fun MessagesScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "No hay conversaciones",
+                        when (requestFilter) {
+                            "Enviadas" -> "No has enviado solicitudes"
+                            "Recibidas" -> "No has recibido solicitudes"
+                            else -> "No hay conversaciones"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline
                     )

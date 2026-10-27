@@ -5,17 +5,18 @@ import androidx.lifecycle.viewModelScope
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ReportResolution
 import com.servilocal.domain.model.ServicePost
-import com.servilocal.domain.model.UserRole
-import com.servilocal.domain.repository.AuthRepository
-import com.servilocal.domain.repository.ModerationRepository
-import com.servilocal.domain.repository.PostRepository
-import com.servilocal.domain.usecase.moderation.ApprovePendingPostUseCase
+import com.servilocal.domain.usecase.moderation.ApprovePostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
+import com.servilocal.domain.usecase.moderation.ObserveModerationPostsUseCase
+import com.servilocal.domain.usecase.moderation.ObserveModeratorProfileUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
-import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
+import com.servilocal.domain.usecase.moderation.ObserveReportsUseCase
+import com.servilocal.domain.usecase.moderation.RejectPostUseCase
 import com.servilocal.domain.usecase.moderation.ResolveReportUseCase
-import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
+import com.servilocal.domain.usecase.moderation.ResolveReportsForPostUseCase
+import com.servilocal.domain.usecase.moderation.ToggleModeratorShiftUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
+import com.servilocal.domain.usecase.posts.MarkPostAsResolvedUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,16 +38,18 @@ data class ModerationUiState(
 
 @HiltViewModel
 class ModerationViewModel @Inject constructor(
-    private val postRepository: PostRepository,
-    private val moderationRepository: ModerationRepository,
     observeNotifications: ObserveNotificationsUseCase,
-    private val authRepository: AuthRepository,
-    private val createNotification: CreateNotificationUseCase,
-    private val observePendingPostsUseCase: ObservePendingPostsUseCase = ObservePendingPostsUseCase(postRepository),
-    private val filterPendingPostsByCategoryUseCase: FilterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
-    private val approvePendingPostUseCase: ApprovePendingPostUseCase = ApprovePendingPostUseCase(postRepository, authRepository, createNotification),
-    private val rejectPendingPostUseCase: RejectPendingPostUseCase = RejectPendingPostUseCase(postRepository, authRepository, createNotification),
-    private val resolveReportUseCase: ResolveReportUseCase = ResolveReportUseCase(moderationRepository, postRepository, authRepository, createNotification)
+    private val observePendingPostsUseCase: ObservePendingPostsUseCase,
+    private val filterPendingPostsByCategoryUseCase: FilterPendingPostsByCategoryUseCase,
+    private val approvePostUseCase: ApprovePostUseCase,
+    private val rejectPostUseCase: RejectPostUseCase,
+    private val markPostAsResolvedUseCase: MarkPostAsResolvedUseCase,
+    private val resolveReportUseCase: ResolveReportUseCase,
+    observeModerationPosts: ObserveModerationPostsUseCase,
+    observeReports: ObserveReportsUseCase,
+    observeModeratorProfile: ObserveModeratorProfileUseCase,
+    private val resolveReportsForPostUseCase: ResolveReportsForPostUseCase,
+    private val toggleModeratorShiftUseCase: ToggleModeratorShiftUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ModerationUiState())
@@ -63,15 +66,15 @@ class ModerationViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
-    val posts = postRepository.posts
-    val reports = moderationRepository.reports
+    val posts = observeModerationPosts()
+    val reports = observeReports()
     val notifications = observeNotifications()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
-    val moderatorUser = authRepository.moderatorUser
+    val moderatorUser = observeModeratorProfile()
 
     fun setFilter(value: String) {
         _uiState.update {
@@ -95,32 +98,35 @@ class ModerationViewModel @Inject constructor(
 
     fun setStatsTimeRange(value: String) = _uiState.update { it.copy(statsTimeRange = value) }
 
-    fun approvePost(id: String) {
-        val success = approvePendingPostUseCase(id)
+    fun approvePost(id: String): Boolean {
+        val success = approvePostUseCase(id)
         if (success) {
             _uiState.update { it.copy(actionResult = "Publicación aprobada exitosamente", error = null) }
         } else {
-            val userRole = authRepository.moderatorUser.value.role
-            if (userRole != UserRole.MODERATOR) {
-                _uiState.update { it.copy(error = "Usuario no autorizado para moderar") }
-            } else {
-                _uiState.update { it.copy(error = "No se pudo aprobar la publicación (estado inválido)") }
-            }
+            _uiState.update { it.copy(error = "No se pudo aprobar: verifica tu rol y que la publicación siga pendiente.") }
         }
+        return success
     }
 
-    fun rejectPost(id: String, reason: String, notes: String? = null) {
-        val success = rejectPendingPostUseCase(id, reason, notes)
+    fun rejectPost(id: String, reason: String, notes: String? = null): Boolean {
+        val success = rejectPostUseCase(id, reason, notes)
         if (success) {
             _uiState.update { it.copy(actionResult = "Publicación rechazada", error = null) }
         } else {
-            val userRole = authRepository.moderatorUser.value.role
-            if (userRole != UserRole.MODERATOR) {
-                _uiState.update { it.copy(error = "Usuario no autorizado para moderar") }
-            } else {
-                _uiState.update { it.copy(error = "Motivo obligatorio o estado inválido") }
-            }
+            _uiState.update { it.copy(error = "No se pudo rechazar: el motivo es obligatorio y la publicación debe estar pendiente o aprobada.") }
         }
+        return success
+    }
+
+    fun markPostResolved(id: String): Boolean {
+        val success = markPostAsResolvedUseCase(id)
+        _uiState.update {
+            it.copy(
+                actionResult = if (success) "Publicación marcada como resuelta" else null,
+                error = if (success) null else "No se pudo resolver la publicación. Verifica su estado y tu rol."
+            )
+        }
+        return success
     }
 
     fun resolveReport(
@@ -139,6 +145,10 @@ class ModerationViewModel @Inject constructor(
         return success
     }
 
-    fun resolveReportsForPost(id: String) = moderationRepository.resolveReportsForPost(id)
-    fun toggleModeratorShift() = authRepository.toggleModeratorShift()
+    fun resolveReportsForPost(id: String): Boolean = resolveReportsForPostUseCase(id)
+    fun toggleModeratorShift(): Boolean = toggleModeratorShiftUseCase()
+
+    fun clearFeedback() {
+        _uiState.update { it.copy(error = null, actionResult = null) }
+    }
 }
