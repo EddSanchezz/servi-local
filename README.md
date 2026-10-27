@@ -47,7 +47,7 @@ En Windows, configura `sdk.dir` en `local.properties` con la ruta local del SDK.
 
 ### GPS y mapas
 
-El feed usa OpenStreetMap mediante osmdroid. La pestaña Mapa muestra tiles reales, marcadores de publicaciones con coordenadas y la ubicación GPS del dispositivo cuando se concede el permiso. Las coordenadas de publicaciones creadas sin geocodificación se calculan solo para zonas demo conocidas; para producción se debe añadir un servicio de geocodificación y respetar sus políticas de uso.
+El feed usa OpenStreetMap mediante osmdroid. La pestaña Mapa muestra tiles reales, marcadores personalizados agrupados por proximidad y la ubicación GPS del dispositivo cuando se concede el permiso. Las coordenadas de publicaciones creadas sin geocodificación se calculan solo para zonas demo conocidas; para producción se debe añadir un servicio de geocodificación y respetar sus políticas de uso. Carto Voyager puede activarse posteriormente con un token del proveedor; sin token la app usa OSM como fallback para no mostrar mosaicos rotos.
 
 ### Firebase Storage e imágenes
 

@@ -9,6 +9,12 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
 import android.os.Looper
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.viewinterop.AndroidView
@@ -671,9 +677,12 @@ fun InteractiveMapPreview(
     val mapView = remember(context) {
         Configuration.getInstance().userAgentValue = context.packageName
         MapView(context).apply {
+            // Carto Voyager requires a provider token in current deployments.
+            // Keep OSM as a working fallback until CARTO_API_KEY is configured.
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             setBuiltInZoomControls(true)
+            zoomController.setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT)
             controller.setZoom(13.5)
             controller.setCenter(center)
         }
@@ -702,20 +711,37 @@ fun InteractiveMapPreview(
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     })
                 }
-                posts.forEach { post ->
-                    val latitude = post.latitude ?: return@forEach
-                    val longitude = post.longitude ?: return@forEach
-                    map.overlays.add(Marker(map).apply {
-                        position = GeoPoint(latitude, longitude)
-                        title = post.title
-                        snippet = "${post.providerName} · ${post.distance}"
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                        setOnMarkerClickListener { _, _ ->
-                            onPostSelected(post)
-                            true
-                        }
-                    })
-                }
+                posts.filter { it.latitude != null && it.longitude != null }
+                    .groupBy { post ->
+                        // A geographic grid clusters nearby services at the current zoom.
+                        (post.latitude!! * 100).toInt() to (post.longitude!! * 100).toInt()
+                    }
+                    .values
+                    .forEach { cluster ->
+                        val point = GeoPoint(
+                            cluster.mapNotNull { it.latitude }.average(),
+                            cluster.mapNotNull { it.longitude }.average()
+                        )
+                        map.overlays.add(Marker(map).apply {
+                            position = point
+                            title = if (cluster.size == 1) cluster.first().title else "${cluster.size} servicios cercanos"
+                            snippet = if (cluster.size == 1) {
+                                "${cluster.first().providerName} · ${cluster.first().distance}"
+                            } else "Toca para acercar el mapa"
+                            icon = createMapMarkerIcon(context, cluster.size)
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            setOnMarkerClickListener { clicked, _ ->
+                                if (cluster.size == 1) {
+                                    onPostSelected(cluster.first())
+                                } else {
+                                    clicked.closeInfoWindow()
+                                    map.controller.animateTo(point)
+                                    map.controller.setZoom((map.zoomLevelDouble + 2.0).coerceAtMost(19.0))
+                                }
+                                true
+                            }
+                        })
+                    }
                 map.controller.setCenter(center)
                 map.invalidate()
             }
@@ -726,7 +752,7 @@ fun InteractiveMapPreview(
             shape = RoundedCornerShape(8.dp)
         ) {
             Text(
-                "© OpenStreetMap contributors",
+                "© OpenStreetMap · CartoDB",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
@@ -738,12 +764,39 @@ fun InteractiveMapPreview(
             shape = RoundedCornerShape(18.dp)
         ) {
             Text(
-                if (originLatitude == null) "Mapa de Armenia" else "Tu ubicación GPS",
+                if (originLatitude == null) "Servicios cerca de ti" else "Servicios cerca de tu ubicación",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
         }
     }
+}
+
+private fun createMapMarkerIcon(context: Context, count: Int): BitmapDrawable {
+    val density = context.resources.displayMetrics.density
+    val width = (count.toString().length * 24 + 56) * density
+    val height = 64 * density
+    val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(0, 96, 104)
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(width / 2f, height / 2f - 8 * density, 24 * density, paint)
+    paint.color = android.graphics.Color.WHITE
+    paint.textAlign = Paint.Align.CENTER
+    paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    paint.textSize = 15 * density
+    canvas.drawText(count.toString(), width / 2f, height / 2f - 3 * density, paint)
+    paint.color = android.graphics.Color.rgb(0, 96, 104)
+    val pin = Path().apply {
+        moveTo(width / 2f - 9 * density, height / 2f + 10 * density)
+        lineTo(width / 2f + 9 * density, height / 2f + 10 * density)
+        lineTo(width / 2f, height - 2 * density)
+        close()
+    }
+    canvas.drawPath(pin, paint)
+    return BitmapDrawable(context.resources, bitmap)
 }
 
 @SuppressLint("MissingPermission", "DEPRECATION")
