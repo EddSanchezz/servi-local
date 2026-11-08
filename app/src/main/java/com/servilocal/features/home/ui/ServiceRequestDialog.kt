@@ -18,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.servilocal.R
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
@@ -35,24 +37,24 @@ fun ServiceRequestDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Solicitar servicio") },
+        title = { Text(stringResource(R.string.service_request_title)) },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Envía tus datos al profesional para coordinar la visita.")
+                Text(stringResource(R.string.service_request_intro))
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it.take(100) },
-                    label = { Text("Tu nombre") },
+                    label = { Text(stringResource(R.string.your_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = contact,
                     onValueChange = { contact = it.take(40) },
-                    label = { Text("Teléfono o WhatsApp") },
+                    label = { Text(stringResource(R.string.phone_or_whatsapp)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -60,14 +62,14 @@ fun ServiceRequestDialog(
                 OutlinedTextField(
                     value = address,
                     onValueChange = { address = it.take(160) },
-                    label = { Text("Dirección de atención") },
+                    label = { Text(stringResource(R.string.service_address)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it.take(1000) },
-                    label = { Text("¿Qué servicio necesitas?") },
+                    label = { Text(stringResource(R.string.service_needed)) },
                     minLines = 3,
                     maxLines = 5,
                     modifier = Modifier.fillMaxWidth()
@@ -79,9 +81,9 @@ fun ServiceRequestDialog(
         },
         confirmButton = {
             TextButton(onClick = { onSubmit(name, contact, address, description) }) {
-                Text("Enviar solicitud")
+                Text(stringResource(R.string.send_service_request))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }

@@ -1,6 +1,7 @@
 ﻿package com.servilocal.navigation
 
 import android.net.Uri
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -35,8 +36,11 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -47,6 +51,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.servilocal.domain.model.UserRole
+import com.servilocal.R
 import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.usecase.chat.ObserveChatConversationsUseCase
 import com.servilocal.domain.usecase.moderation.ObserveReportsUseCase
@@ -80,6 +85,7 @@ import com.servilocal.features.posts.ui.EditPostScreen
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
 import com.servilocal.features.posts.viewmodel.EditPostViewModel
 import com.servilocal.features.profile.ui.UserProfileScreen
+import com.servilocal.features.profile.ui.AppSettingsScreen
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
 
 object AppRoute {
@@ -93,6 +99,7 @@ object AppRoute {
     const val MESSAGES = "messages"
     const val CREATE_POST = "create-post"
     const val PROFILE = "profile"
+    const val SETTINGS = "settings"
     const val MODERATION_FEED = "moderation-feed"
     const val MODERATION_REPORTS = "moderation-reports"
     const val MODERATION_STATS = "moderation-stats"
@@ -267,17 +274,17 @@ private fun DashboardNavigation(
             if (currentRoute in tabRoutes) {
                 val items = if (isModerator) {
                     listOf(
-                        BarItem(AppRoute.MODERATION_FEED, "Auditoría", Icons.Filled.Shield, Icons.Outlined.Shield),
-                        BarItem(AppRoute.MODERATION_REPORTS, "Reportes", Icons.Filled.ReportProblem, Icons.Outlined.ReportProblem),
-                        BarItem(AppRoute.MODERATION_STATS, "Métricas", Icons.Filled.BarChart, Icons.Outlined.BarChart),
-                        BarItem(AppRoute.MODERATOR_PROFILE, "Staff", Icons.Filled.ManageAccounts, Icons.Outlined.ManageAccounts)
+                        BarItem(AppRoute.MODERATION_FEED, R.string.nav_audit, Icons.Filled.Shield, Icons.Outlined.Shield),
+                        BarItem(AppRoute.MODERATION_REPORTS, R.string.nav_reports, Icons.Filled.ReportProblem, Icons.Outlined.ReportProblem),
+                        BarItem(AppRoute.MODERATION_STATS, R.string.nav_metrics, Icons.Filled.BarChart, Icons.Outlined.BarChart),
+                        BarItem(AppRoute.MODERATOR_PROFILE, R.string.nav_staff, Icons.Filled.ManageAccounts, Icons.Outlined.ManageAccounts)
                     )
                 } else {
                     listOf(
-                        BarItem(AppRoute.HOME, "Home", Icons.Filled.Home, Icons.Outlined.Home),
-                        BarItem(AppRoute.MESSAGES, "Mensajes", Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline),
-                        BarItem(AppRoute.CREATE_POST, "Publicar", Icons.Filled.AddCircle, Icons.Outlined.AddCircleOutline),
-                        BarItem(AppRoute.PROFILE, "Perfil", Icons.Filled.Person, Icons.Outlined.Person)
+                        BarItem(AppRoute.HOME, R.string.nav_home, Icons.Filled.Home, Icons.Outlined.Home),
+                        BarItem(AppRoute.MESSAGES, R.string.nav_messages, Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline),
+                        BarItem(AppRoute.CREATE_POST, R.string.nav_publish, Icons.Filled.AddCircle, Icons.Outlined.AddCircleOutline),
+                        BarItem(AppRoute.PROFILE, R.string.nav_profile, Icons.Filled.Person, Icons.Outlined.Person)
                     )
                 }
                 AppBottomBar(
@@ -319,8 +326,21 @@ private fun DashboardNavigation(
                     onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) },
                     onLogout = onLogout,
                     onOpenServiceDetail = { navController.navigate(AppRoute.serviceDetail(it)) },
+                    onOpenSettings = { navController.navigate(AppRoute.SETTINGS) }
+                )
+            }
+            composable(AppRoute.SETTINGS) {
+                AppSettingsScreen(
+                    darkTheme = appUiState.darkTheme,
+                    notificationsEnabled = appUiState.notificationsEnabled,
                     onDarkThemeChange = appViewModel::setDarkTheme,
-                    onNotificationsChange = appViewModel::setNotificationsEnabled
+                    onNotificationsChange = appViewModel::setNotificationsEnabled,
+                    onLanguageChange = { languageTag ->
+                        AppCompatDelegate.setApplicationLocales(
+                            LocaleListCompat.forLanguageTags(languageTag)
+                        )
+                    },
+                    onBack = { navController.navigateUp() }
                 )
             }
             composable(AppRoute.MODERATION_FEED) {
@@ -392,7 +412,7 @@ private fun DashboardNavigation(
     }
 }
 
-private data class BarItem(val route: String, val label: String, val selectedIcon: ImageVector, val icon: ImageVector)
+private data class BarItem(val route: String, @StringRes val label: Int, val selectedIcon: ImageVector, val icon: ImageVector)
 
 internal fun moveTabToTop(history: List<String>, route: String): List<String> =
     history.filterNot { it == route } + route
@@ -418,10 +438,10 @@ private fun AppBottomBar(
                         else -> 0
                     }
                     BadgedBox(badge = { if (count > 0) Badge { Text(count.toString()) } }) {
-                        Icon(if (selected) item.selectedIcon else item.icon, contentDescription = item.label)
+                        Icon(if (selected) item.selectedIcon else item.icon, contentDescription = stringResource(item.label))
                     }
                 },
-                label = { Text(item.label) }
+                label = { Text(stringResource(item.label)) }
             )
         }
     }

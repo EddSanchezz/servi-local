@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.core.util.RequestResult
+import com.servilocal.core.util.ResourceProvider
+import com.servilocal.R
 import com.servilocal.domain.model.ServiceComment
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.repository.AuthRepository
@@ -42,7 +44,8 @@ class ServiceDetailViewModel @Inject constructor(
     observePostDetail: GetPostDetailUseCase,
     observePostLikes: ObservePostLikesUseCase,
     observePostComments: ObservePostCommentsUseCase,
-    private val reportPostUseCase: ReportPostUseCase
+    private val reportPostUseCase: ReportPostUseCase,
+    private val resources: ResourceProvider
 ) : ViewModel() {
     private val postId: String = savedStateHandle.get<String>("postId").orEmpty()
 
@@ -75,11 +78,11 @@ class ServiceDetailViewModel @Inject constructor(
     fun toggleUpvote(postId: String) {
         val result = when (val outcome = togglePostLikeUseCase(postId)) {
             is ToggleLikeResult.Success -> RequestResult.Success(
-                if (outcome.liked) "Apoyaste esta publicación." else "Quitaste tu apoyo."
+                resources.getString(if (outcome.liked) R.string.like_success else R.string.like_removed)
             )
-            ToggleLikeResult.OwnPost -> RequestResult.Failure("No puedes apoyar tu propia publicación.")
-            ToggleLikeResult.PostNotVerified -> RequestResult.Failure("Solo puedes apoyar publicaciones verificadas.")
-            ToggleLikeResult.PostNotFound -> RequestResult.Failure("La publicación ya no está disponible.")
+            ToggleLikeResult.OwnPost -> RequestResult.Failure(resources.getString(R.string.cannot_like_own_post))
+            ToggleLikeResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_like))
+            ToggleLikeResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
         }
         _uiState.update { it.copy(likeResult = result) }
     }
@@ -87,13 +90,13 @@ class ServiceDetailViewModel @Inject constructor(
     /** Devuelve true si el comentario se publicó, para que la pantalla limpie el campo. */
     fun addComment(postId: String, text: String): Boolean {
         val result = when (addPostCommentUseCase(postId, text)) {
-            AddCommentResult.Success -> RequestResult.Success("Comentario publicado.")
-            AddCommentResult.EmptyContent -> RequestResult.Failure("El comentario no puede estar vacío.")
+            AddCommentResult.Success -> RequestResult.Success(resources.getString(R.string.comment_success))
+            AddCommentResult.EmptyContent -> RequestResult.Failure(resources.getString(R.string.comment_empty))
             AddCommentResult.TooLong -> RequestResult.Failure(
-                "El comentario no puede superar ${AddPostCommentUseCase.MAX_LENGTH} caracteres."
+                resources.getString(R.string.comment_too_long, AddPostCommentUseCase.MAX_LENGTH)
             )
-            AddCommentResult.PostNotVerified -> RequestResult.Failure("Solo puedes comentar publicaciones verificadas.")
-            AddCommentResult.PostNotFound -> RequestResult.Failure("La publicación ya no está disponible.")
+            AddCommentResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_comment))
+            AddCommentResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
         }
         _uiState.update { it.copy(commentResult = result) }
         return result is RequestResult.Success

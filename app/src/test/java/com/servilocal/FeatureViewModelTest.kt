@@ -104,7 +104,8 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, SessionRepositoryImpl()),
-            RegisterUserUseCase(users)
+            RegisterUserUseCase(users),
+            testResourceProvider
         )
 
         viewModel.login("not-an-email", "123")
@@ -120,7 +121,8 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, sessions),
-            RegisterUserUseCase(users)
+            RegisterUserUseCase(users),
+            testResourceProvider
         )
 
         viewModel.login("valentina@gmail.com", "password123")
@@ -138,7 +140,8 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, sessions),
-            RegisterUserUseCase(users)
+            RegisterUserUseCase(users),
+            testResourceProvider
         )
 
         viewModel.login("valentina@gmail.com", "incorrecta")
@@ -154,7 +157,8 @@ class FeatureViewModelTest {
         val viewModel = AuthViewModel(
             ValidateLoginCredentialsUseCase(),
             LoginUserUseCase(users, SessionRepositoryImpl()),
-            RegisterUserUseCase(users)
+            RegisterUserUseCase(users),
+            testResourceProvider
         )
 
         viewModel.register(" ", "ana@example.com", "clave2026")
@@ -173,7 +177,8 @@ class FeatureViewModelTest {
         val codes = PasswordResetRepositoryImpl()
         val viewModel = PasswordRecoveryViewModel(
             RecoverPasswordUseCase(users, codes),
-            ResetPasswordUseCase(users, codes)
+            ResetPasswordUseCase(users, codes),
+            testResourceProvider
         )
         val email = "valentina@gmail.com"
 
@@ -205,7 +210,8 @@ class FeatureViewModelTest {
         val codes = PasswordResetRepositoryImpl()
         val viewModel = PasswordRecoveryViewModel(
             RecoverPasswordUseCase(users, codes),
-            ResetPasswordUseCase(users, codes)
+            ResetPasswordUseCase(users, codes),
+            testResourceProvider
         )
         val email = "valentina@gmail.com"
 
@@ -243,7 +249,7 @@ class FeatureViewModelTest {
                 CreateNotificationUseCase(repository)
             )
         )
-        val viewModel = CreatePostViewModel(CreateServicePostUseCase(repository, repository, CreateNotificationUseCase(repository)), awardPublicationPoints)
+        val viewModel = CreatePostViewModel(CreateServicePostUseCase(repository, repository, CreateNotificationUseCase(repository)), awardPublicationPoints, testResourceProvider)
 
         assertFalse(viewModel.createPost("", "Hogar", "", 0, 0, false, ""))
         assertNotNull(viewModel.uiState.value.submissionError)
@@ -290,7 +296,8 @@ class FeatureViewModelTest {
             observeReports = ObserveReportsUseCase(repository),
             observeModeratorProfile = ObserveModeratorProfileUseCase(repository),
             resolveReportsForPostUseCase = ResolveReportsForPostUseCase(repository, repository),
-            toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(repository)
+            toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(repository),
+            resources = testResourceProvider
         )
 
         assertTrue(repository.currentUser.value.workingHours.contains("sábado"))

@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,9 +32,11 @@ import com.servilocal.domain.model.PostCategory
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
+import com.servilocal.core.ui.localizedServiceCategory
 import com.servilocal.core.ui.components.ProfileNavRow
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
+import com.servilocal.R
 
 @Composable
 fun ModerationFeedScreen(
@@ -54,17 +57,14 @@ fun ModerationFeedScreen(
         }
     }
 
-    val categories = remember {
-        listOf("Todos") + PostCategory.entries.map { cat ->
-            when (cat) {
-                PostCategory.HOGAR -> "Hogar"
-                PostCategory.EDUCACION -> "Educación"
-                PostCategory.MASCOTAS -> "Mascotas"
-                PostCategory.TECNOLOGIA -> "Tecnología"
-                PostCategory.TRANSPORTE -> "Transporte"
-            }
-        }
-    }
+    val categories = listOf(
+        "Todos" to R.string.category_all,
+        "Hogar" to R.string.category_home,
+        "Educación" to R.string.category_education,
+        "Mascotas" to R.string.category_pets,
+        "Tecnología" to R.string.category_technology,
+        "Transporte" to R.string.category_transport
+    )
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -91,12 +91,12 @@ fun ModerationFeedScreen(
                     Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 }
                 Text(
-                    text = "Feed de Auditoría",
+                    text = stringResource(R.string.moderation_feed_title),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
             IconButton(onClick = onOpenNotifications) {
-                Icon(Icons.Outlined.Notifications, contentDescription = "Alertas")
+                Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.in_app_alerts))
             }
         }
 
@@ -124,8 +124,8 @@ fun ModerationFeedScreen(
                         Icon(Icons.Default.Rule, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     }
                     Column {
-                        Text("Cola de Auditoría en Vivo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        Text("${pendingPosts.size} publicaciones en revisión", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.live_audit_queue), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.posts_in_review, pendingPosts.size), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                     }
                 }
                 Surface(
@@ -138,7 +138,7 @@ fun ModerationFeedScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error))
-                        Text("Prioritario", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer))
+                        Text(stringResource(R.string.priority), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer))
                     }
                 }
             }
@@ -152,7 +152,7 @@ fun ModerationFeedScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            categories.forEach { cat ->
+            categories.forEach { (cat, labelRes) ->
                 val isSelected = if (cat == "Todos") {
                     activeFilter.isBlank() || activeFilter.equals("Todos", ignoreCase = true) || activeFilter.equals("FIFO", ignoreCase = true)
                 } else {
@@ -167,7 +167,7 @@ fun ModerationFeedScreen(
                             viewModel.setCategoryFilter(cat)
                         }
                     },
-                    label = { Text(cat) },
+                    label = { Text(stringResource(labelRes)) },
                     leadingIcon = if (isSelected) {
                         { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
                     } else null,
@@ -185,8 +185,8 @@ fun ModerationFeedScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                     Icon(Icons.Default.TaskAlt, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("¡Cola de auditoría al día!", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                    Text("No hay publicaciones pendientes de revisión por ahora.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.audit_queue_clear), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.no_pending_posts), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
             }
         } else {
@@ -245,17 +245,17 @@ fun ModerationAuditCard(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(Icons.Default.HourglassTop, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text("Por verificar", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(stringResource(R.string.to_verify), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSecondaryContainer)
                         }
                     }
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text(post.category, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        Text(localizedServiceCategory(post.category), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }
-                Text("En cola: 15 min", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.queued_time, 15), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -272,7 +272,7 @@ fun ModerationAuditCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(post.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), maxLines = 2)
                     Text("$ ${post.minPrice} - $ ${post.maxPrice} COP", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                    Text("Por ${post.providerName} · ${post.location}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.by_provider_at_location, post.providerName, post.location), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
             }
 
@@ -287,7 +287,7 @@ fun ModerationAuditCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
-                    Text("DNI validado · Sin antecedentes · Matrícula técnica adjunta", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.identity_verified), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -303,7 +303,7 @@ fun ModerationAuditCard(
                 ) {
                     Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Auditar Detalle", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.audit_detail), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                 }
 
                 FilledTonalButton(
@@ -313,7 +313,7 @@ fun ModerationAuditCard(
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Aprobar", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.approve), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                 }
             }
         }
@@ -334,7 +334,8 @@ fun ModerationDetailScreen(
     var showRejectSheet by remember { mutableStateOf(false) }
     var noteMode by remember { mutableStateOf("internal") } // internal vs author
     var noteInput by remember { mutableStateOf("") }
-    var notesList by remember { mutableStateOf(listOf("El número de carnet de instalador fue cotejado con el registro SEC. Pendiente confirmar si el rango tarifario incluye IVA.")) }
+    val sampleReviewNote = stringResource(R.string.sample_review_note)
+    var notesList by remember(sampleReviewNote) { mutableStateOf(listOf(sampleReviewNote)) }
     var showDetailMenu by remember { mutableStateOf(false) }
     var showGuidelines by remember { mutableStateOf(false) }
     val moderationUiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -349,7 +350,7 @@ fun ModerationDetailScreen(
 
     if (post == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Publicación no encontrada")
+            Text(stringResource(R.string.post_not_found))
         }
         return
     }
@@ -364,25 +365,25 @@ fun ModerationDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Auditoría de Publicación", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
+                title = { Text(stringResource(R.string.audit_post_title), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     Box {
                         IconButton(onClick = { showDetailMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Opciones")
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options))
                         }
                         DropdownMenu(expanded = showDetailMenu, onDismissRequest = { showDetailMenu = false }) {
                             DropdownMenuItem(
-                                text = { Text("Criterios de revisión") },
+                                text = { Text(stringResource(R.string.review_criteria)) },
                                 onClick = { showDetailMenu = false; showGuidelines = true }
                             )
                             if (post.status == PostStatus.PENDING_VERIFICATION || post.status == PostStatus.APPROVED) {
                                 DropdownMenuItem(
-                                    text = { Text("Marcar como resuelta") },
+                                    text = { Text(stringResource(R.string.mark_resolved)) },
                                     leadingIcon = { Icon(Icons.Default.TaskAlt, contentDescription = null) },
                                     onClick = {
                                         showDetailMenu = false
@@ -412,7 +413,7 @@ fun ModerationDetailScreen(
                         ) {
                             Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Rechazar", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(stringResource(R.string.reject), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                         Button(
                             onClick = { if (viewModel.approvePost(post.id)) onBack() },
@@ -421,7 +422,7 @@ fun ModerationDetailScreen(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Aprobar", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(stringResource(R.string.approve), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                     }
                 }
@@ -435,7 +436,7 @@ fun ModerationDetailScreen(
                             onClick = { if (viewModel.resolveReportsForPost(post.id)) onBack() },
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
-                        ) { Text("Mantener activa") }
+                        ) { Text(stringResource(R.string.keep_active)) }
                         Button(
                             onClick = {
                                 val rejected = viewModel.rejectPost(
@@ -449,7 +450,7 @@ fun ModerationDetailScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
-                        ) { Text("Retirar publicación") }
+                        ) { Text(stringResource(R.string.withdraw_post)) }
                     }
                 }
                 PostStatus.REJECTED, PostStatus.FINISHED -> Surface(
@@ -461,7 +462,7 @@ fun ModerationDetailScreen(
                         onClick = { if (viewModel.resolveReportsForPost(post.id)) onBack() },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(48.dp),
                         shape = RoundedCornerShape(24.dp)
-                    ) { Text("Cerrar reporte") }
+                    ) { Text(stringResource(R.string.close_report)) }
                 }
             }
         }
@@ -489,13 +490,13 @@ fun ModerationDetailScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.PendingActions, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Column {
-                            Text("Estado de Auditoría", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Text(stringResource(R.string.audit_status), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                             Text(
                                 when (post.status) {
-                                    PostStatus.PENDING_VERIFICATION -> "Pendiente de revisión"
-                                    PostStatus.APPROVED -> "Aprobada"
-                                    PostStatus.REJECTED -> "Rechazada"
-                                    PostStatus.FINISHED -> "Finalizada"
+                                    PostStatus.PENDING_VERIFICATION -> stringResource(R.string.pending_review_status)
+                                    PostStatus.APPROVED -> stringResource(R.string.published_status)
+                                    PostStatus.REJECTED -> stringResource(R.string.rejected_status)
+                                    PostStatus.FINISHED -> stringResource(R.string.finished_status)
                                 },
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -507,7 +508,7 @@ fun ModerationDetailScreen(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
-                            if (post.status == PostStatus.PENDING_VERIFICATION) "En cola" else "Historial",
+                            if (post.status == PostStatus.PENDING_VERIFICATION) stringResource(R.string.to_verify) else stringResource(R.string.own_decision_history),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -527,7 +528,7 @@ fun ModerationDetailScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.ImageNotSupported, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(40.dp))
-                    Text("Sin imágenes adjuntas", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.no_attached_images), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
             }
 
@@ -561,11 +562,11 @@ fun ModerationDetailScreen(
                                 modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("RT", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                                Text(post.providerName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                             }
                             Column {
                                 Text(post.providerName, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                                Text("Registrado: 14 Feb 2023", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                Text(stringResource(R.string.registered_date), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                             }
                         }
                     }
@@ -581,15 +582,15 @@ fun ModerationDetailScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(providerApproved.toString(), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                            Text("Aprobadas", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Text(stringResource(R.string.approved_plural), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(providerRejected.toString(), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.error)
-                            Text("Rechazos", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Text(stringResource(R.string.rejections), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(postReportCount.toString(), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                            Text("Reportes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Text(stringResource(R.string.nav_reports), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                         }
                     }
                 }
@@ -604,12 +605,12 @@ fun ModerationDetailScreen(
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Policy, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Text("Criterios y registro de revisión", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.review_log_title), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                     }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
 
-                    Text("Bitácora y Notas del Moderador", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.moderator_notes), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
 
                     notesList.forEach { note ->
                         Surface(
@@ -629,7 +630,7 @@ fun ModerationDetailScreen(
                         OutlinedTextField(
                             value = noteInput,
                             onValueChange = { noteInput = it },
-                            placeholder = { Text("Escribe apunte de revisión...", style = MaterialTheme.typography.bodySmall) },
+                            placeholder = { Text(stringResource(R.string.review_note_hint), style = MaterialTheme.typography.bodySmall) },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp)
                         )
@@ -641,7 +642,7 @@ fun ModerationDetailScreen(
                                 }
                             }
                         ) {
-                            Icon(Icons.Default.Send, contentDescription = "Guardar nota", tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.Send, contentDescription = stringResource(R.string.save_note), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -668,9 +669,9 @@ fun ModerationDetailScreen(
     if (showGuidelines) {
         AlertDialog(
             onDismissRequest = { showGuidelines = false },
-            title = { Text("Criterios de revisión") },
-            text = { Text("Revisa que la descripción sea clara, que el precio no solicite pagos previos fuera de la plataforma y que el contenido respete las políticas comunitarias. Las imágenes y verificaciones externas no están incluidas en esta fase.") },
-            confirmButton = { TextButton(onClick = { showGuidelines = false }) { Text("Entendido") } }
+            title = { Text(stringResource(R.string.review_criteria)) },
+            text = { Text(stringResource(R.string.review_guidelines)) },
+            confirmButton = { TextButton(onClick = { showGuidelines = false }) { Text(stringResource(R.string.understood)) } }
         )
     }
 }
@@ -686,11 +687,11 @@ fun RejectionReasonBottomSheet(
     var notes by remember { mutableStateOf("") }
 
     val reasons = listOf(
-        "Precio no concordante",
-        "Servicio no autorizado",
-        "Imágenes no pertinentes o de baja calidad",
-        "Información de contacto en descripción",
-        "Ubicación o cobertura inconsistente"
+        "Precio no concordante" to R.string.price_mismatch,
+        "Servicio no autorizado" to R.string.unauthorized_service,
+        "Imágenes no pertinentes o de baja calidad" to R.string.irrelevant_images,
+        "Información de contacto en descripción" to R.string.contact_in_description,
+        "Ubicación o cobertura inconsistente" to R.string.inconsistent_location
     )
 
     ModalBottomSheet(
@@ -711,25 +712,25 @@ fun RejectionReasonBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Motivo del Rechazo", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-                    Text("Selecciona una justificación obligatoria para notificar al autor", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.rejection_reason_title), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.select_required_reason), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar")
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close_dialog))
                 }
             }
 
-            Text("Opciones Predefinidas", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+            Text(stringResource(R.string.predefined_options), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                reasons.forEach { r ->
-                    val isSelected = selectedReason == r
+                reasons.forEach { (reason, labelRes) ->
+                    val isSelected = selectedReason == reason
                     Surface(
                         color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selectedReason = r }
+                            .clickable { selectedReason = reason }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -738,9 +739,9 @@ fun RejectionReasonBottomSheet(
                         ) {
                             RadioButton(
                                 selected = isSelected,
-                                onClick = { selectedReason = r }
+                                onClick = { selectedReason = reason }
                             )
-                            Text(r, style = MaterialTheme.typography.bodySmall.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal))
+                            Text(stringResource(labelRes), style = MaterialTheme.typography.bodySmall.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal))
                         }
                     }
                 }
@@ -749,8 +750,8 @@ fun RejectionReasonBottomSheet(
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
-                label = { Text("Detalle adicional para el autor (opcional)") },
-                placeholder = { Text("Ej. Por favor especifica si el costo incluye materiales...") },
+                label = { Text(stringResource(R.string.additional_details_author)) },
+                placeholder = { Text(stringResource(R.string.additional_details_hint)) },
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 3,
                 shape = RoundedCornerShape(12.dp)
@@ -771,7 +772,7 @@ fun RejectionReasonBottomSheet(
             ) {
                 Icon(Icons.Default.Send, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Confirmar Rechazo", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                Text(stringResource(R.string.confirm_rejection), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -788,7 +789,12 @@ fun ModerationReportsScreen(
 ) {
     val reports by viewModel.reports.collectAsStateWithLifecycle()
     var selectedFilter by remember { mutableStateOf("Todos") }
-    val filterOptions = listOf("Todos", "Fraude/Estafa", "Contacto no permitido", "Contenido ofensivo")
+    val filterOptions = listOf(
+        "Todos" to R.string.category_all,
+        "Fraude/Estafa" to R.string.fraud_scam,
+        "Contacto no permitido" to R.string.prohibited_contact,
+        "Contenido ofensivo" to R.string.offensive_content
+    )
     fun matchesReportFilter(report: ModerationReportItem, filter: String): Boolean = when (filter) {
         "Fraude/Estafa" -> report.reasonTitle.contains("fraude", ignoreCase = true) || report.reasonTitle.contains("estafa", ignoreCase = true) || report.reasonTitle.contains("pago", ignoreCase = true) || report.reasonTitle.contains("engañoso", ignoreCase = true)
         "Contacto no permitido" -> report.reasonTitle.contains("contacto", ignoreCase = true)
@@ -811,9 +817,9 @@ fun ModerationReportsScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Reportes de Denuncias", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            Text(stringResource(R.string.reports_title), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
             IconButton(onClick = onOpenNotifications) {
-                Icon(Icons.Outlined.Notifications, contentDescription = "Notificaciones")
+                Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.notifications))
             }
         }
 
@@ -825,12 +831,12 @@ fun ModerationReportsScreen(
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            filterOptions.forEach { filter ->
+            filterOptions.forEach { (filter, labelRes) ->
                 val isSelected = selectedFilter == filter
                 FilterChip(
                     selected = isSelected,
                     onClick = { selectedFilter = filter },
-                    label = { Text(if (filter == "Todos") "Todos (${reports.size})" else "$filter (${reports.count { matchesReportFilter(it, filter) }})") },
+                    label = { Text(if (filter == "Todos") stringResource(R.string.all_reports_count, reports.size) else "${stringResource(labelRes)} (${reports.count { matchesReportFilter(it, filter) }})") },
                     shape = RoundedCornerShape(8.dp)
                 )
             }
@@ -841,7 +847,7 @@ fun ModerationReportsScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text("Sin reportes pendientes", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.no_pending_reports), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 }
             }
         } else {
@@ -905,7 +911,7 @@ fun ModerationReportsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Reportado por ${r.reporterName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text(stringResource(R.string.reported_by_short, r.reporterName), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                 Text(formatReportDate(r.createdAtMillis), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                             }
                         }
@@ -960,9 +966,9 @@ fun ModerationStatsScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Estadísticas", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            Text(stringResource(R.string.statistics_title), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
             IconButton(onClick = onOpenNotifications) {
-                Icon(Icons.Outlined.Notifications, contentDescription = "Alertas")
+                Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.in_app_alerts))
             }
         }
 
@@ -986,7 +992,11 @@ fun ModerationStatsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = range,
+                        text = stringResource(when (range) {
+                            "Hoy" -> R.string.today_range
+                            "Esta semana" -> R.string.this_week_range
+                            else -> R.string.this_month_range
+                        }),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal),
                         color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1016,31 +1026,35 @@ fun ModerationStatsScreen(
                         color = MaterialTheme.colorScheme.surfaceContainer,
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("En tiempo real", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                        Text(stringResource(R.string.real_time), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                     }
                 }
 
                 Text(rangePosts.size.toString(), style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
-                Text("Publicaciones Nuevas", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                Text("Registros en memoria ingresados ${statsRange.lowercase()} en Armenia y Quindío", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.new_posts), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                Text(stringResource(R.string.memory_stats_description, stringResource(when (statsRange) {
+                    "Hoy" -> R.string.today_range
+                    "Esta semana" -> R.string.this_week_range
+                    else -> R.string.this_month_range
+                }).lowercase()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             }
         }
 
         // Operational 2x2 Grid
-        Text("Desglose Operativo", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+        Text(stringResource(R.string.operational_breakdown), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatCardTile(
                 icon = Icons.Default.CheckCircle,
                 count = approvedCount.toString(),
-                label = "Aprobadas",
+                label = stringResource(R.string.approved_plural),
                 iconColor = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
             StatCardTile(
                 icon = Icons.Default.Cancel,
                 count = rejectedCount.toString(),
-                label = "Rechazadas",
+                label = stringResource(R.string.rejected_plural),
                 iconColor = MaterialTheme.colorScheme.error,
                 modifier = Modifier.weight(1f)
             )
@@ -1050,14 +1064,14 @@ fun ModerationStatsScreen(
             StatCardTile(
                 icon = Icons.Default.Flag,
                 count = rangeReports.size.toString(),
-                label = "Reportadas",
+                label = stringResource(R.string.reported_plural),
                 iconColor = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.weight(1f)
             )
             StatCardTile(
                 icon = Icons.Default.PendingActions,
                 count = pendingCount.toString(),
-                label = "Pendientes",
+                label = stringResource(R.string.pending),
                 iconColor = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.weight(1f)
             )
@@ -1122,10 +1136,10 @@ fun ModeratorProfileScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Perfil de Staff", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            Text(stringResource(R.string.staff_profile), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
             IconButton(onClick = onOpenNotifications) {
                 BadgedBox(badge = { if (notificationsEnabled && notifications.count { !it.isRead } > 0) Badge { Text(notifications.count { !it.isRead }.toString()) } }) {
-                    Icon(Icons.Outlined.Notifications, contentDescription = "Notificaciones")
+                    Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.notifications))
                 }
             }
         }
@@ -1147,7 +1161,7 @@ fun ModeratorProfileScreen(
                             modifier = Modifier.fillMaxSize().clip(CircleShape).background(MaterialTheme.colorScheme.primary),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("AV", style = MaterialTheme.typography.titleLarge.copy(color = Color.White, fontWeight = FontWeight.Bold))
+                            Text(moderatorUser.name.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""), style = MaterialTheme.typography.titleLarge.copy(color = Color.White, fontWeight = FontWeight.Bold))
                         }
                         Box(
                             modifier = Modifier
@@ -1168,7 +1182,7 @@ fun ModeratorProfileScreen(
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.padding(vertical = 2.dp)
                         ) {
-                            Text("Staff ServiLocal · ID: ${moderatorUser.staffId}", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
+                            Text(stringResource(R.string.staff_identifier, moderatorUser.staffId.orEmpty()), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
                         }
                         Text(moderatorUser.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                     }
@@ -1195,9 +1209,9 @@ fun ModeratorProfileScreen(
                             .background(if (moderatorUser.activeShift) Color(0xFF10B981) else MaterialTheme.colorScheme.outline)
                     )
                     Column {
-                        Text("Disponibilidad en Cola", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.queue_availability), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                         Text(
-                            text = if (moderatorUser.activeShift) "Turno activo · ${moderatorUser.workingHours}" else "Turno pausado · ${moderatorUser.workingHours}",
+                            text = stringResource(if (moderatorUser.activeShift) R.string.active_shift else R.string.paused_shift, moderatorUser.workingHours),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
                             maxLines = 2
@@ -1220,22 +1234,22 @@ fun ModeratorProfileScreen(
             Column {
                 ProfileNavRow(
                     icon = Icons.Default.NotificationsActive,
-                    title = "Ajustes de Notificaciones de Auditoría",
-                    subtitle = "Alertas por infracciones críticas en cola",
+                    title = stringResource(R.string.audit_notification_settings),
+                    subtitle = stringResource(R.string.critical_queue_alerts),
                     onClick = { activeInfoDialog = "Ajustes de Notificaciones de Auditoría" }
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
                 ProfileNavRow(
                     icon = Icons.Default.MenuBook,
-                    title = "Políticas Comunitarias y Guía v4.2",
-                    subtitle = "Criterios de revocación y sanciones",
+                    title = stringResource(R.string.community_policies),
+                    subtitle = stringResource(R.string.revocation_criteria),
                     onClick = { activeInfoDialog = "Políticas Comunitarias y Guía v4.2" }
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
                 ProfileNavRow(
                     icon = Icons.Default.HistoryToggleOff,
-                    title = "Historial de Decisiones Propias",
-                    subtitle = "Registro de auditoría de los últimos 90 días",
+                    title = stringResource(R.string.own_decision_history),
+                    subtitle = stringResource(R.string.last_90_days),
                     onClick = { activeInfoDialog = "Historial de Decisiones Propias" }
                 )
             }
@@ -1252,7 +1266,7 @@ fun ModeratorProfileScreen(
         ) {
             Icon(Icons.Default.Logout, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Cerrar Sesión de Staff", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+            Text(stringResource(R.string.logout_staff), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -1261,21 +1275,25 @@ fun ModeratorProfileScreen(
     activeInfoDialog?.let { title ->
         AlertDialog(
             onDismissRequest = { activeInfoDialog = null },
-            title = { Text(title) },
+            title = { Text(stringResource(when (title) {
+                "Ajustes de Notificaciones de Auditoría" -> R.string.audit_notification_settings
+                "Políticas Comunitarias y Guía v4.2" -> R.string.community_policies
+                else -> R.string.own_decision_history
+            })) },
             text = {
                 when (title) {
                     "Ajustes de Notificaciones de Auditoría" -> Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Alertas dentro de la aplicación", modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.in_app_alerts), modifier = Modifier.weight(1f))
                         Switch(checked = notificationsEnabled, onCheckedChange = onNotificationsChange)
                     }
-                    "Políticas Comunitarias y Guía v4.2" -> Text("No se permiten pagos previos fuera de ServiLocal, datos de contacto en publicaciones ni contenido ofensivo. Las decisiones se registran en memoria durante esta demostración.")
-                    else -> Text("El historial de decisiones se conserva en memoria mientras la aplicación está abierta. En esta demostración aún no hay un registro persistente.")
+                    "Políticas Comunitarias y Guía v4.2" -> Text(stringResource(R.string.community_policies_body))
+                    else -> Text(stringResource(R.string.decision_history_memory))
                 }
             },
-            confirmButton = { TextButton(onClick = { activeInfoDialog = null }) { Text("Listo") } }
+            confirmButton = { TextButton(onClick = { activeInfoDialog = null }) { Text(stringResource(R.string.done)) } }
         )
     }
 }

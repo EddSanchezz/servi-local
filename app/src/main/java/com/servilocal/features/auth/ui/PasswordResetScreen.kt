@@ -60,6 +60,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.res.stringResource
+import com.servilocal.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -118,7 +120,7 @@ fun PasswordResetScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                     Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -136,7 +138,7 @@ fun PasswordResetScreen(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                "ServiLocal ID",
+                                stringResource(R.string.servilocal_id),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold
                                 ),
@@ -166,13 +168,13 @@ fun PasswordResetScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = "Restablecer contraseña",
+                    text = stringResource(R.string.reset_password),
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Text(
-                    text = "Ingresa el código de 5 dígitos que generamos para tu cuenta y define una nueva contraseña.",
+                    text = stringResource(R.string.reset_password_intro),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -251,7 +253,7 @@ fun PasswordResetScreen(
                 OutlinedTextField(
                     value = uiState.newPassword,
                     onValueChange = viewModel::onNewPasswordChange,
-                    label = { Text("Nueva contraseña") },
+                    label = { Text(stringResource(R.string.new_password)) },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -262,9 +264,9 @@ fun PasswordResetScreen(
                                     Icons.Default.Visibility
                                 },
                                 contentDescription = if (passwordVisible) {
-                                    "Ocultar contraseña"
+                                    stringResource(R.string.hide_password)
                                 } else {
-                                    "Mostrar contraseña"
+                                    stringResource(R.string.show_password)
                                 }
                             )
                         }
@@ -278,7 +280,7 @@ fun PasswordResetScreen(
                     enabled = !isLoading && !resetSucceeded,
                     isError = uiState.passwordError != null,
                     supportingText = {
-                        Text(uiState.passwordError ?: "Mínimo 8 caracteres.")
+                        Text(uiState.passwordError ?: stringResource(R.string.min_eight_characters))
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
@@ -293,7 +295,7 @@ fun PasswordResetScreen(
                 OutlinedTextField(
                     value = uiState.confirmPassword,
                     onValueChange = viewModel::onConfirmPasswordChange,
-                    label = { Text("Confirmar nueva contraseña") },
+                    label = { Text(stringResource(R.string.confirm_new_password)) },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     trailingIcon = {
                         IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
@@ -304,9 +306,9 @@ fun PasswordResetScreen(
                                     Icons.Default.Visibility
                                 },
                                 contentDescription = if (confirmPasswordVisible) {
-                                    "Ocultar contraseña"
+                                    stringResource(R.string.hide_password)
                                 } else {
-                                    "Mostrar contraseña"
+                                    stringResource(R.string.show_password)
                                 }
                             )
                         }
@@ -359,7 +361,7 @@ fun PasswordResetScreen(
                         Icon(Icons.Default.LockReset, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Restablecer contraseña",
+                            text = stringResource(R.string.reset_password),
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold
                             )
@@ -389,14 +391,14 @@ fun PasswordResetScreen(
                                 )
                                 Column {
                                     Text(
-                                        text = "¡Contraseña actualizada!",
+                                        text = stringResource(R.string.password_updated),
                                         style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.Bold
                                         ),
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                     Text(
-                                        text = "Ya puedes iniciar sesión con tu nueva contraseña.",
+                                        text = stringResource(R.string.sign_in_with_new_password),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
@@ -414,7 +416,7 @@ fun PasswordResetScreen(
                             shape = RoundedCornerShape(26.dp)
                         ) {
                             Text(
-                                text = "Volver al inicio de sesión",
+                                text = stringResource(R.string.back_to_login),
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = FontWeight.Bold
                                 )
@@ -432,7 +434,7 @@ fun PasswordResetScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Volver", color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.back), color = MaterialTheme.colorScheme.primary)
                 }
             }
         }

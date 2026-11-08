@@ -3,6 +3,8 @@ package com.servilocal.features.auth.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.core.util.RequestResult
+import com.servilocal.core.util.ResourceProvider
+import com.servilocal.R
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.usecase.auth.LoginUserUseCase
 import com.servilocal.domain.usecase.auth.RegisterResult
@@ -30,7 +32,8 @@ data class AuthUiState(
 class AuthViewModel @Inject constructor(
     private val validateLogin: ValidateLoginCredentialsUseCase,
     private val loginUser: LoginUserUseCase,
-    private val registerUser: RegisterUserUseCase
+    private val registerUser: RegisterUserUseCase,
+    private val resources: ResourceProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -42,8 +45,8 @@ class AuthViewModel @Inject constructor(
         val validation = validateLogin(email, password)
         _uiState.update {
             it.copy(
-                emailError = validation.emailError,
-                passwordError = validation.passwordError,
+                emailError = if (validation.emailError != null) resources.getString(R.string.valid_email_required) else null,
+                passwordError = if (validation.passwordError != null) resources.getString(R.string.login_password_minimum) else null,
                 loginResult = null,
                 authenticatedRole = null
             )
@@ -56,11 +59,11 @@ class AuthViewModel @Inject constructor(
             _uiState.update { state ->
                 if (user != null) {
                     state.copy(
-                        loginResult = RequestResult.Success("Inicio de sesión correcto."),
+                        loginResult = RequestResult.Success(resources.getString(R.string.login_success)),
                         authenticatedRole = user.role
                     )
                 } else {
-                    state.copy(loginResult = RequestResult.Failure("Correo o contraseña incorrectos."))
+                    state.copy(loginResult = RequestResult.Failure(resources.getString(R.string.login_failure)))
                 }
             }
         }
@@ -84,36 +87,36 @@ class AuthViewModel @Inject constructor(
             when (val result = registerUser(name, email, password)) {
                 is RegisterResult.Success -> _uiState.update {
                     it.copy(
-                        registerResult = RequestResult.Success("Cuenta creada correctamente."),
+                        registerResult = RequestResult.Success(resources.getString(R.string.register_success)),
                         registeredEmail = result.user.email
                     )
                 }
 
                 RegisterResult.EmailAlreadyExists -> _uiState.update {
                     it.copy(
-                        emailError = "Ese correo ya está registrado.",
-                        registerResult = RequestResult.Failure("Ese correo ya está registrado.")
+                        emailError = resources.getString(R.string.email_already_registered),
+                        registerResult = RequestResult.Failure(resources.getString(R.string.email_already_registered))
                     )
                 }
 
                 RegisterResult.InvalidName -> _uiState.update {
                     it.copy(
-                        nameError = "Escribe tu nombre completo.",
-                        registerResult = RequestResult.Failure("Revisa tu nombre.")
+                        nameError = resources.getString(R.string.name_required),
+                        registerResult = RequestResult.Failure(resources.getString(R.string.review_name))
                     )
                 }
 
                 RegisterResult.InvalidEmail -> _uiState.update {
                     it.copy(
-                        emailError = "Ingresa un correo válido.",
-                        registerResult = RequestResult.Failure("Revisa el correo.")
+                        emailError = resources.getString(R.string.valid_email_required),
+                        registerResult = RequestResult.Failure(resources.getString(R.string.review_email))
                     )
                 }
 
                 RegisterResult.WeakPassword -> _uiState.update {
                     it.copy(
-                        passwordError = "Usa al menos 8 caracteres.",
-                        registerResult = RequestResult.Failure("Revisa la contraseña.")
+                        passwordError = resources.getString(R.string.min_eight_characters),
+                        registerResult = RequestResult.Failure(resources.getString(R.string.review_password))
                     )
                 }
             }

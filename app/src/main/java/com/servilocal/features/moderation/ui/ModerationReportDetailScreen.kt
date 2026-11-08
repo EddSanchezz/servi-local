@@ -54,6 +54,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,6 +64,9 @@ import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ReportResolution
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
+import com.servilocal.core.ui.localizedDistance
+import com.servilocal.core.ui.localizedServiceCategory
+import com.servilocal.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,14 +92,14 @@ fun ModerationReportDetailScreen(
                     modifier = Modifier.size(56.dp)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                Text("Reporte no disponible", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                Text(stringResource(R.string.report_unavailable), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 Text(
-                    "Puede que ya haya sido resuelto por otro moderador.",
+                    stringResource(R.string.report_already_resolved),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                TextButton(onClick = onBack) { Text("Volver a reportes") }
+                TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_reports)) }
             }
         }
         return
@@ -105,13 +110,13 @@ fun ModerationReportDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Detalle del reporte",
+                        stringResource(R.string.report_detail_title),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -136,7 +141,7 @@ fun ModerationReportDetailScreen(
                 ) {
                     Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Resolver caso", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.resolve_case), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                 }
             }
         }
@@ -153,7 +158,7 @@ fun ModerationReportDetailScreen(
             ReportSummaryCard(report)
 
             Text(
-                "Publicación completa",
+                stringResource(R.string.full_post),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(top = 4.dp)
             )
@@ -165,7 +170,7 @@ fun ModerationReportDetailScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        "La publicación reportada ya no está disponible.",
+                        stringResource(R.string.reported_post_unavailable),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp)
@@ -229,7 +234,7 @@ private fun ReportSummaryCard(report: ModerationReportItem) {
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        "Pendiente",
+                        stringResource(R.string.status_pending),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer
@@ -254,7 +259,7 @@ private fun ReportSummaryCard(report: ModerationReportItem) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Reportado por ${report.reporterName}",
+                    stringResource(R.string.reported_by, report.reporterName),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -296,7 +301,7 @@ private fun ReportedPostCard(post: ServicePost) {
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        post.category,
+                        localizedServiceCategory(post.category),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -308,7 +313,7 @@ private fun ReportedPostCard(post: ServicePost) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Outlined.Payments, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 Text(
-                    if (post.isPriceToAgree) "Precio a convenir" else "$ ${post.minPrice} - $ ${post.maxPrice} COP",
+                    if (post.isPriceToAgree) stringResource(R.string.price_to_agree) else "$ ${post.minPrice} - $ ${post.maxPrice} COP",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -328,12 +333,12 @@ private fun ReportedPostCard(post: ServicePost) {
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(16.dp))
-                    Text(post.distance, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text(localizedDistance(post.distance), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                 }
             }
 
             Text(
-                "★ ${post.rating} · ${post.reviewCount} reseñas · ${post.upvotesCount} interesados",
+                stringResource(R.string.rating_summary, post.rating, post.reviewCount, post.upvotesCount),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -345,22 +350,22 @@ private fun ReportedPostCard(post: ServicePost) {
 private fun PostStatusChip(status: PostStatus) {
     val (label, container, content) = when (status) {
         PostStatus.PENDING_VERIFICATION -> Triple(
-            "Pendiente",
+            stringResource(R.string.status_pending),
             MaterialTheme.colorScheme.tertiaryContainer,
             MaterialTheme.colorScheme.onTertiaryContainer
         )
         PostStatus.APPROVED -> Triple(
-            "Verificada",
+            stringResource(R.string.status_verified),
             MaterialTheme.colorScheme.primaryContainer,
             MaterialTheme.colorScheme.onPrimaryContainer
         )
         PostStatus.REJECTED -> Triple(
-            "Rechazada",
+            stringResource(R.string.rejected_status),
             MaterialTheme.colorScheme.errorContainer,
             MaterialTheme.colorScheme.onErrorContainer
         )
         PostStatus.FINISHED -> Triple(
-            "Finalizada",
+            stringResource(R.string.finished_status),
             MaterialTheme.colorScheme.surfaceContainerHighest,
             MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -382,6 +387,7 @@ private fun ResolveReportSheet(
     onDismiss: () -> Unit,
     onConfirm: (ReportResolution, String, PostStatus?) -> Boolean
 ) {
+    val context = LocalContext.current
     var resolution by remember { mutableStateOf(ReportResolution.DISMISSED) }
     var comment by remember { mutableStateOf("") }
     var newStatus by remember { mutableStateOf<PostStatus?>(null) }
@@ -406,24 +412,24 @@ private fun ResolveReportSheet(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Resolver caso", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.resolve_case), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
                     Text(
-                        "Decide si el reporte es válido y, si lo consideras necesario, cambia el estado de la publicación.",
+                        stringResource(R.string.decide_report_resolution),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
                 }
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar")
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close_dialog))
                 }
             }
 
-            Text("Decisión", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+            Text(stringResource(R.string.decision), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
 
             DecisionOption(
                 selected = resolution == ReportResolution.DISMISSED,
-                title = "Descartar reporte",
-                subtitle = "El reporte no es válido. La publicación se mantiene sin cambios.",
+                title = stringResource(R.string.discard_report),
+                subtitle = stringResource(R.string.discard_report_summary),
                 onClick = {
                     resolution = ReportResolution.DISMISSED
                     newStatus = null
@@ -432,8 +438,8 @@ private fun ResolveReportSheet(
             )
             DecisionOption(
                 selected = resolution == ReportResolution.UPHELD,
-                title = "Reporte procedente",
-                subtitle = "El caso es válido. Puedes aplicar una acción sobre la publicación.",
+                title = stringResource(R.string.valid_report),
+                subtitle = stringResource(R.string.valid_report_summary),
                 onClick = {
                     resolution = ReportResolution.UPHELD
                     error = null
@@ -446,13 +452,13 @@ private fun ResolveReportSheet(
                     comment = it
                     error = null
                 },
-                label = { Text("Comentarios del moderador") },
+                label = { Text(stringResource(R.string.moderator_comments)) },
                 placeholder = {
                     Text(
                         if (resolution == ReportResolution.UPHELD) {
-                            "Explica brevemente la decisión tomada."
+                            stringResource(R.string.upheld_comment_hint)
                         } else {
-                            "Opcional al descartar el reporte."
+                            stringResource(R.string.dismissed_comment_hint)
                         }
                     )
                 },
@@ -464,7 +470,7 @@ private fun ResolveReportSheet(
 
             if (resolution == ReportResolution.UPHELD) {
                 Text(
-                    "Acción sobre la publicación (opcional)",
+                    stringResource(R.string.post_action_optional),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Row(
@@ -474,26 +480,26 @@ private fun ResolveReportSheet(
                     FilterChip(
                         selected = newStatus == null,
                         onClick = { newStatus = null },
-                        label = { Text("Sin cambios") }
+                        label = { Text(stringResource(R.string.no_changes)) }
                     )
                     FilterChip(
                         selected = newStatus == PostStatus.REJECTED,
                         enabled = postStatus != PostStatus.REJECTED,
                         onClick = { newStatus = PostStatus.REJECTED },
-                        label = { Text("Rechazar") }
+                        label = { Text(stringResource(R.string.reject)) }
                     )
                     FilterChip(
                         selected = newStatus == PostStatus.FINISHED,
                         enabled = postStatus != PostStatus.FINISHED,
                         onClick = { newStatus = PostStatus.FINISHED },
-                        label = { Text("Finalizar") }
+                        label = { Text(stringResource(R.string.finish)) }
                     )
                 }
                 Text(
                     when (newStatus) {
-                        PostStatus.REJECTED -> "La publicación pasará a estado rechazada."
-                        PostStatus.FINISHED -> "La publicación pasará a estado finalizada."
-                        else -> "No se modificará el estado de la publicación."
+                        PostStatus.REJECTED -> stringResource(R.string.post_will_be_rejected)
+                        PostStatus.FINISHED -> stringResource(R.string.post_will_be_finished)
+                        else -> stringResource(R.string.post_status_unchanged)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
@@ -511,7 +517,7 @@ private fun ResolveReportSheet(
             Button(
                 onClick = {
                     if (resolution == ReportResolution.UPHELD && comment.isBlank()) {
-                        error = "Escribe un comentario que justifique la decisión."
+                        error = context.getString(R.string.resolution_comment_required)
                     } else {
                         val success = onConfirm(
                             resolution,
@@ -519,7 +525,7 @@ private fun ResolveReportSheet(
                             if (resolution == ReportResolution.UPHELD) newStatus else null
                         )
                         if (!success) {
-                            error = "No se pudo resolver el reporte. Intenta de nuevo."
+                            error = context.getString(R.string.resolution_failed)
                         }
                     }
                 },
@@ -542,7 +548,7 @@ private fun ResolveReportSheet(
                     .testTag("confirm_resolution_button")
             ) {
                 Text(
-                    if (resolution == ReportResolution.DISMISSED) "Descartar reporte" else "Confirmar resolución",
+                    stringResource(if (resolution == ReportResolution.DISMISSED) R.string.dismiss_report_action else R.string.confirm_resolution),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }

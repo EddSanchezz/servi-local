@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.servilocal.R
 
@@ -51,13 +52,13 @@ fun OnboardingScreen(onGetStarted: () -> Unit, modifier: Modifier = Modifier) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Image(
                     painter = painterResource(R.drawable.ic_servilocal_logo),
-                    contentDescription = "Ícono de ServiLocal",
+                    contentDescription = stringResource(R.string.onboarding_logo_description),
                     modifier = Modifier.size(104.dp).clip(RoundedCornerShape(28.dp))
                 )
                 Spacer(Modifier.height(24.dp))
-                Text("ServiLocal", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Text(
-                    "Servicios confiables, cerca de ti.",
+                    stringResource(R.string.onboarding_trust_tagline),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -74,20 +75,20 @@ fun OnboardingScreen(onGetStarted: () -> Unit, modifier: Modifier = Modifier) {
                             Icon(Icons.Default.Handyman, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(18.dp).size(42.dp))
                         }
                         Spacer(Modifier.height(16.dp))
-                        Text("Lo local resuelve", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary, textAlign = TextAlign.Center)
-                        Text("Encuentra profesionales de tu comunidad en Armenia y el Quindío.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimary, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
+                        Text(stringResource(R.string.onboarding_tagline), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary, textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.onboarding_description), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimary, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
                     }
                 }
                 Spacer(Modifier.height(22.dp))
-                OnboardingBenefit(Icons.Default.VerifiedUser, "Perfiles y servicios revisados")
-                OnboardingBenefit(Icons.Default.LocationOn, "Opciones cerca de tu zona")
-                OnboardingBenefit(Icons.Default.CheckCircle, "Coordina directamente por chat")
+                OnboardingBenefit(Icons.Default.VerifiedUser, stringResource(R.string.onboarding_verified_profiles))
+                OnboardingBenefit(Icons.Default.LocationOn, stringResource(R.string.onboarding_nearby_options))
+                OnboardingBenefit(Icons.Default.CheckCircle, stringResource(R.string.onboarding_chat_direct))
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Button(onClick = onGetStarted, modifier = Modifier.fillMaxWidth().height(54.dp).testTag("onboarding_continue"), shape = RoundedCornerShape(28.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
-                    Text("Comenzar", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.onboarding_start), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 }
-                Text("Tu comunidad, a un toque de distancia", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.onboarding_footer), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 12.dp))
             }
         }
     }

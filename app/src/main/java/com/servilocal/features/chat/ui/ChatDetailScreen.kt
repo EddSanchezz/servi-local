@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,6 +27,7 @@ import com.servilocal.domain.model.ChatStatus
 import com.servilocal.domain.model.UserRole
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.chat.viewmodel.ChatDetailViewModel
+import com.servilocal.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,7 +51,7 @@ fun ChatDetailScreen(
 
     if (conversation == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Conversación no encontrada")
+            Text(stringResource(R.string.conversation_not_found))
         }
         return
     }
@@ -85,14 +87,14 @@ fun ChatDetailScreen(
                             }
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF10B981)))
-                                Text("En línea ahora", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.online_now), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -125,9 +127,9 @@ fun ChatDetailScreen(
                             .testTag("chat_message_input"),
                         value = messageInput,
                         onValueChange = { messageInput = it; if (it.isNotBlank()) messageError = false },
-                        placeholder = { Text("Escribe un mensaje...", style = MaterialTheme.typography.bodyMedium) },
+                        placeholder = { Text(stringResource(R.string.message_hint), style = MaterialTheme.typography.bodyMedium) },
                         isError = messageError,
-                        supportingText = { if (messageError) Text("Escribe un mensaje antes de enviarlo.") },
+                        supportingText = { if (messageError) Text(stringResource(R.string.message_required)) },
                         singleLine = true,
                         shape = RoundedCornerShape(24.dp),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -158,7 +160,7 @@ fun ChatDetailScreen(
                         modifier = Modifier.size(48.dp).testTag("send_chat_button"),
                         elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
                     ) {
-                        Icon(Icons.Default.Send, contentDescription = "Enviar", modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Send, contentDescription = stringResource(R.string.send), modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -193,7 +195,7 @@ fun ChatDetailScreen(
                                 Icon(Icons.Default.Handyman, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                             }
                             Column {
-                                Text("Servicio Activo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text(stringResource(R.string.active_service), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                 Text(conversation.serviceTitle, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                             }
                         }
@@ -216,14 +218,14 @@ fun ChatDetailScreen(
                             ) {
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Aceptar solicitud", style = MaterialTheme.typography.labelSmall)
+                                Text(stringResource(R.string.accept_request), style = MaterialTheme.typography.labelSmall)
                             }
                             OutlinedButton(
                                 onClick = { viewModel.updateConversationStatus(conversation.id, ChatStatus.DECLINED) },
                                 shape = RoundedCornerShape(16.dp),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 modifier = Modifier.height(36.dp)
-                            ) { Text("Rechazar", style = MaterialTheme.typography.labelSmall) }
+                            ) { Text(stringResource(R.string.reject), style = MaterialTheme.typography.labelSmall) }
                         }
                         if (conversation.isClientRole && conversation.status == ChatStatus.PENDING) {
                             OutlinedButton(
@@ -231,7 +233,7 @@ fun ChatDetailScreen(
                                 shape = RoundedCornerShape(16.dp),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 modifier = Modifier.height(36.dp)
-                            ) { Text("Cancelar solicitud", style = MaterialTheme.typography.labelSmall) }
+                            ) { Text(stringResource(R.string.cancel_request), style = MaterialTheme.typography.labelSmall) }
                         }
                         if (conversation.status == ChatStatus.IN_PROGRESS) {
                             Button(
@@ -242,12 +244,12 @@ fun ChatDetailScreen(
                             ) {
                                 Icon(Icons.Default.TaskAlt, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Finalizar servicio", style = MaterialTheme.typography.labelSmall)
+                                Text(stringResource(R.string.finish_service), style = MaterialTheme.typography.labelSmall)
                             }
                         }
                         if (conversation.status == ChatStatus.COMPLETED || conversation.status == ChatStatus.DECLINED) {
                             Text(
-                                text = if (conversation.status == ChatStatus.COMPLETED) "Servicio completado" else "Solicitud rechazada o cancelada",
+                                text = stringResource(if (conversation.status == ChatStatus.COMPLETED) R.string.service_completed else R.string.request_cancelled_rejected),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(vertical = 8.dp)
@@ -274,7 +276,7 @@ fun ChatDetailScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "Hoy",
+                                text = stringResource(R.string.today),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
@@ -299,7 +301,7 @@ fun ChatDetailScreen(
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Icon(Icons.Default.Assignment, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                                        Text("Solicitud de Servicio Enviada", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                        Text(stringResource(R.string.service_request_sent), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                                     }
                                     Surface(
                                         color = MaterialTheme.colorScheme.primaryContainer,
@@ -307,10 +309,10 @@ fun ChatDetailScreen(
                                     ) {
                                         Text(
                                             when (conversation.status) {
-                                                ChatStatus.PENDING, ChatStatus.NEW_REQUEST -> "Pendiente"
-                                                ChatStatus.IN_PROGRESS -> "En proceso"
-                                                ChatStatus.COMPLETED -> "Completada"
-                                                ChatStatus.DECLINED -> "Cancelada"
+                                                ChatStatus.PENDING, ChatStatus.NEW_REQUEST -> stringResource(R.string.status_pending)
+                                                ChatStatus.IN_PROGRESS -> stringResource(R.string.status_in_progress)
+                                                ChatStatus.COMPLETED -> stringResource(R.string.status_completed)
+                                                ChatStatus.DECLINED -> stringResource(R.string.status_cancelled)
                                             },
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                             color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -329,7 +331,7 @@ fun ChatDetailScreen(
                                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                                 Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                                 Column {
-                                                    Text("Solicitante", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                                    Text(stringResource(R.string.applicant), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                     Text(requesterName, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
                                                 }
                                             }
@@ -337,7 +339,7 @@ fun ChatDetailScreen(
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                             Column {
-                                                Text("Dirección", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                                Text(stringResource(R.string.address), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                 Text(conversation.requestAddress ?: "", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
                                             }
                                         }
@@ -346,7 +348,7 @@ fun ChatDetailScreen(
                                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                                 Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                                 Column {
-                                                    Text("Descripción de la avería", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                                    Text(stringResource(R.string.problem_description), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                     Text(conversation.requestProblem ?: "", style = MaterialTheme.typography.bodySmall)
                                                 }
                                             }
@@ -356,7 +358,7 @@ fun ChatDetailScreen(
                                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                                 Icon(Icons.Default.Call, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                                 Column {
-                                                    Text("Medio de contacto preferido", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                                    Text(stringResource(R.string.preferred_contact_method), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                                     Text(conversation.requestPhone ?: "", style = MaterialTheme.typography.bodySmall)
                                                 }
                                             }
@@ -422,7 +424,7 @@ fun ChatBubble(message: ChatMessageItem) {
                     if (isMe) {
                         Icon(
                             Icons.Default.DoneAll,
-                            contentDescription = "Leído",
+                            contentDescription = stringResource(R.string.read),
                             tint = textColor.copy(alpha = 0.8f),
                             modifier = Modifier.size(14.dp)
                         )

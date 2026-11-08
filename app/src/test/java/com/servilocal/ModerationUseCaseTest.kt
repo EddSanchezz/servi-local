@@ -176,7 +176,8 @@ class ModerationUseCaseTest {
         observeReports = ObserveReportsUseCase(moderationRepository),
         observeModeratorProfile = ObserveModeratorProfileUseCase(authRepository),
         resolveReportsForPostUseCase = ResolveReportsForPostUseCase(moderationRepository, authRepository),
-        toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(authRepository)
+        toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(authRepository),
+        resources = testResourceProvider
     )
 
     private class FakeModerationRepository : ModerationRepository {

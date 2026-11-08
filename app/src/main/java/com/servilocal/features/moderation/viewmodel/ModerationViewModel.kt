@@ -2,6 +2,8 @@ package com.servilocal.features.moderation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.servilocal.R
+import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ReportResolution
 import com.servilocal.domain.model.ServicePost
@@ -49,7 +51,8 @@ class ModerationViewModel @Inject constructor(
     observeReports: ObserveReportsUseCase,
     observeModeratorProfile: ObserveModeratorProfileUseCase,
     private val resolveReportsForPostUseCase: ResolveReportsForPostUseCase,
-    private val toggleModeratorShiftUseCase: ToggleModeratorShiftUseCase
+    private val toggleModeratorShiftUseCase: ToggleModeratorShiftUseCase,
+    private val resources: ResourceProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ModerationUiState())
@@ -101,9 +104,9 @@ class ModerationViewModel @Inject constructor(
     fun approvePost(id: String): Boolean {
         val success = approvePostUseCase(id)
         if (success) {
-            _uiState.update { it.copy(actionResult = "Publicación aprobada exitosamente", error = null) }
+            _uiState.update { it.copy(actionResult = resources.getString(R.string.post_approved_success), error = null) }
         } else {
-            _uiState.update { it.copy(error = "No se pudo aprobar: verifica tu rol y que la publicación siga pendiente.") }
+            _uiState.update { it.copy(error = resources.getString(R.string.post_approve_failed)) }
         }
         return success
     }
@@ -111,9 +114,9 @@ class ModerationViewModel @Inject constructor(
     fun rejectPost(id: String, reason: String, notes: String? = null): Boolean {
         val success = rejectPostUseCase(id, reason, notes)
         if (success) {
-            _uiState.update { it.copy(actionResult = "Publicación rechazada", error = null) }
+            _uiState.update { it.copy(actionResult = resources.getString(R.string.post_rejected_success), error = null) }
         } else {
-            _uiState.update { it.copy(error = "No se pudo rechazar: el motivo es obligatorio y la publicación debe estar pendiente o aprobada.") }
+            _uiState.update { it.copy(error = resources.getString(R.string.post_reject_failed)) }
         }
         return success
     }
@@ -122,8 +125,8 @@ class ModerationViewModel @Inject constructor(
         val success = markPostAsResolvedUseCase(id)
         _uiState.update {
             it.copy(
-                actionResult = if (success) "Publicación marcada como resuelta" else null,
-                error = if (success) null else "No se pudo resolver la publicación. Verifica su estado y tu rol."
+                actionResult = if (success) resources.getString(R.string.post_resolved_success) else null,
+                error = if (success) null else resources.getString(R.string.post_resolve_failed)
             )
         }
         return success
@@ -138,8 +141,8 @@ class ModerationViewModel @Inject constructor(
         val success = resolveReportUseCase(reportId, resolution, moderatorComment, newPostStatus)
         _uiState.update {
             it.copy(
-                actionResult = if (success) "Reporte resuelto" else null,
-                error = if (success) null else "No se pudo resolver el reporte. Revisa el comentario y tu rol."
+                actionResult = if (success) resources.getString(R.string.report_resolved) else null,
+                error = if (success) null else resources.getString(R.string.report_resolve_failed)
             )
         }
         return success

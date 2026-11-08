@@ -17,10 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
+import com.servilocal.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +49,15 @@ fun CreatePostScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    val categories = listOf("Hogar", "Educación", "Mascotas", "Tecnología", "Electricidad", "Transporte")
+    val categories = listOf(
+        "Hogar" to R.string.category_home,
+        "Educación" to R.string.category_education,
+        "Mascotas" to R.string.category_pets,
+        "Tecnología" to R.string.category_technology,
+        "Electricidad" to R.string.category_electricity,
+        "Transporte" to R.string.category_transport
+    )
+    val context = LocalContext.current
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -56,18 +67,18 @@ fun CreatePostScreen(
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Text(
-                        "Crear Publicación",
+                        stringResource(R.string.create_publication_title),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { showHelpDialog = true }) {
-                        Icon(Icons.Default.HelpOutline, contentDescription = "Ayuda")
+                        Icon(Icons.Default.HelpOutline, contentDescription = stringResource(R.string.help))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -105,12 +116,12 @@ fun CreatePostScreen(
                                 )
                                 showCreatedDialog = created
                                 if (created) {
-                                    coroutineScope.launch { snackbarHostState.showSnackbar("Publicación enviada a revisión.") }
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.publication_sent_review)) }
                                 } else {
-                                    coroutineScope.launch { snackbarHostState.showSnackbar(formUiState.submissionError ?: "No se pudo crear la publicación.") }
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(formUiState.submissionError ?: context.getString(R.string.publication_create_failed)) }
                                 }
                             } else {
-                                coroutineScope.launch { snackbarHostState.showSnackbar("Completa los campos requeridos y verifica el rango de precios.") }
+                                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.complete_required_fields)) }
                             }
                         },
                         modifier = Modifier
@@ -122,10 +133,10 @@ fun CreatePostScreen(
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Guardar y Enviar a Revisión", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.send_for_review), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                     }
                     Text(
-                        text = "Al publicar aceptas las políticas comunitarias de ServiLocal",
+                        text = stringResource(R.string.publication_terms_notice),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp)
@@ -175,12 +186,12 @@ fun CreatePostScreen(
                     }
                     Column {
                         Text(
-                            text = "Revisión de Calidad y Confianza",
+                            text = stringResource(R.string.quality_trust_review),
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Tu publicación quedará en estado \"Pendiente de verificación\" hasta ser aprobada por nuestro equipo de moderación local.",
+                            text = stringResource(R.string.pending_review_explainer),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -191,23 +202,23 @@ fun CreatePostScreen(
             // Title Field
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Título de la publicación *",
+                    text = stringResource(R.string.publication_title_required_label),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it.take(80) },
-                    placeholder = { Text("Ej: Mantenimiento y Reparación de Calefonts") },
+                    placeholder = { Text(stringResource(R.string.create_post_title_hint)) },
                     trailingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().testTag("post_title_input"),
                     isError = attemptedSubmit && title.isBlank()
                 )
-                if (attemptedSubmit && title.isBlank()) Text("El título es obligatorio.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                if (attemptedSubmit && title.isBlank()) Text(stringResource(R.string.title_required), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                 Text(
-                    text = "Sé claro, conciso e incluye el servicio principal",
+                    text = stringResource(R.string.title_guidance),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -216,7 +227,7 @@ fun CreatePostScreen(
             // Category Selector
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Categoría de servicio *",
+                    text = stringResource(R.string.service_category_required),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -226,7 +237,7 @@ fun CreatePostScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     OutlinedTextField(
-                        value = selectedCategory,
+                        value = stringResource(categories.first { it.first == selectedCategory }.second),
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isCategoryDropdownExpanded) },
@@ -240,9 +251,9 @@ fun CreatePostScreen(
                         expanded = isCategoryDropdownExpanded,
                         onDismissRequest = { isCategoryDropdownExpanded = false }
                     ) {
-                        categories.forEach { cat ->
+                        categories.forEach { (cat, labelRes) ->
                             DropdownMenuItem(
-                                text = { Text(cat) },
+                                text = { Text(stringResource(labelRes)) },
                                 onClick = {
                                     selectedCategory = cat
                                     isCategoryDropdownExpanded = false
@@ -256,26 +267,26 @@ fun CreatePostScreen(
             // Description Field with character counter
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Descripción detallada del servicio *",
+                    text = stringResource(R.string.detailed_service_description),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(
                     value = description,
                     onValueChange = { if (it.length <= 500) description = it },
-                    placeholder = { Text("Detalla tu experiencia técnica, garantías, instrumental...") },
+                    placeholder = { Text(stringResource(R.string.description_hint)) },
                     maxLines = 5,
                     minLines = 4,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().testTag("post_desc_input"),
                     isError = attemptedSubmit && description.isBlank()
                 )
-                if (attemptedSubmit && description.isBlank()) Text("La descripción es obligatoria.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                if (attemptedSubmit && description.isBlank()) Text(stringResource(R.string.description_required), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Incluye protocolos de seguridad y garantía", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.safety_and_warranty_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                     Text("${description.length}/500", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                 }
             }
@@ -293,11 +304,11 @@ fun CreatePostScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Rango de precio aproximado *",
+                            text = stringResource(R.string.approximate_price_range),
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = "Pesos Colombianos (COP)",
+                            text = stringResource(R.string.colombian_pesos),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -310,8 +321,8 @@ fun CreatePostScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Servicio gratuito o cotización a convenir", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
-                            Text("El valor se mostrará como 'A convenir'", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Text(stringResource(R.string.free_or_quote), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
+                            Text(stringResource(R.string.quote_value_explainer), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                         }
                         Switch(
                             checked = isPriceToAgree,
@@ -327,7 +338,7 @@ fun CreatePostScreen(
                             OutlinedTextField(
                                 value = minPrice,
                                 onValueChange = { minPrice = it.filter(Char::isDigit).take(9) },
-                                label = { Text("Precio Mínimo $") },
+                                label = { Text(stringResource(R.string.price_minimum)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(10.dp),
                                 isError = attemptedSubmit && (minPrice.toIntOrNull() ?: 0) <= 0,
@@ -336,7 +347,7 @@ fun CreatePostScreen(
                             OutlinedTextField(
                                 value = maxPrice,
                                 onValueChange = { maxPrice = it.filter(Char::isDigit).take(9) },
-                                label = { Text("Precio Máximo $") },
+                                label = { Text(stringResource(R.string.price_maximum)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(10.dp),
                                 isError = attemptedSubmit && ((maxPrice.toIntOrNull() ?: 0) < (minPrice.toIntOrNull() ?: 0)),
@@ -344,7 +355,7 @@ fun CreatePostScreen(
                             )
                         }
                         if (attemptedSubmit && ((minPrice.toIntOrNull() ?: 0) <= 0 || (maxPrice.toIntOrNull() ?: 0) < (minPrice.toIntOrNull() ?: 0))) {
-                            Text("Ingresa un rango válido: el mínimo debe ser mayor que cero y no superar el máximo.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.valid_price_range), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -358,16 +369,16 @@ fun CreatePostScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Galería de Imágenes", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                        Text("Muestra tus trabajos reales (máx. 5 fotos)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.image_gallery), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.show_real_work), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                     }
-                    Text("Opcional", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.optional), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                 }
 
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                     Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("La carga de imágenes no forma parte de esta fase; puedes publicar el servicio sin fotos.", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.image_upload_unavailable), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -383,21 +394,21 @@ fun CreatePostScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Ubicación y Cobertura", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                        Text("Radio de 15 km", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.location_and_coverage), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.coverage_radius_fifteen), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                     }
 
                     OutlinedTextField(
                         value = location,
                         onValueChange = { location = it.take(120) },
-                        label = { Text("Ciudad o zona de cobertura") },
+                        label = { Text(stringResource(R.string.city_or_service_area)) },
                         leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
                         singleLine = true,
                         isError = attemptedSubmit && location.isBlank(),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (attemptedSubmit && location.isBlank()) Text("Indica una ubicación.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                    Text("La ubicación se ingresa manualmente; esta versión no usa GPS ni mapas.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    if (attemptedSubmit && location.isBlank()) Text(stringResource(R.string.location_required), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.location_manual_only), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                 }
             }
 
@@ -408,19 +419,19 @@ fun CreatePostScreen(
     if (showHelpDialog) {
         AlertDialog(
             onDismissRequest = { showHelpDialog = false },
-            title = { Text("Crear una publicación") },
-            text = { Text("Completa el título, la descripción, el precio y la ubicación. La publicación quedará pendiente hasta que un moderador la revise.") },
-            confirmButton = { TextButton(onClick = { showHelpDialog = false }) { Text("Entendido") } }
+            title = { Text(stringResource(R.string.create_post)) },
+            text = { Text(stringResource(R.string.create_post_help)) },
+            confirmButton = { TextButton(onClick = { showHelpDialog = false }) { Text(stringResource(R.string.understood)) } }
         )
     }
 
     if (showCreatedDialog) {
         AlertDialog(
             onDismissRequest = { showCreatedDialog = false; onOpenHome() },
-            title = { Text("Publicación enviada") },
-            text = { Text("Tu servicio quedó en la cola de revisión. Puedes verlo desde Mis Publicaciones.") },
-            confirmButton = { TextButton(onClick = { showCreatedDialog = false; onOpenProfile() }) { Text("Ver mis publicaciones") } },
-            dismissButton = { TextButton(onClick = { showCreatedDialog = false; onOpenHome() }) { Text("Explorar") } }
+            title = { Text(stringResource(R.string.post_submitted)) },
+            text = { Text(stringResource(R.string.post_submitted_message)) },
+            confirmButton = { TextButton(onClick = { showCreatedDialog = false; onOpenProfile() }) { Text(stringResource(R.string.view_my_posts)) } },
+            dismissButton = { TextButton(onClick = { showCreatedDialog = false; onOpenHome() }) { Text(stringResource(R.string.explore)) } }
         )
     }
 }

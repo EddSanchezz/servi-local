@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.servilocal.R
+import androidx.compose.ui.res.stringResource
 import com.servilocal.core.util.RequestResult
 import com.servilocal.core.util.Validators
 import com.servilocal.domain.model.UserRole
@@ -86,7 +87,7 @@ fun LoginScreen(
             ) {
                 Image(
                     painter = painterResource(R.drawable.ic_servilocal_logo),
-                    contentDescription = "Logo ServiLocal",
+                    contentDescription = stringResource(R.string.onboarding_logo_description),
                     modifier = Modifier.size(80.dp).clip(RoundedCornerShape(24.dp))
                 )
                 Box(
@@ -110,12 +111,12 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "ServiLocal",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Conecta con los mejores servicios de tu comunidad en Armenia y el Quindío",
+                text = stringResource(R.string.auth_community_intro),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -145,7 +146,7 @@ fun LoginScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
-                                text = "Cuentas de demostración",
+                                text = stringResource(R.string.demo_accounts),
                                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -155,7 +156,7 @@ fun LoginScreen(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = "Proyecto UQ",
+                                text = stringResource(R.string.uq_project),
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -193,7 +194,7 @@ fun LoginScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Usuario", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(stringResource(R.string.user_role), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
 
                         // Moderator role button
@@ -216,7 +217,7 @@ fun LoginScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Moderador", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text(stringResource(R.string.moderator_role), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                     }
                 }
@@ -229,7 +230,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it; if (!isLoading) viewModel.clearLoginFeedback() },
-                label = { Text("Correo electrónico") },
+                label = { Text(stringResource(R.string.email_label)) },
                 isError = authUiState.emailError != null,
                 supportingText = { authUiState.emailError?.let { Text(it) } },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
@@ -247,7 +248,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it; if (!isLoading) viewModel.clearLoginFeedback() },
-                label = { Text("Contraseña") },
+                label = { Text(stringResource(R.string.password_label)) },
                 isError = authUiState.passwordError != null,
                 supportingText = { authUiState.passwordError?.let { Text(it) } },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
@@ -255,7 +256,7 @@ fun LoginScreen(
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
                             imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
+                            contentDescription = stringResource(if (passwordVisible) R.string.hide_password else R.string.show_password)
                         )
                     }
                 },
@@ -278,7 +279,7 @@ fun LoginScreen(
                     contentPadding = PaddingValues(vertical = 4.dp)
                 ) {
                     Text(
-                        text = "¿Olvidaste tu contraseña?",
+                        text = stringResource(R.string.forgot_password),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -315,7 +316,7 @@ fun LoginScreen(
                     )
                 } else {
                     Text(
-                        text = "Iniciar sesión",
+                        text = stringResource(R.string.login),
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -336,7 +337,7 @@ fun LoginScreen(
             ) {
                 Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Crear una cuenta nueva", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold))
+                Text(stringResource(R.string.create_new_account), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold))
             }
 
             Spacer(modifier = Modifier.height(28.dp))
@@ -349,7 +350,7 @@ fun LoginScreen(
             ) {
                 Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 Text(
-                    text = "Más de 1.200 especialistas validados en tu zona",
+                    text = stringResource(R.string.validated_specialists),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -413,10 +414,10 @@ fun RegisterScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                 }
                 Text(
-                    text = "Registro de Usuario",
+                    text = stringResource(R.string.register_title),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center
@@ -439,7 +440,7 @@ fun RegisterScreen(
                 ) {
                     Icon(Icons.Default.Storefront, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Text(
-                        text = "Crea tu cuenta para contratar y ofrecer servicios locales en Armenia y alrededores.",
+                        text = stringResource(R.string.register_intro),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -452,13 +453,13 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = fullName,
                 onValueChange = { fullName = it; if (!isLoading) viewModel.clearRegisterFeedback() },
-                label = { Text("Nombre completo") },
+                label = { Text(stringResource(R.string.full_name)) },
                 isError = (isSubmitted && fullName.isBlank()) || authState.nameError != null,
                 supportingText = {
-                    (authState.nameError ?: if (isSubmitted && fullName.isBlank()) "Escribe tu nombre completo." else null)
+                    (authState.nameError ?: if (isSubmitted && fullName.isBlank()) stringResource(R.string.name_required) else null)
                         ?.let { Text(it) }
                 },
-                placeholder = { Text("Ej. Jerónimo Guerrero") },
+                placeholder = { Text(stringResource(R.string.full_name_example)) },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -471,13 +472,13 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it; if (!isLoading) viewModel.clearRegisterFeedback() },
-                label = { Text("Correo electrónico") },
+                label = { Text(stringResource(R.string.email_label)) },
                 isError = (isSubmitted && !validEmail) || authState.emailError != null,
                 supportingText = {
-                    (authState.emailError ?: if (isSubmitted && !validEmail) "Ingresa un correo válido." else null)
+                    (authState.emailError ?: if (isSubmitted && !validEmail) stringResource(R.string.valid_email_required) else null)
                         ?.let { Text(it) }
                 },
-                placeholder = { Text("ejemplo@correo.com") },
+                placeholder = { Text(stringResource(R.string.email_example)) },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -491,10 +492,10 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it; if (!isLoading) viewModel.clearRegisterFeedback() },
-                label = { Text("Contraseña (mínimo 8 caracteres)") },
+                label = { Text(stringResource(R.string.password_minimum_label)) },
                 isError = (isSubmitted && password.length < 8) || authState.passwordError != null,
                 supportingText = {
-                    (authState.passwordError ?: if (isSubmitted && password.length < 8) "Usa al menos 8 caracteres." else null)
+                    (authState.passwordError ?: if (isSubmitted && password.length < 8) stringResource(R.string.min_eight_characters) else null)
                         ?.let { Text(it) }
                 },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
@@ -518,9 +519,9 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = confirmPassword,
                 onValueChange = { confirmPassword = it; if (!isLoading) viewModel.clearRegisterFeedback() },
-                label = { Text("Repetir contraseña") },
+                label = { Text(stringResource(R.string.repeat_password)) },
                 isError = isSubmitted && !passwordsMatch,
-                supportingText = { if (isSubmitted && !passwordsMatch) Text("Las contraseñas no coinciden.") },
+                supportingText = { if (isSubmitted && !passwordsMatch) Text(stringResource(R.string.passwords_dont_match)) },
                 leadingIcon = { Icon(Icons.Default.LockClock, contentDescription = null) },
                 trailingIcon = {
                     if (confirmPassword.isNotEmpty()) {
@@ -552,13 +553,13 @@ fun RegisterScreen(
                     onCheckedChange = { termsAccepted = it }
                 )
                 Text(
-                    text = "Acepto los Términos y Condiciones de ServiLocal",
+                    text = stringResource(R.string.terms_accept),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
             if (isSubmitted && !termsAccepted) {
-                Text("Debes aceptar los términos para crear tu cuenta.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth())
+                Text(stringResource(R.string.terms_required), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth())
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -576,7 +577,7 @@ fun RegisterScreen(
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Text(
-                            text = "¡Cuenta creada con éxito! Volviendo al inicio de sesión...",
+                            text = stringResource(R.string.account_created_message),
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -609,7 +610,7 @@ fun RegisterScreen(
                 } else {
                     Icon(Icons.Default.PersonAdd, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Crear Cuenta", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.create_account), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                 }
             }
 
@@ -618,7 +619,7 @@ fun RegisterScreen(
             TextButton(
                 onClick = onBack
             ) {
-                Text("¿Ya tienes una cuenta? Inicia sesión aquí", color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.already_have_account), color = MaterialTheme.colorScheme.primary)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -667,7 +668,7 @@ fun PasswordRecoveryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                 }
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
@@ -679,7 +680,7 @@ fun PasswordRecoveryScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                        Text("ServiLocal ID", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text(stringResource(R.string.servilocal_id), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
                 }
             }
@@ -705,13 +706,13 @@ fun PasswordRecoveryScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Recuperar contraseña",
+                text = stringResource(R.string.recover_password),
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
 
             Text(
-                text = "Ingresa el correo electrónico asociado a tu cuenta de ServiLocal y generaremos un código de verificación de 5 dígitos para restablecer tu acceso.",
+                text = stringResource(R.string.recover_password_intro),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -723,15 +724,15 @@ fun PasswordRecoveryScreen(
             OutlinedTextField(
                 value = uiState.email,
                 onValueChange = viewModel::onEmailChange,
-                label = { Text("Correo electrónico registrado") },
-                placeholder = { Text("ejemplo@servilocal.co") },
+                label = { Text(stringResource(R.string.registered_email)) },
+                placeholder = { Text(stringResource(R.string.email_example_domain)) },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 singleLine = true,
                 enabled = !isLoading,
                 isError = uiState.emailError != null || (attemptedSubmit && !validEmail),
                 supportingText = {
                     (uiState.emailError ?: if (attemptedSubmit && !validEmail) {
-                        "Ingresa un correo válido para continuar."
+                        stringResource(R.string.email_invalid_continue)
                     } else null)?.let { Text(it) }
                 },
                 shape = RoundedCornerShape(12.dp),
@@ -756,7 +757,7 @@ fun PasswordRecoveryScreen(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Text(
-                                text = "Código de verificación",
+                                text = stringResource(R.string.verification_code),
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -772,7 +773,7 @@ fun PasswordRecoveryScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Código de demostración. En una fase posterior se enviará al correo registrado.",
+                            text = stringResource(R.string.demo_code_note),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                             textAlign = TextAlign.Center
@@ -802,7 +803,7 @@ fun PasswordRecoveryScreen(
                     Icon(Icons.Default.Send, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (codeGenerated) "Reenviar código" else "Enviar código de recuperación",
+                        text = stringResource(if (codeGenerated) R.string.resend_code else R.string.send_recovery_code),
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -819,7 +820,7 @@ fun PasswordRecoveryScreen(
                         shape = RoundedCornerShape(26.dp)
                     ) {
                         Text(
-                            text = "Continuar",
+                            text = stringResource(R.string.continue_label),
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -835,7 +836,7 @@ fun PasswordRecoveryScreen(
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Volver a Iniciar Sesión", color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.back_to_login), color = MaterialTheme.colorScheme.primary)
             }
         }
     }

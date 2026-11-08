@@ -2,6 +2,8 @@ package com.servilocal.features.posts.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.servilocal.R
+import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
 import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +18,8 @@ data class CreatePostUiState(val submissionError: String? = null)
 @HiltViewModel
 class CreatePostViewModel @Inject constructor(
     private val createServicePost: CreateServicePostUseCase,
-    private val awardPublicationPoints: AwardPublicationPointsUseCase
+    private val awardPublicationPoints: AwardPublicationPointsUseCase,
+    private val resources: ResourceProvider
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CreatePostUiState())
     val uiState: StateFlow<CreatePostUiState> = _uiState.asStateFlow()
@@ -33,7 +36,7 @@ class CreatePostViewModel @Inject constructor(
             _uiState.value = CreatePostUiState()
             true
         } catch (error: IllegalArgumentException) {
-            _uiState.value = CreatePostUiState(error.message ?: "Revisa los datos de la publicación.")
+            _uiState.value = CreatePostUiState(resources.getString(R.string.create_post_invalid_data))
             false
         }
     }

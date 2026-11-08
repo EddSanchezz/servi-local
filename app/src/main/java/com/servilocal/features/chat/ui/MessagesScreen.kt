@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.servilocal.domain.model.ChatConversation
 import com.servilocal.domain.model.ChatStatus
 import com.servilocal.features.chat.viewmodel.MessagesViewModel
+import com.servilocal.R
 
 @Composable
 fun MessagesScreen(
@@ -96,7 +98,7 @@ fun MessagesScreen(
                 }
                 Column {
                     Text(
-                        text = "ServiLocal",
+                        text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -105,7 +107,7 @@ fun MessagesScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Mensajes",
+                            text = stringResource(R.string.nav_messages),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -128,7 +130,7 @@ fun MessagesScreen(
             OutlinedTextField(
                 value = searchChatQuery,
                 onValueChange = { searchChatQuery = it },
-                placeholder = { Text("Buscar conversaciones o servicios...", style = MaterialTheme.typography.bodyMedium) },
+                placeholder = { Text(stringResource(R.string.search_conversations_hint), style = MaterialTheme.typography.bodyMedium) },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 },
@@ -155,13 +157,11 @@ fun MessagesScreen(
                     selected = selected,
                     onClick = { requestFilter = filter },
                     label = {
-                        Text(
-                            when (filter) {
-                                "Enviadas" -> "Solicitudes que hice"
-                                "Recibidas" -> "Solicitudes recibidas"
-                                else -> "Todas"
-                            }
-                        )
+                        Text(when (filter) {
+                            "Enviadas" -> stringResource(R.string.requests_i_made)
+                            "Recibidas" -> stringResource(R.string.requests_received)
+                            else -> stringResource(R.string.all_requests)
+                        })
                     }
                 )
             }
@@ -188,12 +188,12 @@ fun MessagesScreen(
                 )
                 Column {
                     Text(
-                        text = "Trato directo y seguro",
+                        text = stringResource(R.string.direct_and_safe),
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Acuerda los detalles del servicio y el pago directamente con el proveedor.",
+                        text = stringResource(R.string.direct_payment_notice),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -217,9 +217,9 @@ fun MessagesScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         when (requestFilter) {
-                            "Enviadas" -> "No has enviado solicitudes"
-                            "Recibidas" -> "No has recibido solicitudes"
-                            else -> "No hay conversaciones"
+                            "Enviadas" -> stringResource(R.string.sent_requests_empty)
+                            "Recibidas" -> stringResource(R.string.received_requests_empty)
+                            else -> stringResource(R.string.conversations_empty)
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline
@@ -349,11 +349,11 @@ fun ConversationItemCard(
             ) {
                 // Status badge
                 val (statusBg, statusFg, statusText) = when (conversation.status) {
-                    ChatStatus.IN_PROGRESS -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, "En Proceso")
-                    ChatStatus.PENDING -> Triple(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant, "Pendiente")
-                    ChatStatus.COMPLETED -> Triple(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, "Completado")
-                    ChatStatus.NEW_REQUEST -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, "Nueva Solicitud")
-                    ChatStatus.DECLINED -> Triple(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant, "Cancelada")
+                    ChatStatus.IN_PROGRESS -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, stringResource(R.string.status_in_progress_title))
+                    ChatStatus.PENDING -> Triple(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.status_pending))
+                    ChatStatus.COMPLETED -> Triple(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, stringResource(R.string.status_completed_title))
+                    ChatStatus.NEW_REQUEST -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, stringResource(R.string.status_new_request))
+                    ChatStatus.DECLINED -> Triple(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.status_cancelled))
                 }
 
                 Surface(

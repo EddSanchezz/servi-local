@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +29,9 @@ import com.servilocal.core.util.RequestResult
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.usecase.chat.CreateServiceRequestResult
 import com.servilocal.features.home.viewmodel.ServiceDetailViewModel
+import com.servilocal.core.ui.localizedDistance
+import com.servilocal.core.ui.localizedServiceCategory
+import com.servilocal.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,17 +73,17 @@ fun ServiceDetailScreen(
 
     if (post == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Publicación no encontrada")
+            Text(stringResource(R.string.post_not_found))
         }
         return
     }
 
     val isOwner = post.providerId == currentUser.id
     val statusLabel = when (post.status) {
-        PostStatus.PENDING_VERIFICATION -> "pendiente de verificación"
-        PostStatus.APPROVED -> "aprobada"
-        PostStatus.REJECTED -> "rechazada"
-        PostStatus.FINISHED -> "finalizada"
+        PostStatus.PENDING_VERIFICATION -> stringResource(R.string.pending_review_status)
+        PostStatus.APPROVED -> stringResource(R.string.published_status)
+        PostStatus.REJECTED -> stringResource(R.string.rejected_status)
+        PostStatus.FINISHED -> stringResource(R.string.finished_status)
     }
 
     Scaffold(
@@ -89,23 +93,23 @@ fun ServiceDetailScreen(
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Text(
-                        "Detalle de Publicación",
+                        stringResource(R.string.post_detail_title),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     Box {
                         IconButton(onClick = { isMenuExpanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Más opciones")
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options))
                         }
                         DropdownMenu(expanded = isMenuExpanded, onDismissRequest = { isMenuExpanded = false }) {
                             DropdownMenuItem(
-                                text = { Text("Compartir servicio") },
+                                text = { Text(stringResource(R.string.share_service)) },
                                 leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
                                 onClick = {
                                     isMenuExpanded = false
@@ -113,12 +117,12 @@ fun ServiceDetailScreen(
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_TEXT, "${post.title}\n${post.description}\n${post.location}")
                                     }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Compartir servicio"))
+                                    context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_service)))
                                 }
                             )
                             if (!isOwner) {
                                 DropdownMenuItem(
-                                    text = { Text("Reportar publicación") },
+                                    text = { Text(stringResource(R.string.report_post)) },
                                     leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
                                     onClick = {
                                         isMenuExpanded = false
@@ -146,9 +150,9 @@ fun ServiceDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Column {
-                            Text("Tarifa estimada", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Text(stringResource(R.string.estimated_rate), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                             Text(
-                                text = if (post.isPriceToAgree) "A convenir" else "$ ${post.minPrice} - $ ${post.maxPrice} ${post.priceUnit}",
+                                text = if (post.isPriceToAgree) stringResource(R.string.price_to_agree) else "$ ${post.minPrice} - $ ${post.maxPrice} ${post.priceUnit}",
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1
@@ -163,7 +167,7 @@ fun ServiceDetailScreen(
                             ) {
                                 Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Editar publicación", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                                Text(stringResource(R.string.edit_post), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
                             }
                         } else {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -179,7 +183,7 @@ fun ServiceDetailScreen(
                                 ) {
                                     Icon(imageVector = if (likes.likedByCurrentUser) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = if (likes.likedByCurrentUser) "Apoyado" else "Me interesa", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                                    Text(text = stringResource(if (likes.likedByCurrentUser) R.string.supported else R.string.like_post), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), maxLines = 1)
                                 }
                                 Button(
                                     onClick = {
@@ -193,7 +197,7 @@ fun ServiceDetailScreen(
                                 ) {
                                     Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Solicitar servicio", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+                                    Text(stringResource(R.string.request_service), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
                                 }
                             }
                         }
@@ -205,7 +209,7 @@ fun ServiceDetailScreen(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding()
                 ) {
                     Text(
-                        text = "Tu publicación está $statusLabel y no se puede editar.",
+                        text = stringResource(R.string.post_status_not_editable, statusLabel),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp)
@@ -260,7 +264,7 @@ fun ServiceDetailScreen(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = Color(0xFF4ADE80), modifier = Modifier.size(14.dp))
-                                    Text("Trabajo Certificado", style = MaterialTheme.typography.labelSmall.copy(color = Color.White))
+                                    Text(stringResource(R.string.certified_work), style = MaterialTheme.typography.labelSmall.copy(color = Color.White))
                                 }
                             }
 
@@ -279,9 +283,9 @@ fun ServiceDetailScreen(
                         // Slide caption
                         Text(
                             text = when (activeSlideIndex) {
-                                0 -> "Inspección de tableros eléctricos y mediciones de carga"
-                                1 -> "Herramientas especializadas y detectores de aislamiento"
-                                else -> "Reparaciones domiciliarias y normalización en Armenia"
+                                0 -> stringResource(R.string.slide_caption_inspection)
+                                1 -> stringResource(R.string.slide_caption_tools)
+                                else -> stringResource(R.string.slide_caption_repairs)
                             },
                             style = MaterialTheme.typography.titleSmall.copy(color = Color.White, fontWeight = FontWeight.SemiBold)
                         )
@@ -302,7 +306,7 @@ fun ServiceDetailScreen(
                                 .clip(CircleShape)
                                 .background(Color.White.copy(alpha = 0.7f))
                         ) {
-                            Icon(Icons.Default.ChevronLeft, contentDescription = "Foto anterior", tint = Color.Black)
+                            Icon(Icons.Default.ChevronLeft, contentDescription = stringResource(R.string.previous_photo), tint = Color.Black)
                         }
 
                         IconButton(
@@ -312,7 +316,7 @@ fun ServiceDetailScreen(
                                 .clip(CircleShape)
                                 .background(Color.White.copy(alpha = 0.7f))
                         ) {
-                            Icon(Icons.Default.ChevronRight, contentDescription = "Foto siguiente", tint = Color.Black)
+                            Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.next_photo), tint = Color.Black)
                         }
                     }
 
@@ -349,7 +353,7 @@ fun ServiceDetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                                Text(post.category, style = MaterialTheme.typography.labelSmall)
+                                Text(localizedServiceCategory(post.category), style = MaterialTheme.typography.labelSmall)
                             }
                         }
 
@@ -390,13 +394,13 @@ fun ServiceDetailScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text("Rango de precio estimado", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text(stringResource(R.string.estimated_price_range), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                 Text(
-                                    text = if (post.isPriceToAgree) "A convenir" else "$ ${post.minPrice} - $ ${post.maxPrice} ${post.priceUnit}",
+                                    text = if (post.isPriceToAgree) stringResource(R.string.price_to_agree) else "$ ${post.minPrice} - $ ${post.maxPrice} ${post.priceUnit}",
                                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.primary
                                 )
-                                Text("Visita diagnóstica o labor base", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.diagnostic_visit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Icon(
                                 Icons.Default.Payments,
@@ -413,7 +417,7 @@ fun ServiceDetailScreen(
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Text(
-                        text = "Descripción del Servicio",
+                        text = stringResource(R.string.service_description_title),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -447,10 +451,10 @@ fun ServiceDetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Zona de Cobertura",
+                            text = stringResource(R.string.coverage_zone),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
-                        Text("Radio de 10 km", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.coverage_radius_ten), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -489,7 +493,7 @@ fun ServiceDetailScreen(
                             ) {
                                 Icon(Icons.Default.Place, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Text(
-                                    text = "Barrio Granada, Los Profesionales, Centro y Norte de Armenia",
+                                    text = stringResource(R.string.neighborhoods_coverage),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -503,7 +507,7 @@ fun ServiceDetailScreen(
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Text(
-                        text = "Perfil del Profesional",
+                        text = stringResource(R.string.professional_profile),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
 
@@ -540,9 +544,9 @@ fun ServiceDetailScreen(
                                     Column {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Text(post.providerName, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                                            Icon(Icons.Default.CheckCircle, contentDescription = "Verificado", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.CheckCircle, contentDescription = stringResource(R.string.verified), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                         }
-                                        Text("${post.location} (${post.distance})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                        Text("${post.location} (${localizedDistance(post.distance)})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                     }
                                 }
 
@@ -571,12 +575,12 @@ fun ServiceDetailScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Icon(Icons.Default.ThumbUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                     Text(
-                                        text = "${likes.count} votos de confianza",
+                                        text = stringResource(R.string.confidence_votes, likes.count),
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                 }
-                                Text("99.2% de satisfacción", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text(stringResource(R.string.quality_satisfaction), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                             }
                         }
                     }
@@ -593,7 +597,7 @@ fun ServiceDetailScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
-                                text = "Comentarios y Preguntas",
+                                text = stringResource(R.string.comments_questions),
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Badge(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh) {
@@ -622,7 +626,7 @@ fun ServiceDetailScreen(
                                 onValueChange = { newCommentText = it },
                                 placeholder = {
                                     Text(
-                                        text = if (isOwner) "Responde a los comentarios..." else "Escribe una pregunta al autor...",
+                                        text = stringResource(if (isOwner) R.string.owner_reply_hint else R.string.visitor_question_hint),
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 },
@@ -640,7 +644,7 @@ fun ServiceDetailScreen(
                                     }
                                 }
                             ) {
-                                Icon(Icons.Default.Send, contentDescription = "Enviar", tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.Send, contentDescription = stringResource(R.string.send), tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -678,7 +682,7 @@ fun ServiceDetailScreen(
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
-                                        text = "Autor",
+                                        text = stringResource(R.string.author),
                                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -702,16 +706,16 @@ fun ServiceDetailScreen(
 
     if (showReportDialog) {
         ReportContentDialog(
-            title = "Reportar publicación",
+            title = stringResource(R.string.report_post),
             onDismiss = { showReportDialog = false },
             onSubmit = { reason, details ->
                 val success = viewModel.reportPost(post.id, reason, details)
                 showReportDialog = false
                 coroutineScope.launch {
                     if (success) {
-                        snackbarHostState.showSnackbar("Reporte enviado a moderación")
+                        snackbarHostState.showSnackbar(context.getString(R.string.report_sent_to_moderation))
                     } else {
-                        snackbarHostState.showSnackbar("No puedes reportar tu propia publicación")
+                        snackbarHostState.showSnackbar(context.getString(R.string.cannot_report_own_post))
                     }
                 }
             }
@@ -735,14 +739,14 @@ fun ServiceDetailScreen(
                         showServiceRequestDialog = false
                         onOpenChat(result.conversationId)
                     }
-                    CreateServiceRequestResult.PostNotFound -> serviceRequestError = "La publicación ya no está disponible."
-                    CreateServiceRequestResult.PostNotApproved -> serviceRequestError = "Solo puedes solicitar publicaciones verificadas."
-                    CreateServiceRequestResult.OwnPost -> serviceRequestError = "No puedes solicitar tu propia publicación."
-                    CreateServiceRequestResult.MissingApplicantName -> serviceRequestError = "Escribe tu nombre."
-                    CreateServiceRequestResult.MissingContactMethod -> serviceRequestError = "Indica un teléfono o medio de contacto."
-                    CreateServiceRequestResult.MissingAddress -> serviceRequestError = "Indica la dirección donde necesitas el servicio."
-                    CreateServiceRequestResult.MissingDescription -> serviceRequestError = "Describe brevemente el servicio que necesitas."
-                    CreateServiceRequestResult.RequestCouldNotBeCreated -> serviceRequestError = "No se pudo crear la solicitud. Inténtalo nuevamente."
+                    CreateServiceRequestResult.PostNotFound -> serviceRequestError = context.getString(R.string.post_unavailable)
+                    CreateServiceRequestResult.PostNotApproved -> serviceRequestError = context.getString(R.string.verified_request_only)
+                    CreateServiceRequestResult.OwnPost -> serviceRequestError = context.getString(R.string.own_post_request_error)
+                    CreateServiceRequestResult.MissingApplicantName -> serviceRequestError = context.getString(R.string.name_required_short)
+                    CreateServiceRequestResult.MissingContactMethod -> serviceRequestError = context.getString(R.string.contact_required)
+                    CreateServiceRequestResult.MissingAddress -> serviceRequestError = context.getString(R.string.address_required)
+                    CreateServiceRequestResult.MissingDescription -> serviceRequestError = context.getString(R.string.service_description_required)
+                    CreateServiceRequestResult.RequestCouldNotBeCreated -> serviceRequestError = context.getString(R.string.request_creation_failed)
                 }
             }
         )

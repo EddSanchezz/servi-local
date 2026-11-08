@@ -15,6 +15,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.servilocal.R
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -23,7 +25,12 @@ fun ReportContentDialog(
     onDismiss: () -> Unit,
     onSubmit: (reason: String, details: String) -> Unit
 ) {
-    val reasons = listOf("Estafa o fraude", "Contenido ofensivo", "Contacto no permitido", "Otra infracción")
+    val reasons = listOf(
+        stringResource(R.string.report_reason_fraud),
+        stringResource(R.string.report_reason_offensive),
+        stringResource(R.string.report_reason_contact),
+        stringResource(R.string.report_reason_other)
+    )
     var selectedReason by remember { mutableStateOf(reasons.first()) }
     var details by remember { mutableStateOf("") }
 
@@ -47,7 +54,7 @@ fun ReportContentDialog(
                 OutlinedTextField(
                     value = details,
                     onValueChange = { details = it },
-                    label = { Text("Detalles (opcional)") },
+                    label = { Text(stringResource(R.string.report_details_optional)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 4
@@ -56,9 +63,9 @@ fun ReportContentDialog(
         },
         confirmButton = {
             TextButton(onClick = { onSubmit(selectedReason, details.trim()) }) {
-                Text("Enviar reporte")
+                Text(stringResource(R.string.send_report))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }

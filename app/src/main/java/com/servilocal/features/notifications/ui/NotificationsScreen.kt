@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +31,7 @@ import com.servilocal.domain.model.NotificationType
 import com.servilocal.domain.model.UserRole
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.notifications.viewmodel.NotificationsViewModel
+import com.servilocal.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,17 +62,17 @@ fun NotificationsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Notificaciones", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
+                title = { Text(stringResource(R.string.notifications), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     TextButton(onClick = { viewModel.markAllRead() }) {
                         Icon(Icons.Default.DoneAll, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Marcar leídas", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.mark_read), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -94,7 +96,7 @@ fun NotificationsScreen(
                 FilterChip(
                     selected = notificationFilter == "all",
                     onClick = { viewModel.setFilter("all") },
-                    label = { Text("Todas (${notifications.size})") },
+                    label = { Text(stringResource(R.string.all_notifications, notifications.size)) },
                     leadingIcon = if (notificationFilter == "all") {
                         { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
                     } else null,
@@ -104,7 +106,7 @@ fun NotificationsScreen(
                 FilterChip(
                     selected = notificationFilter == "unread",
                     onClick = { viewModel.setFilter("unread") },
-                    label = { Text("No leídas ($unreadCount)") },
+                    label = { Text(stringResource(R.string.unread_notifications, unreadCount)) },
                     leadingIcon = {
                         Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
                     },
@@ -114,14 +116,14 @@ fun NotificationsScreen(
                 FilterChip(
                     selected = notificationFilter == "requests",
                     onClick = { viewModel.setFilter("requests") },
-                    label = { Text("Solicitudes") },
+                    label = { Text(stringResource(R.string.request_notifications)) },
                     shape = RoundedCornerShape(8.dp)
                 )
 
                 FilterChip(
                     selected = notificationFilter == "comments",
                     onClick = { viewModel.setFilter("comments") },
-                    label = { Text("Comentarios") },
+                    label = { Text(stringResource(R.string.comment_notifications)) },
                     shape = RoundedCornerShape(8.dp)
                 )
             }
@@ -142,9 +144,9 @@ fun NotificationsScreen(
                             Icon(Icons.Default.NotificationsOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(32.dp))
                         }
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("Bandeja despejada", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text(stringResource(R.string.search_notifications_empty), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                         Text(
-                            "No tienes notificaciones en esta sección por ahora.",
+                            stringResource(R.string.notifications_empty_description),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -270,9 +272,9 @@ fun NotificationCardItem(
                         ) {
                             Text(
                                 when {
-                                    item.relatedChatId != null -> "Ver solicitud"
-                                    item.type == NotificationType.COMMENT -> "Ver comentarios"
-                                    else -> "Ver publicación"
+                                    item.relatedChatId != null -> stringResource(R.string.view_request)
+                                    item.type == NotificationType.COMMENT -> stringResource(R.string.view_comments)
+                                    else -> stringResource(R.string.view_post)
                                 },
                                 style = MaterialTheme.typography.labelSmall
                             )
@@ -286,7 +288,7 @@ fun NotificationCardItem(
                     IconButton(onClick = onToggleRead, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = if (isUnread) Icons.Default.MarkChatRead else Icons.Default.Markunread,
-                            contentDescription = if (isUnread) "Marcar como leída" else "Marcar como no leída",
+                            contentDescription = stringResource(if (isUnread) R.string.mark_as_read else R.string.mark_as_unread),
                             tint = MaterialTheme.colorScheme.outline,
                             modifier = Modifier.size(18.dp)
                         )

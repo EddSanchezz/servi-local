@@ -3,10 +3,10 @@ package com.servilocal
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
@@ -20,7 +20,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import jakarta.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     @Inject lateinit var chatRepository: ChatRepository
     @Inject lateinit var observeReports: ObserveReportsUseCase
     private val appViewModel: AppViewModel by viewModels()

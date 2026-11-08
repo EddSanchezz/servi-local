@@ -21,10 +21,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.servilocal.core.ui.components.ProfileNavRow
+import com.servilocal.R
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
 import kotlin.math.roundToInt
@@ -37,8 +39,7 @@ fun UserProfileScreen(
     onOpenNotifications: () -> Unit,
     onLogout: () -> Unit,
     onOpenServiceDetail: (String) -> Unit,
-    onDarkThemeChange: (Boolean) -> Unit,
-    onNotificationsChange: (Boolean) -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
@@ -48,7 +49,6 @@ fun UserProfileScreen(
     val profileUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val badges by viewModel.badges.collectAsStateWithLifecycle()
     val stats = profileUiState.stats
-    val darkTheme = appUiState.darkTheme
     val notificationsEnabled = appUiState.notificationsEnabled
     var activeDialog by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -78,11 +78,11 @@ fun UserProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Perfil", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
+                title = { Text(stringResource(R.string.profile_title), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
                 actions = {
                     IconButton(onClick = onOpenNotifications) {
                         BadgedBox(badge = { if (notificationsEnabled && notifications.count { !it.isRead } > 0) Badge { Text(notifications.count { !it.isRead }.toString()) } }) {
-                            Icon(Icons.Outlined.Notifications, contentDescription = "Notificaciones")
+                            Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.notifications))
                         }
                     }
                 },
@@ -134,7 +134,7 @@ fun UserProfileScreen(
                                     .background(MaterialTheme.colorScheme.primary),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Edit, contentDescription = "Editar foto", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
+                                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_photo), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
                             }
                         }
 
@@ -158,7 +158,7 @@ fun UserProfileScreen(
                                     Text(levelLabel, style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold))
                                 }
                             }
-                            Text("$points pts acumulados", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            Text(stringResource(R.string.points_accumulated, points), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         }
                     }
 
@@ -173,8 +173,8 @@ fun UserProfileScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("$points / $nextLevelPoints pts", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                                Text("Nivel actual: $levelLabel", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                Text(stringResource(R.string.points_total, points, nextLevelPoints), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                Text(stringResource(R.string.current_level, levelLabel), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                             }
                             LinearProgressIndicator(
                                 progress = { progress },
@@ -186,8 +186,8 @@ fun UserProfileScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("${(progress * 100).roundToInt()}% completado", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                Text("Faltan $remainingPoints pts", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text(stringResource(R.string.progress_percent, (progress * 100).roundToInt()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text(stringResource(R.string.points_remaining, remainingPoints), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                             }
                         }
                     }
@@ -199,17 +199,17 @@ fun UserProfileScreen(
                     ) {
                         ProfileStatItem(
                             value = "${stats?.totalPosts ?: ownedPosts.size}",
-                            label = "Publicaciones",
+                            label = stringResource(R.string.publications),
                             modifier = Modifier.weight(1f)
                         )
                         ProfileStatItem(
                             value = "${stats?.pendingPosts ?: ownedPosts.count { it.status == com.servilocal.domain.model.PostStatus.PENDING_VERIFICATION }}",
-                            label = "Pendientes",
+                            label = stringResource(R.string.pending),
                             modifier = Modifier.weight(1f)
                         )
                         ProfileStatItem(
                             value = "${stats?.badgeCount ?: displayBadges.count { it.unlocked }}",
-                            label = "Insignias",
+                            label = stringResource(R.string.badges),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -221,8 +221,8 @@ fun UserProfileScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Insignias", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                            Text("Ver todas", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.badges), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                            Text(stringResource(R.string.view_all), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                         }
 
                         Row(
@@ -241,12 +241,12 @@ fun UserProfileScreen(
                                     ) {
                                         Text(badge.icon, fontSize = 14.sp)
                                         Text(
-                                            text = badge.title,
+                                            text = localizedBadgeTitle(badge.id, badge.title),
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                                             color = if (badge.unlocked) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.outline
                                         )
                                         if (!badge.unlocked) {
-                                            Icon(Icons.Default.Lock, contentDescription = "Bloqueada", modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.outline)
+                                            Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.locked_badge), modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.outline)
                                         }
                                     }
                                 }
@@ -271,10 +271,9 @@ fun UserProfileScreen(
             }
              */
 
-            // Mi Actividad
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Mi Actividad",
+                    text = stringResource(R.string.my_activity),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
@@ -287,32 +286,31 @@ fun UserProfileScreen(
                     Column {
                         ProfileNavRow(
                             icon = Icons.Default.Edit,
-                            title = "Editar Perfil",
-                            subtitle = "Datos personales y contacto",
+                            title = stringResource(R.string.edit_profile),
+                            subtitle = stringResource(R.string.personal_contact_info),
                             onClick = { activeDialog = "Editar Perfil" }
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
                         ProfileNavRow(
                             icon = Icons.AutoMirrored.Filled.Assignment,
-                            title = "Mis Publicaciones",
-                            subtitle = "Gestionar servicios activos e inactivos",
+                            title = stringResource(R.string.my_publications),
+                            subtitle = stringResource(R.string.manage_my_posts),
                             onClick = { activeDialog = "Mis Publicaciones" }
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
                         ProfileNavRow(
                             icon = Icons.Default.ThumbUp,
-                            title = "Servicios que me importan / Mis Votos",
-                            subtitle = "Profesionales que has apoyado en la comunidad",
+                            title = stringResource(R.string.my_votes_title),
+                            subtitle = stringResource(R.string.my_votes_summary),
                             onClick = { activeDialog = "Servicios que me importan / Mis Votos" }
                         )
                     }
                 }
             }
 
-            // Configuración
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Configuración",
+                    text = stringResource(R.string.settings_section),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
@@ -325,15 +323,15 @@ fun UserProfileScreen(
                     Column {
                         ProfileNavRow(
                             icon = Icons.Default.Settings,
-                            title = "Ajustes de la Aplicación",
-                            subtitle = "Notificaciones, tema claro/oscuro e idioma",
-                            onClick = { activeDialog = "Ajustes de la Aplicación" }
+                            title = stringResource(R.string.settings_entry_title),
+                            subtitle = stringResource(R.string.settings_entry_summary),
+                            onClick = onOpenSettings
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
                         ProfileNavRow(
                             icon = Icons.Default.Lock,
-                            title = "Privacidad y Seguridad",
-                            subtitle = "Gestión de datos y visibilidad de contacto",
+                            title = stringResource(R.string.privacy_security),
+                            subtitle = stringResource(R.string.privacy_summary),
                             onClick = { activeDialog = "Privacidad y Seguridad" }
                         )
                     }
@@ -357,12 +355,12 @@ fun UserProfileScreen(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Cerrar Sesión", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.logout), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                 }
 
                 TextButton(onClick = { showDeleteConfirmation = true }) {
                     Text(
-                        "Eliminar Cuenta",
+                        stringResource(R.string.delete_account_title),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -376,35 +374,35 @@ fun UserProfileScreen(
     activeDialog?.let { title ->
         AlertDialog(
             onDismissRequest = { activeDialog = null },
-            title = { Text(title) },
+            title = { Text(profileDialogTitle(title)) },
             text = {
                 when (title) {
                     "Editar Perfil" -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedTextField(
                             value = editName,
                             onValueChange = { editName = it },
-                            label = { Text("Nombre completo") },
+                            label = { Text(stringResource(R.string.full_name)) },
                             isError = editValidationMessage && editName.isBlank(),
-                            supportingText = { if (editValidationMessage && editName.isBlank()) Text("El nombre es obligatorio.") },
+                            supportingText = { if (editValidationMessage && editName.isBlank()) Text(stringResource(R.string.name_required)) },
                             singleLine = true
                         )
                         OutlinedTextField(
                             value = editEmail,
                             onValueChange = { editEmail = it },
-                            label = { Text("Correo electrónico") },
+                            label = { Text(stringResource(R.string.email_label)) },
                             isError = editValidationMessage && !editEmail.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")),
-                            supportingText = { if (editValidationMessage && !editEmail.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) Text("Ingresa un correo válido.") },
+                            supportingText = { if (editValidationMessage && !editEmail.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) Text(stringResource(R.string.valid_email_required)) },
                             singleLine = true
                         )
                     }
                     "Horario de atención" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Disponibilidad para coordinar servicios", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.availability_intro), style = MaterialTheme.typography.bodyMedium)
                         Text(currentUser.workingHours, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                        Text("Confirma la disponibilidad directamente con cada profesional antes de coordinar una visita.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.availability_notice), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     "Mis Publicaciones", "Servicios que me importan / Mis Votos" -> {
                         if (dialogPosts.isEmpty()) {
-                            Text(if (title == "Mis Publicaciones") "Aún no tienes publicaciones. Crea una desde la pestaña Publicar." else "Todavía no has apoyado publicaciones.")
+                            Text(stringResource(if (title == "Mis Publicaciones") R.string.no_posts_yet else R.string.no_votes_yet))
                         } else {
                             Column(
                                 modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
@@ -412,10 +410,10 @@ fun UserProfileScreen(
                             ) {
                                 dialogPosts.forEach { post ->
                                     val status = when (post.status) {
-                                        com.servilocal.domain.model.PostStatus.PENDING_VERIFICATION -> "Pendiente de revisión"
-                                        com.servilocal.domain.model.PostStatus.APPROVED -> "Publicada"
-                                        com.servilocal.domain.model.PostStatus.REJECTED -> "Rechazada"
-                                        com.servilocal.domain.model.PostStatus.FINISHED -> "Finalizada"
+                                        com.servilocal.domain.model.PostStatus.PENDING_VERIFICATION -> stringResource(R.string.pending_review_status)
+                                        com.servilocal.domain.model.PostStatus.APPROVED -> stringResource(R.string.published_status)
+                                        com.servilocal.domain.model.PostStatus.REJECTED -> stringResource(R.string.rejected_status)
+                                        com.servilocal.domain.model.PostStatus.FINISHED -> stringResource(R.string.finished_status)
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         TextButton(
@@ -437,7 +435,7 @@ fun UserProfileScreen(
                                             }) {
                                                 Icon(
                                                     Icons.Default.DeleteOutline,
-                                                    contentDescription = "Eliminar ${post.title}",
+                                                    contentDescription = stringResource(R.string.delete_post_accessibility, post.title),
                                                     tint = MaterialTheme.colorScheme.error
                                                 )
                                             }
@@ -447,18 +445,7 @@ fun UserProfileScreen(
                             }
                         }
                     }
-                    "Ajustes de la Aplicación" -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Tema oscuro", modifier = Modifier.weight(1f))
-                            Switch(checked = darkTheme, onCheckedChange = onDarkThemeChange)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Notificaciones dentro de la app", modifier = Modifier.weight(1f))
-                            Switch(checked = notificationsEnabled, onCheckedChange = onNotificationsChange)
-                        }
-                        Text("Idioma: Español", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                    else -> Text("Esta versión mantiene los datos solo en memoria durante el uso de la aplicación. No se envían a un servidor desde este prototipo.")
+                    else -> Text(stringResource(R.string.prototype_memory_notice))
                 }
             },
             confirmButton = {
@@ -472,14 +459,14 @@ fun UserProfileScreen(
                                 editValidationMessage = true
                             }
                         }
-                    ) { Text("Guardar") }
+                    ) { Text(stringResource(R.string.save)) }
                 } else {
-                    TextButton(onClick = { activeDialog = null }) { Text("Listo") }
+                    TextButton(onClick = { activeDialog = null }) { Text(stringResource(R.string.done)) }
                 }
             },
             dismissButton = {
                 if (title == "Editar Perfil") {
-                    TextButton(onClick = { activeDialog = null }) { Text("Cancelar") }
+                    TextButton(onClick = { activeDialog = null }) { Text(stringResource(R.string.cancel)) }
                 }
             }
         )
@@ -488,13 +475,13 @@ fun UserProfileScreen(
     postPendingDeletion?.let { post ->
         AlertDialog(
             onDismissRequest = { postPendingDeletion = null; deletePostFailed = false },
-            title = { Text("Eliminar publicación") },
+            title = { Text(stringResource(R.string.delete_post_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("¿Quieres eliminar '${post.title}'? Esta acción no se puede deshacer.")
+                    Text(stringResource(R.string.delete_post_confirmation, post.title))
                     if (deletePostFailed) {
                         Text(
-                            "No se pudo eliminar. Verifica que la publicación sea tuya e inténtalo de nuevo.",
+                            stringResource(R.string.delete_post_failed),
                             color = MaterialTheme.colorScheme.error
                         )
                     }
@@ -508,10 +495,10 @@ fun UserProfileScreen(
                     } else {
                         deletePostFailed = true
                     }
-                }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { postPendingDeletion = null; deletePostFailed = false }) { Text("Cancelar") }
+                TextButton(onClick = { postPendingDeletion = null; deletePostFailed = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -519,14 +506,35 @@ fun UserProfileScreen(
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Eliminar cuenta") },
-            text = { Text("Esta es una cuenta de demostración sin almacenamiento ni sesión persistente. Puedes cerrar la sesión para regresar a la pantalla de acceso.") },
+            title = { Text(stringResource(R.string.delete_account_title)) },
+            text = { Text(stringResource(R.string.demo_account_notice)) },
             confirmButton = {
-                TextButton(onClick = { showDeleteConfirmation = false; onLogout() }) { Text("Cerrar sesión") }
+                TextButton(onClick = { showDeleteConfirmation = false; onLogout() }) { Text(stringResource(R.string.logout_lowercase)) }
             },
-            dismissButton = { TextButton(onClick = { showDeleteConfirmation = false }) { Text("Cancelar") } }
+            dismissButton = { TextButton(onClick = { showDeleteConfirmation = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
+}
+
+@Composable
+private fun profileDialogTitle(title: String): String = when (title) {
+    "Editar Perfil" -> stringResource(R.string.edit_profile)
+    "Mis Publicaciones" -> stringResource(R.string.my_publications)
+    "Servicios que me importan / Mis Votos" -> stringResource(R.string.my_votes_title)
+    "Horario de atención" -> stringResource(R.string.working_hours)
+    else -> stringResource(R.string.privacy_security)
+}
+
+@Composable
+private fun localizedBadgeTitle(id: String, fallback: String): String {
+    val resourceId = when (id) {
+        "badge_1" -> R.string.badge_first_post
+        "badge_2" -> R.string.badge_influencer
+        "badge_3" -> R.string.badge_super_provider
+        "badge_4" -> R.string.badge_community
+        else -> return fallback
+    }
+    return stringResource(resourceId)
 }
 
 @Composable

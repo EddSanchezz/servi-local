@@ -14,11 +14,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.features.posts.viewmodel.EditPostViewModel
+import com.servilocal.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,23 +37,31 @@ fun EditPostScreen(
     val formUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showFinishConfirmation by remember { mutableStateOf(false) }
 
     if (post == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Publicación no encontrada")
+            Text(stringResource(R.string.post_not_found))
         }
         return
     }
 
     val canEdit = post.status == PostStatus.APPROVED
     val statusLabel = when (post.status) {
-        PostStatus.PENDING_VERIFICATION -> "Pendiente de verificación"
-        PostStatus.APPROVED -> "Aprobada"
-        PostStatus.REJECTED -> "Rechazada"
-        PostStatus.FINISHED -> "Finalizada"
+        PostStatus.PENDING_VERIFICATION -> stringResource(R.string.pending_review_status)
+        PostStatus.APPROVED -> stringResource(R.string.published_status)
+        PostStatus.REJECTED -> stringResource(R.string.rejected_status)
+        PostStatus.FINISHED -> stringResource(R.string.finished_status)
     }
-    val categories = listOf("Hogar", "Educación", "Mascotas", "Tecnología", "Electricidad", "Transporte")
+    val categories = listOf(
+        "Hogar" to R.string.category_home,
+        "Educación" to R.string.category_education,
+        "Mascotas" to R.string.category_pets,
+        "Tecnología" to R.string.category_technology,
+        "Electricidad" to R.string.category_electricity,
+        "Transporte" to R.string.category_transport
+    )
 
     var title by remember(post.id) { mutableStateOf(post.title) }
     var selectedCategory by remember(post.id) { mutableStateOf(post.category) }
@@ -68,13 +79,13 @@ fun EditPostScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Editar Publicación",
+                        stringResource(R.string.edit_post_title),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -116,7 +127,7 @@ fun EditPostScreen(
                                     if (saved) onBack()
                                 } else {
                                     coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("Completa los campos requeridos y verifica el rango de precios.")
+                                        snackbarHostState.showSnackbar(context.getString(R.string.complete_required_fields))
                                     }
                                 }
                             },
@@ -128,7 +139,7 @@ fun EditPostScreen(
                         ) {
                             Icon(Icons.Default.Save, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Guardar cambios", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                            Text(stringResource(R.string.save_changes), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                         }
                         OutlinedButton(
                             onClick = { showFinishConfirmation = true },
@@ -141,7 +152,7 @@ fun EditPostScreen(
                         ) {
                             Icon(Icons.Default.TaskAlt, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Finalizar publicación", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                            Text(stringResource(R.string.finish_post), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                         }
                         formUiState.submissionError?.let { error ->
                             Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -181,14 +192,14 @@ fun EditPostScreen(
                     )
                     Column {
                         Text(
-                            text = "Estado: $statusLabel",
+                            text = stringResource(R.string.post_status_label, statusLabel),
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
                             text = if (canEdit) {
-                                "Puedes actualizar los datos de tu publicación o finalizarla cuando el servicio ya no esté disponible."
+                                stringResource(R.string.edit_post_status_help)
                             } else {
-                                "Solo las publicaciones aprobadas pueden editarse."
+                                stringResource(R.string.approved_posts_only_editable)
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -199,7 +210,7 @@ fun EditPostScreen(
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Título de la publicación *",
+                    text = stringResource(R.string.publication_title_required_label),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -216,7 +227,7 @@ fun EditPostScreen(
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Categoría de servicio *",
+                    text = stringResource(R.string.service_category_required),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -226,7 +237,7 @@ fun EditPostScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     OutlinedTextField(
-                        value = selectedCategory,
+                        value = stringResource(categories.firstOrNull { it.first.equals(selectedCategory, true) }?.second ?: R.string.category_home),
                         onValueChange = {},
                         readOnly = true,
                         enabled = canEdit,
@@ -238,9 +249,9 @@ fun EditPostScreen(
                         expanded = isCategoryDropdownExpanded && canEdit,
                         onDismissRequest = { isCategoryDropdownExpanded = false }
                     ) {
-                        categories.forEach { cat ->
+                        categories.forEach { (cat, labelRes) ->
                             DropdownMenuItem(
-                                text = { Text(cat) },
+                                text = { Text(stringResource(labelRes)) },
                                 onClick = {
                                     selectedCategory = cat
                                     isCategoryDropdownExpanded = false
@@ -253,7 +264,7 @@ fun EditPostScreen(
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Descripción detallada del servicio *",
+                    text = stringResource(R.string.detailed_service_description),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -277,7 +288,7 @@ fun EditPostScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Rango de precio aproximado *",
+                        text = stringResource(R.string.approximate_price_range),
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                     )
 
@@ -286,7 +297,7 @@ fun EditPostScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Servicio gratuito o cotización a convenir", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.free_or_quote), style = MaterialTheme.typography.bodySmall)
                         Switch(
                             checked = isPriceToAgree,
                             onCheckedChange = { isPriceToAgree = it },
@@ -302,7 +313,7 @@ fun EditPostScreen(
                             OutlinedTextField(
                                 value = minPrice,
                                 onValueChange = { minPrice = it.filter(Char::isDigit).take(9) },
-                                label = { Text("Precio Mínimo $") },
+                                label = { Text(stringResource(R.string.price_minimum)) },
                                 enabled = canEdit,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(10.dp),
@@ -312,7 +323,7 @@ fun EditPostScreen(
                             OutlinedTextField(
                                 value = maxPrice,
                                 onValueChange = { maxPrice = it.filter(Char::isDigit).take(9) },
-                                label = { Text("Precio Máximo $") },
+                                label = { Text(stringResource(R.string.price_maximum)) },
                                 enabled = canEdit,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(10.dp),
@@ -330,11 +341,11 @@ fun EditPostScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Ubicación y Cobertura", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                    Text(stringResource(R.string.location_and_coverage), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                     OutlinedTextField(
                         value = location,
                         onValueChange = { location = it.take(120) },
-                        label = { Text("Ciudad o zona de cobertura") },
+                        label = { Text(stringResource(R.string.city_or_service_area)) },
                         enabled = canEdit,
                         leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
                         singleLine = true,
@@ -351,18 +362,18 @@ fun EditPostScreen(
     if (showFinishConfirmation) {
         AlertDialog(
             onDismissRequest = { showFinishConfirmation = false },
-            title = { Text("Finalizar publicación") },
-            text = { Text("La publicación dejará de aparecer en el Home. Esta acción no se puede deshacer.") },
+            title = { Text(stringResource(R.string.finish_post)) },
+            text = { Text(stringResource(R.string.finish_post_confirmation)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showFinishConfirmation = false
                         if (viewModel.finishPost(post.id)) onBack()
                     }
-                ) { Text("Finalizar", color = MaterialTheme.colorScheme.error) }
+                ) { Text(stringResource(R.string.finish), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showFinishConfirmation = false }) { Text("Cancelar") }
+                TextButton(onClick = { showFinishConfirmation = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }

@@ -3,6 +3,8 @@ package com.servilocal.features.auth.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.core.util.RequestResult
+import com.servilocal.core.util.ResourceProvider
+import com.servilocal.R
 import com.servilocal.domain.usecase.auth.RecoverPasswordResult
 import com.servilocal.domain.usecase.auth.RecoverPasswordUseCase
 import com.servilocal.domain.usecase.auth.ResetPasswordResult
@@ -38,7 +40,8 @@ data class PasswordRecoveryUiState(
 @HiltViewModel
 class PasswordRecoveryViewModel @Inject constructor(
     private val recoverPasswordUseCase: RecoverPasswordUseCase,
-    private val resetPasswordUseCase: ResetPasswordUseCase
+    private val resetPasswordUseCase: ResetPasswordUseCase,
+    private val resources: ResourceProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PasswordRecoveryUiState())
@@ -73,25 +76,25 @@ class PasswordRecoveryViewModel @Inject constructor(
                         email = it.email.trim().lowercase(),
                         demoCode = result.code,
                         requestResult = RequestResult.Success(
-                            "Código generado. Úsalo para restablecer tu contraseña."
+                            resources.getString(R.string.recovery_code_generated)
                         )
                     )
                 }
 
                 RecoverPasswordResult.InvalidEmail -> _uiState.update {
                     it.copy(
-                        emailError = "Ingresa un correo válido para continuar.",
+                        emailError = resources.getString(R.string.email_invalid_continue),
                         requestResult = RequestResult.Failure(
-                            "Ingresa un correo válido para continuar."
+                            resources.getString(R.string.email_invalid_continue)
                         )
                     )
                 }
 
                 RecoverPasswordResult.UserNotFound -> _uiState.update {
                     it.copy(
-                        emailError = "No encontramos una cuenta con ese correo.",
+                        emailError = resources.getString(R.string.account_not_found),
                         requestResult = RequestResult.Failure(
-                            "No encontramos una cuenta con ese correo."
+                            resources.getString(R.string.account_not_found)
                         )
                     )
                 }
@@ -161,13 +164,13 @@ class PasswordRecoveryViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     codeError = if (!state.isCodeComplete) {
-                        "Ingresa los 5 dígitos del código."
+                        resources.getString(R.string.reset_code_digits_required)
                     } else null,
                     passwordError = if (!passwordValid) {
-                        "Usa al menos 8 caracteres."
+                        resources.getString(R.string.min_eight_characters)
                     } else null,
                     confirmPasswordError = if (!passwordsMatch) {
-                        "Las contraseñas no coinciden."
+                        resources.getString(R.string.passwords_dont_match)
                     } else null,
                     resetResult = null
                 )
@@ -182,38 +185,38 @@ class PasswordRecoveryViewModel @Inject constructor(
                     it.copy(
                         demoCode = null,
                         resetResult = RequestResult.Success(
-                            "Contraseña actualizada. Ya puedes iniciar sesión."
+                            resources.getString(R.string.password_reset_success)
                         )
                     )
                 }
 
                 ResetPasswordResult.InvalidEmail -> _uiState.update {
                     it.copy(
-                        resetResult = RequestResult.Failure("El correo no es válido.")
+                        resetResult = RequestResult.Failure(resources.getString(R.string.invalid_email))
                     )
                 }
 
                 ResetPasswordResult.UserNotFound -> _uiState.update {
                     it.copy(
                         resetResult = RequestResult.Failure(
-                            "No encontramos una cuenta con ese correo."
+                            resources.getString(R.string.account_not_found)
                         )
                     )
                 }
 
                 ResetPasswordResult.InvalidCode -> _uiState.update {
                     it.copy(
-                        codeError = "El código no es correcto o ya fue usado.",
+                        codeError = resources.getString(R.string.invalid_or_used_code),
                         resetResult = RequestResult.Failure(
-                            "El código no es correcto o ya fue usado."
+                            resources.getString(R.string.invalid_or_used_code)
                         )
                     )
                 }
 
                 ResetPasswordResult.WeakPassword -> _uiState.update {
                     it.copy(
-                        passwordError = "Usa al menos 8 caracteres.",
-                        resetResult = RequestResult.Failure("Revisa la nueva contraseña.")
+                        passwordError = resources.getString(R.string.min_eight_characters),
+                        resetResult = RequestResult.Failure(resources.getString(R.string.review_new_password))
                     )
                 }
             }

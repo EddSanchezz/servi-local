@@ -3,6 +3,8 @@ package com.servilocal.features.posts.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.servilocal.R
+import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.usecase.posts.GetPostDetailUseCase
 import com.servilocal.domain.usecase.posts.FinishServicePostUseCase
@@ -22,7 +24,8 @@ class EditPostViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     getPostDetail: GetPostDetailUseCase,
     private val updateServicePost: UpdateServicePostUseCase,
-    private val finishServicePost: FinishServicePostUseCase
+    private val finishServicePost: FinishServicePostUseCase,
+    private val resources: ResourceProvider
 ) : ViewModel() {
     private val postId: String = savedStateHandle.get<String>("postId").orEmpty()
     val post: StateFlow<ServicePost?> = getPostDetail(postId)
@@ -53,7 +56,7 @@ class EditPostViewModel @Inject constructor(
         _uiState.value = if (updated) {
             EditPostUiState()
         } else {
-            EditPostUiState("No se pudo actualizar la publicación. Solo puedes editar tus publicaciones aprobadas.")
+            EditPostUiState(resources.getString(R.string.edit_post_failed))
         }
         return updated
     }
@@ -63,7 +66,7 @@ class EditPostViewModel @Inject constructor(
         _uiState.value = if (finished) {
             EditPostUiState()
         } else {
-            EditPostUiState("No se pudo finalizar la publicación.")
+            EditPostUiState(resources.getString(R.string.finish_post_failed))
         }
         return finished
     }

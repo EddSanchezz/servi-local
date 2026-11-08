@@ -42,13 +42,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.servilocal.domain.model.ServicePost
+import com.servilocal.R
 import com.servilocal.features.app.viewmodel.AppUiState
+import com.servilocal.core.ui.localizedDistance
+import com.servilocal.core.ui.localizedServiceCategory
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
@@ -58,6 +62,8 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+
+private data class CategoryOption(val key: String, val labelRes: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
 @Composable
 fun HomeScreen(
@@ -82,13 +88,13 @@ fun HomeScreen(
     val unreadNotifs = if (notificationsEnabled) notifications.count { !it.isRead } else 0
 
     val categories = listOf(
-        Pair("Todos", Icons.Default.Check),
-        Pair("Hogar", Icons.Default.Roofing),
-        Pair("Educación", Icons.Default.School),
-        Pair("Mascotas", Icons.Default.Pets),
-        Pair("Tecnología", Icons.Default.Devices),
-        Pair("Electricidad", Icons.Default.Bolt),
-        Pair("Transporte", Icons.Default.LocalShipping)
+        CategoryOption("Todos", R.string.category_all, Icons.Default.Check),
+        CategoryOption("Hogar", R.string.category_home, Icons.Default.Roofing),
+        CategoryOption("Educación", R.string.category_education, Icons.Default.School),
+        CategoryOption("Mascotas", R.string.category_pets, Icons.Default.Pets),
+        CategoryOption("Tecnología", R.string.category_technology, Icons.Default.Devices),
+        CategoryOption("Electricidad", R.string.category_electricity, Icons.Default.Bolt),
+        CategoryOption("Transporte", R.string.category_transport, Icons.Default.LocalShipping)
     )
 
     var distanceMenuExpanded by remember { mutableStateOf(false) }
@@ -99,10 +105,10 @@ fun HomeScreen(
     fun loadDeviceLocation() {
         requestCurrentLocation(context) { location ->
             if (location == null) {
-                coroutineScope.launch { snackbarHostState.showSnackbar("No se encontró una ubicación. Inténtalo en un área abierta.") }
+                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_not_found)) }
             } else {
                 viewModel.setOriginLocation(location.latitude, location.longitude)
-                coroutineScope.launch { snackbarHostState.showSnackbar("Ubicación GPS actualizada.") }
+                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_updated)) }
             }
         }
     }
@@ -111,7 +117,7 @@ fun HomeScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         if (permissions.values.any { it }) loadDeviceLocation()
-        else coroutineScope.launch { snackbarHostState.showSnackbar("Permite el acceso a la ubicación para buscar cerca de ti.") }
+        else coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_permission_prompt)) }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -143,12 +149,12 @@ fun HomeScreen(
                 }
                 Column {
                     Text(
-                        text = "ServiLocal",
+                        text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Home",
+                        text = stringResource(R.string.home_title),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -171,7 +177,7 @@ fun HomeScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Notifications,
-                        contentDescription = "Notificaciones",
+                        contentDescription = stringResource(R.string.notifications),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -187,14 +193,14 @@ fun HomeScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text("Buscar servicios (ej. plomero, mudanzas...)", style = MaterialTheme.typography.bodyMedium) },
+                placeholder = { Text(stringResource(R.string.search_services_hint), style = MaterialTheme.typography.bodyMedium) },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Limpiar")
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear))
                         }
                     }
                 },
@@ -220,12 +226,12 @@ fun HomeScreen(
             OutlinedTextField(
                 value = locationQuery,
                 onValueChange = viewModel::setLocationQuery,
-                placeholder = { Text("Barrio o zona") },
+                placeholder = { Text(stringResource(R.string.neighborhood_or_area)) },
                 leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
                 trailingIcon = {
                     if (locationQuery.isNotEmpty()) {
                         IconButton(onClick = { viewModel.setLocationQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Limpiar ubicación")
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear_location))
                         }
                     }
                 },
@@ -246,7 +252,7 @@ fun HomeScreen(
             ) {
                 Icon(
                     imageVector = if (originLatitude != null) Icons.Default.MyLocation else Icons.Default.GpsFixed,
-                    contentDescription = "Usar ubicación GPS",
+                    contentDescription = stringResource(R.string.use_gps_location),
                     tint = if (originLatitude != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -254,7 +260,7 @@ fun HomeScreen(
                 FilterChip(
                     selected = maxDistanceKm != null,
                     onClick = { distanceMenuExpanded = true },
-                    label = { Text(maxDistanceKm?.let { "${it.toInt()} km" } ?: "Distancia") },
+                    label = { Text(maxDistanceKm?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.distance)) },
                     leadingIcon = { Icon(Icons.Default.NearMe, contentDescription = null, modifier = Modifier.size(16.dp)) }
                 )
                 DropdownMenu(
@@ -263,7 +269,7 @@ fun HomeScreen(
                 ) {
                     listOf(null, 1.0, 3.0, 5.0, 10.0).forEach { distance ->
                         DropdownMenuItem(
-                            text = { Text(distance?.let { "Hasta ${it.toInt()} km" } ?: "Cualquier distancia") },
+                            text = { Text(distance?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.any_distance)) },
                             onClick = {
                                 viewModel.setMaxDistanceKm(distance)
                                 distanceMenuExpanded = false
@@ -282,14 +288,14 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            categories.forEach { (cat, icon) ->
-                val isSelected = selectedCategory == cat
+            categories.forEach { cat ->
+                val isSelected = selectedCategory == cat.key
                 FilterChip(
                     selected = isSelected,
-                    onClick = { viewModel.setSelectedCategory(cat) },
-                    label = { Text(cat, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                    onClick = { viewModel.setSelectedCategory(cat.key) },
+                    label = { Text(stringResource(cat.labelRes), fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                     leadingIcon = {
-                        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(cat.icon, contentDescription = null, modifier = Modifier.size(16.dp))
                     },
                     shape = RoundedCornerShape(8.dp),
                     colors = FilterChipDefaults.filterChipColors(
@@ -335,7 +341,7 @@ fun HomeScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Lista",
+                            text = stringResource(R.string.list_view),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = if (viewDisplayMode == ViewDisplayMode.LIST) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -360,7 +366,7 @@ fun HomeScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Mapa",
+                            text = stringResource(R.string.map_view),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = if (viewDisplayMode == ViewDisplayMode.MAP) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -385,12 +391,12 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "No se encontraron servicios",
+                            text = stringResource(R.string.no_services_found),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Prueba con otros términos o selecciona otra categoría.",
+                            text = stringResource(R.string.try_other_search),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -500,7 +506,7 @@ fun ServiceCardItem(
                                 modifier = Modifier.size(12.dp)
                             )
                             Text(
-                                text = "${post.distance} · ${post.location}",
+                                text = "${localizedDistance(post.distance)} · ${post.location}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -513,7 +519,7 @@ fun ServiceCardItem(
                     IconButton(onClick = onUpvoteClick) {
                         Icon(
                             imageVector = if (post.userUpvoted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Me interesa",
+                            contentDescription = stringResource(R.string.like_post),
                             tint = if (post.userUpvoted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
                         )
                     }
@@ -571,7 +577,7 @@ fun ServiceCardItem(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF4ADE80), modifier = Modifier.size(14.dp))
-                            Text("Disponible Ahora", style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.SemiBold))
+                            Text(stringResource(R.string.available_now), style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.SemiBold))
                         }
                     }
 
@@ -596,7 +602,7 @@ fun ServiceCardItem(
             )
 
             Text(
-                text = "Desde $ ${post.minPrice} COP / servicio",
+                text = stringResource(R.string.starting_price, post.minPrice),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 2.dp)
@@ -616,14 +622,14 @@ fun ServiceCardItem(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "(${post.reviewCount} reseñas)",
+                    text = stringResource(R.string.review_count, post.reviewCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
                 Text("•", color = MaterialTheme.colorScheme.outline)
                 Icon(Icons.Default.ThumbUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
                 Text(
-                    text = "${post.upvotesCount} Me interesa",
+                    text = stringResource(R.string.interest_count, post.upvotesCount),
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -638,7 +644,7 @@ fun ServiceCardItem(
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
-                        text = post.category,
+                        text = localizedServiceCategory(post.category),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -650,7 +656,7 @@ fun ServiceCardItem(
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
-                            text = "Garantía ${post.warrantyMonths} meses",
+                            text = stringResource(R.string.warranty_months, post.warrantyMonths),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -707,7 +713,7 @@ fun InteractiveMapPreview(
                 if (originLatitude != null && originLongitude != null) {
                     map.overlays.add(Marker(map).apply {
                         position = center
-                        title = "Tu ubicación"
+                        title = context.getString(R.string.your_location)
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     })
                 }
@@ -724,10 +730,10 @@ fun InteractiveMapPreview(
                         )
                         map.overlays.add(Marker(map).apply {
                             position = point
-                            title = if (cluster.size == 1) cluster.first().title else "${cluster.size} servicios cercanos"
+                            title = if (cluster.size == 1) cluster.first().title else context.getString(R.string.nearby_services_count, cluster.size)
                             snippet = if (cluster.size == 1) {
                                 "${cluster.first().providerName} · ${cluster.first().distance}"
-                            } else "Toca para acercar el mapa"
+                            } else context.getString(R.string.tap_to_zoom_map)
                             icon = createMapMarkerIcon(context, cluster.size)
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                             setOnMarkerClickListener { clicked, _ ->
@@ -764,7 +770,7 @@ fun InteractiveMapPreview(
             shape = RoundedCornerShape(18.dp)
         ) {
             Text(
-                if (originLatitude == null) "Servicios cerca de ti" else "Servicios cerca de tu ubicación",
+                if (originLatitude == null) stringResource(R.string.services_near_you) else stringResource(R.string.services_near_your_location),
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
