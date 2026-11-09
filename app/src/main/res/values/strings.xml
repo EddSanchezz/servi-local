@@ -119,6 +119,8 @@
     <string name="profile_validation_error">Revisa el nombre y el correo antes de guardar.</string>
     <string name="profile_save_error">No se pudieron guardar los cambios del perfil. Inténtalo de nuevo.</string>
     <string name="profile_photo_selected_pending_save">Foto seleccionada. Pulsa Guardar para aplicarla al perfil.</string>
+    <string name="profile_photo_uploading">Subiendo foto de perfil…</string>
+    <string name="profile_photo_upload_error">No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.</string>
     <string name="remove_profile_photo">Quitar foto</string>
     <string name="edit_photo">Editar foto</string>
     <string name="points_accumulated">%1$d pts acumulados</string>

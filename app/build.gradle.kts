@@ -1,10 +1,24 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.hilt.android)
-    alias(libs.plugins.google.gms.google.services)
 }
+
+if (file("google-services.json").isFile) {
+  apply(plugin = "com.google.gms.google-services")
+}
+
+val localProperties = Properties().apply {
+  val propertiesFile = rootProject.file("local.properties")
+  if (propertiesFile.exists()) {
+    propertiesFile.inputStream().use { load(it) }
+  }
+}
+val cloudinaryCloudName = localProperties.getProperty("CLOUDINARY_CLOUD_NAME", "").trim()
+val cloudinaryUploadPreset = localProperties.getProperty("CLOUDINARY_UPLOAD_PRESET", "").trim()
 
 android {
   namespace = "com.servilocal"
@@ -17,6 +31,8 @@ android {
     versionCode = 1
     versionName = "1.0"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"$cloudinaryCloudName\"")
+    buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"$cloudinaryUploadPreset\"")
   }
 
   buildTypes {
@@ -60,8 +76,9 @@ dependencies {
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.androidx.hilt.navigation.compose)
   implementation(libs.androidx.navigation.compose)
-    implementation(libs.firebase.storage)
-    implementation(libs.hilt.android)
+  implementation(libs.cloudinary.android)
+  implementation(libs.coil.compose)
+  implementation(libs.hilt.android)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.osmdroid.android)

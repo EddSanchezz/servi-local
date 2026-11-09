@@ -1,6 +1,7 @@
 package com.servilocal.core.di
 
 import com.servilocal.core.data.repository.MockDataRepository
+import com.servilocal.data.repository.cloudinary.CloudinaryImageStorageRepository
 import com.servilocal.data.repository.memory.BadgeRepositoryImpl
 import com.servilocal.data.repository.memory.PasswordResetRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
@@ -9,6 +10,7 @@ import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.BadgeRepository
 import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.repository.CommentRepository
+import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.domain.repository.LikeRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
@@ -25,6 +27,10 @@ import jakarta.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindImageStorageRepository(repository: CloudinaryImageStorageRepository): ImageStorageRepository
+
     @Binds
     @Singleton
     abstract fun bindAuthRepository(repository: MockDataRepository): AuthRepository

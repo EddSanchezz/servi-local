@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.domain.model.BadgeDisplay
 import com.servilocal.domain.repository.AuthRepository
+import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
@@ -24,12 +25,15 @@ import kotlinx.coroutines.launch
 
 data class ProfileUiState(
     val stats: ProfileStats? = null,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val isUploadingPhoto: Boolean = false,
+    val uploadProgress: Float? = null
 )
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val imageStorageRepository: ImageStorageRepository,
     postRepository: PostRepository,
     observeNotifications: ObserveNotificationsUseCase,
     observeUserBadges: ObserveUserBadgesUseCase,
@@ -79,8 +83,29 @@ class ProfileViewModel @Inject constructor(
 
     suspend fun updateCurrentUserProfile(name: String, email: String, photoUrl: String?): Boolean {
         if (name.isBlank() || !email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) return false
+
+        val currentProfile = currentUser.value
+        val persistentPhotoUrl = when {
+            photoUrl.isNullOrBlank() -> null
+            photoUrl.startsWith("https://") || photoUrl.startsWith("http://") -> photoUrl
+            else -> {
+                _uiState.update { it.copy(isUploadingPhoto = true, uploadProgress = 0f) }
+                try {
+                    imageStorageRepository.uploadImage(
+                        localUri = photoUrl,
+                        folder = "servilocal/avatars/user_${currentProfile.id}",
+                        onProgress = { progress ->
+                            _uiState.update { it.copy(uploadProgress = progress) }
+                        }
+                    )
+                } finally {
+                    _uiState.update { it.copy(isUploadingPhoto = false, uploadProgress = null) }
+                }
+            }
+        }
+
         authRepository.updateCurrentUser(name.trim(), email.trim())
-        authRepository.updateCurrentUserPhoto(photoUrl)
+        authRepository.updateCurrentUserPhoto(persistentPhotoUrl)
         refresh()
         return true
     }

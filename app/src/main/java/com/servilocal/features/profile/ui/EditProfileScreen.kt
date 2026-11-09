@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.servilocal.R
 import com.servilocal.core.ui.components.ImagePicker
 import com.servilocal.core.ui.components.ProfilePhotoAvatar
+import com.servilocal.domain.exception.ImageUploadException
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -54,6 +56,7 @@ fun EditProfileScreen(
     modifier: Modifier = Modifier
 ) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val profileUiState by viewModel.uiState.collectAsStateWithLifecycle()
     var name by rememberSaveable(currentUser.id) { mutableStateOf(currentUser.name) }
     var email by rememberSaveable(currentUser.id) { mutableStateOf(currentUser.email) }
     var photoUrl by rememberSaveable(currentUser.id) { mutableStateOf(currentUser.photoUrl) }
@@ -64,6 +67,7 @@ fun EditProfileScreen(
     val validationErrorMessage = stringResource(R.string.profile_validation_error)
     val saveErrorMessage = stringResource(R.string.profile_save_error)
     val selectedPhotoMessage = stringResource(R.string.profile_photo_selected_pending_save)
+    val photoUploadErrorMessage = stringResource(R.string.profile_photo_upload_error)
 
     fun saveProfile() {
         if (isSaving) return
@@ -78,6 +82,8 @@ fun EditProfileScreen(
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
+            } catch (_: ImageUploadException) {
+                snackbarHostState.showSnackbar(photoUploadErrorMessage)
             } catch (_: Exception) {
                 snackbarHostState.showSnackbar(saveErrorMessage)
             } finally {
@@ -93,7 +99,7 @@ fun EditProfileScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.my_profile)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, enabled = !isSaving) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
@@ -148,6 +154,19 @@ fun EditProfileScreen(
                     }
                 }
             )
+
+            if (profileUiState.isUploadingPhoto) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(stringResource(R.string.profile_photo_uploading))
+                    LinearProgressIndicator(
+                        progress = { profileUiState.uploadProgress ?: 0f },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
 
             OutlinedTextField(
                 value = name,

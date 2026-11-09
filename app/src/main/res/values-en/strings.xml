@@ -116,6 +116,8 @@
     <string name="profile_validation_error">Check the name and email before saving.</string>
     <string name="profile_save_error">Profile changes could not be saved. Please try again.</string>
     <string name="profile_photo_selected_pending_save">Photo selected. Tap Save to apply it to your profile.</string>
+    <string name="profile_photo_uploading">Uploading profile photo…</string>
+    <string name="profile_photo_upload_error">The photo could not be uploaded. Check your connection and try again.</string>
     <string name="remove_profile_photo">Remove photo</string>
     <string name="edit_photo">Edit photo</string>
     <string name="points_accumulated">%1$d points earned</string>
