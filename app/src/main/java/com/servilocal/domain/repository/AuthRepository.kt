@@ -7,6 +7,7 @@ interface AuthRepository {
     val currentUser: StateFlow<UserProfile>
     val moderatorUser: StateFlow<UserProfile>
 
-    fun updateCurrentUser(name: String, email: String)
+    suspend fun updateCurrentUser(name: String, email: String)
+    suspend fun updateCurrentUserPhoto(photoUrl: String?)
     fun toggleModeratorShift()
 }

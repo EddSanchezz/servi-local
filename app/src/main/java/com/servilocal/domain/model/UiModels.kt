@@ -9,6 +9,7 @@ data class UserProfile(
     val id: Long,
     val name: String,
     val email: String,
+    val photoUrl: String? = null,
     val role: UserRole,
     val level: String = "Nivel 1: Principiante",
     val points: Int = 0,

@@ -21,8 +21,19 @@
     <string name="permission_manage">Administrar</string>
     <string name="permission_allow">Permitir</string>
     <string name="permission_camera">Cámara</string>
-    <string name="permission_camera_summary">Preparado para una futura función de captura de fotos.</string>
-    <string name="permission_coming_soon">Próximamente</string>
+    <string name="permission_camera_summary">El permiso se solicita cuando eliges tomar una foto.</string>
+    <string name="permission_camera_granted">Permiso concedido para tomar fotos.</string>
+    <string name="camera_permission_title">Permiso de cámara requerido</string>
+    <string name="camera_permission_required">Para acceder a esta función debes activar los permisos de cámara.</string>
+    <string name="camera_open_failed">No se pudo abrir la cámara. Verifica que tu dispositivo tenga una aplicación de cámara disponible.</string>
+    <string name="gallery_permission_title">Permiso de galería requerido</string>
+    <string name="gallery_permission_required">Para acceder a esta función debes activar los permisos de galería o imágenes.</string>
+    <string name="gallery_permission_summary">Se solicitará acceso a imágenes cuando elijas una foto de la galería.</string>
+    <string name="gallery_permission_granted">Permiso concedido para acceder a imágenes.</string>
+    <string name="open_app_settings">Activar permisos</string>
+    <string name="select_image">Seleccionar imagen</string>
+    <string name="take_photo">Tomar foto</string>
+    <string name="choose_from_gallery">Elegir de la galería</string>
     <string name="done">Listo</string>
     <!-- General UI -->
     <string name="nav_home">Inicio</string>
@@ -102,6 +113,13 @@
     <string name="back_to_login">Volver al inicio de sesión</string>
     <!-- Profile -->
     <string name="profile_title">Perfil</string>
+    <string name="my_profile">Mi perfil</string>
+    <string name="go_to_my_profile">Ir a mi perfil</string>
+    <string name="change_profile_photo">Cambiar foto de perfil</string>
+    <string name="profile_validation_error">Revisa el nombre y el correo antes de guardar.</string>
+    <string name="profile_save_error">No se pudieron guardar los cambios del perfil. Inténtalo de nuevo.</string>
+    <string name="profile_photo_selected_pending_save">Foto seleccionada. Pulsa Guardar para aplicarla al perfil.</string>
+    <string name="remove_profile_photo">Quitar foto</string>
     <string name="edit_photo">Editar foto</string>
     <string name="points_accumulated">%1$d pts acumulados</string>
     <string name="points_total">%1$d / %2$d pts</string>

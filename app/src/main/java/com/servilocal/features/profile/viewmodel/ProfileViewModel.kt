@@ -77,9 +77,10 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun updateCurrentUser(name: String, email: String): Boolean {
+    suspend fun updateCurrentUserProfile(name: String, email: String, photoUrl: String?): Boolean {
         if (name.isBlank() || !email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) return false
         authRepository.updateCurrentUser(name.trim(), email.trim())
+        authRepository.updateCurrentUserPhoto(photoUrl)
         refresh()
         return true
     }

@@ -5,6 +5,7 @@ import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.model.NotificationType
 import com.servilocal.domain.model.PostStatus
+import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.posts.AddCommentResult
 import com.servilocal.domain.usecase.posts.AddPostCommentUseCase
@@ -29,6 +30,26 @@ class PostInteractionUseCaseTest {
 
     private fun addCommentUseCase(repository: MockDataRepository) =
         AddPostCommentUseCase(repository, repository, repository, CreateNotificationUseCase(repository))
+
+    @Test
+    fun `profile photo is persisted on the user and survives user flow updates`() = runTest {
+        val users = UserRepositoryImpl()
+        val session = SessionRepositoryImpl()
+        session.saveSession(userId = 1L, role = UserRole.USER)
+        val repository = MockDataRepository(users, session)
+        val photoUrl = "content://servilocal/profile-photo"
+
+        repository.updateCurrentUserPhoto(photoUrl)
+        assertEquals(photoUrl, users.findById(1L)?.photoUrl)
+
+        val storedUser = requireNotNull(users.findById(1L))
+        users.save(storedUser.copy(name = "Valentina Actualizada"))
+        val refreshedProfile = repository.currentUser.first { it.name == "Valentina Actualizada" }
+        assertEquals(photoUrl, refreshedProfile.photoUrl)
+
+        repository.updateCurrentUserPhoto(null)
+        assertEquals(null, users.findById(1L)?.photoUrl)
+    }
 
     @Test
     fun `a user can like another users post only once and remove that like`() {

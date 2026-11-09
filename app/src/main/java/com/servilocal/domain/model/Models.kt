@@ -75,7 +75,8 @@ data class User(
     val role: UserRole,
     val points: Int = 0,
     val level: UserLevel = UserLevel.PRINCIPIANTE,
-    val createdAtMillis: Long = System.currentTimeMillis()
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val photoUrl: String? = null
 )
 
 /** Tabla posts (la oferta de servicio) */

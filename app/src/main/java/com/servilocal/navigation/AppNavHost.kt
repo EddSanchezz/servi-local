@@ -86,6 +86,7 @@ import com.servilocal.features.posts.viewmodel.CreatePostViewModel
 import com.servilocal.features.posts.viewmodel.EditPostViewModel
 import com.servilocal.features.profile.ui.UserProfileScreen
 import com.servilocal.features.profile.ui.AppSettingsScreen
+import com.servilocal.features.profile.ui.EditProfileScreen
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
 
 object AppRoute {
@@ -99,6 +100,7 @@ object AppRoute {
     const val MESSAGES = "messages"
     const val CREATE_POST = "create-post"
     const val PROFILE = "profile"
+    const val EDIT_PROFILE = "edit-profile"
     const val SETTINGS = "settings"
     const val MODERATION_FEED = "moderation-feed"
     const val MODERATION_REPORTS = "moderation-reports"
@@ -326,7 +328,15 @@ private fun DashboardNavigation(
                     onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) },
                     onLogout = onLogout,
                     onOpenServiceDetail = { navController.navigate(AppRoute.serviceDetail(it)) },
-                    onOpenSettings = { navController.navigate(AppRoute.SETTINGS) }
+                    onOpenSettings = { navController.navigate(AppRoute.SETTINGS) },
+                    onOpenMyProfile = { navController.navigate(AppRoute.EDIT_PROFILE) }
+                )
+            }
+            composable(AppRoute.EDIT_PROFILE) {
+                val viewModel: ProfileViewModel = hiltViewModel()
+                EditProfileScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.navigateUp() }
                 )
             }
             composable(AppRoute.SETTINGS) {

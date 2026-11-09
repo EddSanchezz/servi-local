@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
@@ -56,6 +57,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.core.os.LocaleListCompat
 import com.servilocal.R
+import com.servilocal.core.util.hasImageReadPermission
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +73,8 @@ fun AppSettingsScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var locationGranted by remember { mutableStateOf(context.hasLocationPermission()) }
+    var cameraGranted by remember { mutableStateOf(context.hasCameraPermission()) }
+    var galleryGranted by remember { mutableStateOf(context.hasImageReadPermission()) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     val selectedLanguage = remember {
         AppCompatDelegate.getApplicationLocales().toLanguageTags()
@@ -88,6 +92,8 @@ fun AppSettingsScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 locationGranted = context.hasLocationPermission()
+                cameraGranted = context.hasCameraPermission()
+                galleryGranted = context.hasImageReadPermission()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -191,13 +197,32 @@ fun AppSettingsScreen(
                 ListItem(
                     leadingContent = { Icon(Icons.Default.CameraAlt, contentDescription = null) },
                     headlineContent = { Text(stringResource(R.string.permission_camera)) },
-                    supportingContent = { Text(stringResource(R.string.permission_camera_summary)) },
-                    trailingContent = {
+                    supportingContent = {
                         Text(
-                            stringResource(R.string.permission_coming_soon),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.outline
+                            if (cameraGranted) stringResource(R.string.permission_camera_granted)
+                            else stringResource(R.string.permission_camera_summary)
                         )
+                    },
+                    trailingContent = {
+                        TextButton(onClick = { context.openApplicationSettings() }) {
+                            Text(stringResource(R.string.permission_manage))
+                        }
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                ListItem(
+                    leadingContent = { Icon(Icons.Default.Image, contentDescription = null) },
+                    headlineContent = { Text(stringResource(R.string.choose_from_gallery)) },
+                    supportingContent = {
+                        Text(
+                            if (galleryGranted) stringResource(R.string.gallery_permission_granted)
+                            else stringResource(R.string.gallery_permission_summary)
+                        )
+                    },
+                    trailingContent = {
+                        TextButton(onClick = { context.openApplicationSettings() }) {
+                            Text(stringResource(R.string.permission_manage))
+                        }
                     }
                 )
             }
@@ -270,6 +295,9 @@ private fun LanguageOption(label: String, selected: Boolean, onClick: () -> Unit
 private fun Context.hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+private fun Context.hasCameraPermission(): Boolean =
+    ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
 private fun Context.openApplicationSettings() {
     startActivity(

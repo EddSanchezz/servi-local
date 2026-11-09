@@ -147,7 +147,8 @@ class ModerationUseCaseTest {
         override val currentUser: StateFlow<UserProfile> = _currentUser
         override val moderatorUser: StateFlow<UserProfile> = _moderatorUser
 
-        override fun updateCurrentUser(name: String, email: String) {}
+        override suspend fun updateCurrentUser(name: String, email: String) {}
+        override suspend fun updateCurrentUserPhoto(photoUrl: String?) {}
         override fun toggleModeratorShift() {
             _moderatorUser.value = _moderatorUser.value.copy(activeShift = !_moderatorUser.value.activeShift)
         }

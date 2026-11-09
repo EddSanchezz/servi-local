@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.servilocal.core.ui.components.ProfileNavRow
+import com.servilocal.core.ui.components.ProfilePhotoAvatar
 import com.servilocal.R
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
@@ -40,6 +42,7 @@ fun UserProfileScreen(
     onLogout: () -> Unit,
     onOpenServiceDetail: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenMyProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
@@ -54,9 +57,6 @@ fun UserProfileScreen(
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var postPendingDeletion by remember { mutableStateOf<com.servilocal.domain.model.ServicePost?>(null) }
     var deletePostFailed by remember { mutableStateOf(false) }
-    var editName by remember(currentUser.id) { mutableStateOf(currentUser.name) }
-    var editEmail by remember(currentUser.id) { mutableStateOf(currentUser.email) }
-    var editValidationMessage by remember { mutableStateOf(false) }
     val ownedPosts = myPosts
     val votedPosts = posts.filter { it.userUpvoted }
     val displayBadges = badges
@@ -106,59 +106,51 @@ fun UserProfileScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    Surface(
+                        onClick = onOpenMyProfile,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Avatar with Edit Badge
-                        Box(modifier = Modifier.size(72.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.secondaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = currentUser.name.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull()?.uppercase() }.joinToString(""),
-                                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Box(modifier = Modifier.size(72.dp)) {
+                                ProfilePhotoAvatar(
+                                    name = currentUser.name,
+                                    photoUrl = currentUser.photoUrl,
+                                    modifier = Modifier.fillMaxSize()
                                 )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .size(26.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_photo), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
-                            }
-                        }
-
-                        Column {
-                            Text(
-                                text = currentUser.name,
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Surface(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                Box(
+                                    modifier = Modifier.align(Alignment.BottomEnd).size(26.dp)
+                                        .clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.Verified, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
-                                    Text(levelLabel, style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold))
+                                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_photo), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
                                 }
                             }
-                            Text(stringResource(R.string.points_accumulated, points), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(currentUser.name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(Icons.Default.Verified, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                        Text(levelLabel, style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold))
+                                    }
+                                }
+                                Text(stringResource(R.string.points_accumulated, points), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                Text(stringResource(R.string.go_to_my_profile), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
+                            }
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
@@ -285,13 +277,6 @@ fun UserProfileScreen(
                 ) {
                     Column {
                         ProfileNavRow(
-                            icon = Icons.Default.Edit,
-                            title = stringResource(R.string.edit_profile),
-                            subtitle = stringResource(R.string.personal_contact_info),
-                            onClick = { activeDialog = "Editar Perfil" }
-                        )
-                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
-                        ProfileNavRow(
                             icon = Icons.AutoMirrored.Filled.Assignment,
                             title = stringResource(R.string.my_publications),
                             subtitle = stringResource(R.string.manage_my_posts),
@@ -377,24 +362,6 @@ fun UserProfileScreen(
             title = { Text(profileDialogTitle(title)) },
             text = {
                 when (title) {
-                    "Editar Perfil" -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = editName,
-                            onValueChange = { editName = it },
-                            label = { Text(stringResource(R.string.full_name)) },
-                            isError = editValidationMessage && editName.isBlank(),
-                            supportingText = { if (editValidationMessage && editName.isBlank()) Text(stringResource(R.string.name_required)) },
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = editEmail,
-                            onValueChange = { editEmail = it },
-                            label = { Text(stringResource(R.string.email_label)) },
-                            isError = editValidationMessage && !editEmail.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")),
-                            supportingText = { if (editValidationMessage && !editEmail.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) Text(stringResource(R.string.valid_email_required)) },
-                            singleLine = true
-                        )
-                    }
                     "Horario de atención" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(R.string.availability_intro), style = MaterialTheme.typography.bodyMedium)
                         Text(currentUser.workingHours, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
@@ -449,25 +416,9 @@ fun UserProfileScreen(
                 }
             },
             confirmButton = {
-                if (title == "Editar Perfil") {
-                    TextButton(
-                        onClick = {
-                            if (viewModel.updateCurrentUser(editName, editEmail.trim())) {
-                                editValidationMessage = false
-                                activeDialog = null
-                            } else {
-                                editValidationMessage = true
-                            }
-                        }
-                    ) { Text(stringResource(R.string.save)) }
-                } else {
-                    TextButton(onClick = { activeDialog = null }) { Text(stringResource(R.string.done)) }
-                }
+                TextButton(onClick = { activeDialog = null }) { Text(stringResource(R.string.done)) }
             },
             dismissButton = {
-                if (title == "Editar Perfil") {
-                    TextButton(onClick = { activeDialog = null }) { Text(stringResource(R.string.cancel)) }
-                }
             }
         )
     }
@@ -518,7 +469,6 @@ fun UserProfileScreen(
 
 @Composable
 private fun profileDialogTitle(title: String): String = when (title) {
-    "Editar Perfil" -> stringResource(R.string.edit_profile)
     "Mis Publicaciones" -> stringResource(R.string.my_publications)
     "Servicios que me importan / Mis Votos" -> stringResource(R.string.my_votes_title)
     "Horario de atención" -> stringResource(R.string.working_hours)

@@ -555,20 +555,32 @@ class MockDataRepository @Inject constructor(
         refreshConversations()
     }
 
-    override fun updateCurrentUser(name: String, email: String) {
+    override suspend fun updateCurrentUser(name: String, email: String) {
         if (name.isBlank() || !email.contains('@')) return
         _currentUser.update { it.copy(name = name.trim(), email = email.trim()) }
 
         val updated = _currentUser.value
-        val users = userRepository
-        if (users != null) {
-            scope.launch {
-                users.findById(updated.id)?.let { user ->
-                    users.save(user.copy(name = updated.name, email = updated.email))
-                }
-            }
+        userRepository?.findById(updated.id)?.let { user ->
+            userRepository.save(
+                user.copy(name = updated.name, email = updated.email, photoUrl = updated.photoUrl)
+            )
         }
         refreshConversations()
+    }
+
+    override suspend fun updateCurrentUserPhoto(photoUrl: String?) {
+        _currentUser.update { it.copy(photoUrl = photoUrl) }
+
+        val updated = _currentUser.value
+        userRepository?.findById(updated.id)?.let { user ->
+            userRepository.save(
+                user.copy(
+                    name = updated.name,
+                    email = updated.email,
+                    photoUrl = updated.photoUrl
+                )
+            )
+        }
     }
 
     override fun createReport(
@@ -1100,6 +1112,7 @@ class MockDataRepository @Inject constructor(
             id = id,
             name = name,
             email = email,
+            photoUrl = photoUrl,
             role = role,
             level = level.displayName(),
             points = points,
