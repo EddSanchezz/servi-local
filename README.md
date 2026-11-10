@@ -1,6 +1,6 @@
 # ServiLocal
 
-Aplicación Android en Kotlin y Jetpack Compose para conectar a la comunidad con servicios locales en Armenia y el Quindío. La interfaz sigue los prototipos del proyecto y, en esta fase, usa datos de demostración en memoria.
+Aplicación Android en Kotlin y Jetpack Compose para conectar a la comunidad con servicios locales en Armenia y el Quindío.
 
 ## Arquitectura
 
@@ -30,9 +30,9 @@ app/src/main/java/com/servilocal/
 └── navigation/AppNavHost.kt        # grafo raíz y grafo interno
 ```
 
-Flujo de datos previsto: `Compose` → `ViewModel` → casos de uso → interfaces de repositorio. Hilt conecta los contratos con implementaciones singleton en memoria. Navigation Compose tiene un grafo raíz para onboarding/autenticación y un dashboard con navegación distinta según el rol: Home es la pestaña inicial del usuario y Auditoría la del moderador.
+Flujo de datos: `Compose` → `ViewModel` → casos de uso → interfaces de repositorio. Hilt conecta los contratos con sus implementaciones. Navigation Compose tiene un grafo raíz para onboarding/autenticación y un dashboard con navegación distinta según el rol: Home es la pestaña inicial del usuario y Auditoría la del moderador.
 
-En esta fase, la aplicación usa datos de demostración en memoria: no hay persistencia, autenticación remota, mapas reales ni carga de imágenes. El PDF de procesos y reparto está en la raíz. La carpeta `/docs` está excluida de Git y no se incluye en esta copia del proyecto.
+La aplicación usa Firebase para autenticación y perfiles, y Cloudinary para la carga de imágenes. El PDF de procesos y reparto está en la raíz. La carpeta `/docs` está excluida de Git y no se incluye en esta copia del proyecto.
 
 El módulo de publicaciones permite buscar por texto, filtrar por categoría y zona, y limitar por distancias calculadas desde coordenadas aproximadas de prueba en Armenia. No usa GPS ni geocodificación real. Desde el perfil se pueden consultar y eliminar publicaciones propias; editar y finalizar está permitido al autor para publicaciones aprobadas. La moderación ofrece una cola FIFO de pendientes, aprobación, rechazo con motivo obligatorio y resolución de publicaciones/reportes.
 
@@ -49,16 +49,27 @@ En Windows, configura `sdk.dir` en `local.properties` con la ruta local del SDK.
 
 El feed usa OpenStreetMap mediante osmdroid. La pestaña Mapa muestra tiles reales, marcadores personalizados agrupados por proximidad y la ubicación GPS del dispositivo cuando se concede el permiso. Las coordenadas de publicaciones creadas sin geocodificación se calculan solo para zonas demo conocidas; para producción se debe añadir un servicio de geocodificación y respetar sus políticas de uso. Carto Voyager puede activarse posteriormente con un token del proveedor; sin token la app usa OSM como fallback para no mostrar mosaicos rotos.
 
-### Firebase Storage e imágenes
+### Firebase
 
-La carga remota de imágenes requiere un proyecto Firebase real y no se puede completar solo desde este repositorio. Para activarla:
+Firebase se usa para la autenticación y los perfiles de usuario en Firestore.
 
-1. Crea un proyecto en Firebase y registra el paquete `com.aistudio.servilocal.quindio`.
-2. Habilita Cloud Storage y Authentication. Firebase Storage requiere el plan Blaze según la documentación actual de Firebase.
-3. Descarga `google-services.json` y colócalo en `app/google-services.json`; no lo subas a Git.
-4. Define reglas de Storage que permitan a usuarios autenticados subir solo sus propias imágenes.
+1. Crea un proyecto Firebase y registra el paquete `com.aistudio.servilocal.quindio`.
+2. Habilita los proveedores Email/Password y Google, además de Firestore.
+3. Registra las huellas SHA-1 y SHA-256 del certificado usado para instalar la aplicación.
+4. Descarga `google-services.json` y colócalo en `app/google-services.json`.
 
-La implementación actual conserva fotos como datos de la publicación demo; la integración Firebase queda pendiente de ese archivo y de las reglas del bucket. No se han incorporado secretos ni claves ficticias.
+Los usuarios pueden registrarse con correo y contraseña o iniciar sesión con Google. `google-services.json` no debe subirse a Git.
+
+### Cloudinary
+
+Cloudinary se usa para almacenar las imágenes de las publicaciones. Configura sus datos en `local.properties`:
+
+```properties
+CLOUDINARY_CLOUD_NAME=tu_cloud_name
+CLOUDINARY_UPLOAD_PRESET=tu_unsigned_upload_preset
+```
+
+`local.properties` y las credenciales no deben subirse a Git.
 
 ## Compilar y probar
 
