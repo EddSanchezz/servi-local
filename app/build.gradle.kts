@@ -5,6 +5,7 @@ plugins {
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.hilt.android)
+  alias(libs.plugins.google.gms.google.services)
 }
 
 if (file("google-services.json").isFile) {
@@ -61,6 +62,7 @@ android {
 }
 
 dependencies {
+  implementation(platform(libs.firebase.bom))
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.compose.material.icons.core)
@@ -78,9 +80,15 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.cloudinary.android)
   implementation(libs.coil.compose)
+  implementation(libs.firebase.auth)
+  implementation(libs.firebase.firestore)
+  implementation(libs.androidx.credentials)
+  implementation(libs.androidx.credentials.play.services.auth)
+  implementation(libs.googleid)
   implementation(libs.hilt.android)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
+  implementation(libs.kotlinx.coroutines.play.services)
   implementation(libs.osmdroid.android)
 
   testImplementation(libs.androidx.core)

@@ -63,7 +63,7 @@ class ServiceRequestUseCaseTest {
         assertEquals("Calle 10 #12-34", conversation.requestAddress)
         assertEquals("Revisar un tablero", conversation.requestProblem)
         assertEquals("3001234567", conversation.requestPhone)
-        assertTrue(repository.notifications.value.any { it.userId == 2L && it.relatedChatId == conversationId })
+        assertTrue(repository.notifications.value.any { it.userId == "2" && it.relatedChatId == conversationId })
 
         val sent = ObserveMyRequestsUseCase(repository)().first()
         val received = ObserveReceivedRequestsUseCase(repository)().first()

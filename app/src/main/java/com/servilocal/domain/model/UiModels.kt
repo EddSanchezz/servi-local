@@ -6,7 +6,7 @@ package com.servilocal.domain.model
  */
 
 data class UserProfile(
-    val id: Long,
+    val id: String,
     val name: String,
     val email: String,
     val photoUrl: String? = null,
@@ -34,7 +34,7 @@ data class ServicePost(
     val category: String,
     val description: String,
     val providerName: String,
-    val providerId: Long? = null,
+    val providerId: String? = null,
     val providerAvatar: String? = null,
     val providerLevel: String = "Principiante",
     val minPrice: Int = 25000,
@@ -66,15 +66,15 @@ data class ServiceComment(
     val text: String,
     val isAuthorReply: Boolean = false,
     val isRecommended: Boolean = true,
-    val authorId: Long? = null
+    val authorId: String? = null
 )
 
 typealias ChatStatus = ServiceRequestStatus
 
 data class ChatConversation(
     val id: String,
-    val clientId: Long = 1L,
-    val providerId: Long = 2L,
+    val clientId: String = "demo-client",
+    val providerId: String = "demo-provider",
     val postId: String = "",
     val clientName: String = "Cliente",
     val providerName: String = "Proveedor",
@@ -129,7 +129,7 @@ data class ModerationReportItem(
     val targetTitle: String,
     val description: String,
     val targetPostId: String,
-    val reporterId: Long = 1L,
+    val reporterId: String = "demo-user",
     val reporterName: String = "Usuario",
     val status: ReportStatus = ReportStatus.PENDING,
     val createdAtMillis: Long = System.currentTimeMillis()

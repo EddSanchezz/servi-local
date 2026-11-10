@@ -22,6 +22,7 @@ private const val MIN_PASSWORD_LENGTH = 8
 
 data class PasswordRecoveryUiState(
     val email: String = "",
+    val actionCode: String = "",
     val emailError: String? = null,
     val codeDigits: List<String> = List(RESET_CODE_LENGTH) { "" },
     val codeError: String? = null,
@@ -74,9 +75,18 @@ class PasswordRecoveryViewModel @Inject constructor(
                 is RecoverPasswordResult.Success -> _uiState.update {
                     it.copy(
                         email = it.email.trim().lowercase(),
-                        demoCode = result.code,
+                        demoCode = null,
                         requestResult = RequestResult.Success(
-                            resources.getString(R.string.recovery_code_generated)
+                            resources.getString(R.string.recovery_email_sent)
+                        )
+                    )
+                }
+                RecoverPasswordResult.UserNotFound -> _uiState.update {
+                    it.copy(
+                        email = it.email.trim().lowercase(),
+                        demoCode = null,
+                        requestResult = RequestResult.Success(
+                            resources.getString(R.string.recovery_email_sent)
                         )
                     )
                 }
@@ -90,14 +100,6 @@ class PasswordRecoveryViewModel @Inject constructor(
                     )
                 }
 
-                RecoverPasswordResult.UserNotFound -> _uiState.update {
-                    it.copy(
-                        emailError = resources.getString(R.string.account_not_found),
-                        requestResult = RequestResult.Failure(
-                            resources.getString(R.string.account_not_found)
-                        )
-                    )
-                }
             }
         }
     }
@@ -108,10 +110,11 @@ class PasswordRecoveryViewModel @Inject constructor(
         }
     }
 
-    fun prepareReset(email: String) {
+    fun prepareReset(email: String, actionCode: String = "") {
         _uiState.update {
             it.copy(
                 email = email.trim().lowercase(),
+                actionCode = actionCode,
                 emailError = null,
                 codeDigits = List(RESET_CODE_LENGTH) { "" },
                 codeError = null,
@@ -160,10 +163,11 @@ class PasswordRecoveryViewModel @Inject constructor(
 
         val passwordValid = state.newPassword.length >= MIN_PASSWORD_LENGTH
         val passwordsMatch = state.newPassword == state.confirmPassword
-        if (!state.isCodeComplete || !passwordValid || !passwordsMatch) {
+        val codeValid = state.actionCode.isNotBlank() || state.isCodeComplete
+        if (!codeValid || !passwordValid || !passwordsMatch) {
             _uiState.update {
                 it.copy(
-                    codeError = if (!state.isCodeComplete) {
+                    codeError = if (!codeValid) {
                         resources.getString(R.string.reset_code_digits_required)
                     } else null,
                     passwordError = if (!passwordValid) {
@@ -180,7 +184,8 @@ class PasswordRecoveryViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(resetResult = RequestResult.Loading) }
-            when (resetPasswordUseCase(state.email, state.code, state.newPassword)) {
+            val code = state.actionCode.ifBlank { state.code }
+            when (resetPasswordUseCase(state.email, code, state.newPassword)) {
                 ResetPasswordResult.Success -> _uiState.update {
                     it.copy(
                         demoCode = null,
@@ -217,6 +222,13 @@ class PasswordRecoveryViewModel @Inject constructor(
                     it.copy(
                         passwordError = resources.getString(R.string.min_eight_characters),
                         resetResult = RequestResult.Failure(resources.getString(R.string.review_new_password))
+                    )
+                }
+                ResetPasswordResult.Failed -> _uiState.update {
+                    it.copy(
+                        resetResult = RequestResult.Failure(
+                            resources.getString(R.string.login_failure)
+                        )
                     )
                 }
             }

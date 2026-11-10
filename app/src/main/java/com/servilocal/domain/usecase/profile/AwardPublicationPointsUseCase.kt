@@ -11,8 +11,8 @@ class AwardPublicationPointsUseCase @Inject constructor(
     private val addPoints: AddPointsUseCase,
     private val checkAndAwardBadges: CheckAndAwardBadgesUseCase
 ) {
-    suspend operator fun invoke(providerId: Long): User? {
-        if (providerId <= 0L) return null
+    suspend operator fun invoke(providerId: String): User? {
+        if (providerId.isBlank()) return null
         val updatedUser = addPoints(providerId, POINTS_PER_PUBLICATION) ?: return null
         checkAndAwardBadges(providerId)
         return updatedUser

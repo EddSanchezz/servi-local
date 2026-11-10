@@ -68,10 +68,11 @@ enum class ReportResolution {
 
 /** Tabla users */
 data class User(
-    val id: Long = 0L,
+    val id: String = "",
     val name: String,
     val email: String,
-    val passwordHash: String,
+    /** Legacy, non-persisted compatibility field. Firebase owns passwords. */
+    val passwordHash: String? = null,
     val role: UserRole,
     val points: Int = 0,
     val level: UserLevel = UserLevel.PRINCIPIANTE,
@@ -82,8 +83,8 @@ data class User(
 /** Tabla posts (la oferta de servicio) */
 data class Post(
     val id: String,
-    val userId: Long,                     // autor / proveedor
-    val moderatorId: Long? = null,        // quien verificó o rechazó
+    val userId: String,                     // autor / proveedor
+    val moderatorId: String? = null,        // quien verificó o rechazó
     val title: String,
     val category: PostCategory,
     val description: String,
@@ -114,7 +115,7 @@ data class PostLocation(
 data class Comment(
     val id: String,
     val postId: String,
-    val userId: Long,
+    val userId: String,
     val content: String,
     val createdAtMillis: Long = System.currentTimeMillis()
 )
@@ -122,7 +123,7 @@ data class Comment(
 /** Tabla likes ("Es importante" / "Me interesa") */
 data class Like(
     val id: String,
-    val userId: Long,
+    val userId: String,
     val postId: String
 )
 
@@ -133,7 +134,7 @@ data class Like(
 data class ServiceRequest(
     val id: String,
     val postId: String,
-    val clientId: Long,
+    val clientId: String,
     val contactPhone: String,
     val exactAddress: String,
     val problemDescription: String,
@@ -145,7 +146,7 @@ data class ServiceRequest(
 data class ChatMessage(
     val id: String,
     val serviceRequestId: String,
-    val senderId: Long,
+    val senderId: String,
     val message: String,
     val sentAtMillis: Long = System.currentTimeMillis()
 )
@@ -153,7 +154,7 @@ data class ChatMessage(
 /** Tabla notifications (se llama AppNotification para no chocar con android.app.Notification) */
 data class AppNotification(
     val id: String,
-    val userId: Long,                     // destinatario
+    val userId: String,                     // destinatario
     val title: String,
     val body: String,
     val type: NotificationType = NotificationType.SYSTEM,
@@ -179,7 +180,7 @@ data class Badge(
 /** Tabla user_badges (insignias ganadas por cada usuario) */
 data class UserBadge(
     val id: String,
-    val userId: Long,
+    val userId: String,
     val badgeId: String,
     val awardedAtMillis: Long = System.currentTimeMillis()
 )
@@ -187,13 +188,13 @@ data class UserBadge(
 /** Tabla reports. En ServiLocal targetType siempre es POST y targetId es el id de la publicación. */
 data class Report(
     val id: String,
-    val reporterId: Long,
+    val reporterId: String,
     val targetType: ReportTargetType = ReportTargetType.POST,
     val targetId: String,
     val reason: String,
     val description: String = "",
     val status: ReportStatus = ReportStatus.PENDING,
-    val moderatorId: Long? = null,
+    val moderatorId: String? = null,
     val resolution: ReportResolution? = null,
     val moderatorComment: String? = null,
     val createdAtMillis: Long = System.currentTimeMillis(),
@@ -204,6 +205,6 @@ data class Report(
 
 /** Sesión en memoria (fase 2). No existe en el ERD. */
 data class UserSession(
-    val userId: Long,
+    val userId: String,
     val role: UserRole
 )

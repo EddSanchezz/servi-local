@@ -1,7 +1,8 @@
 package com.servilocal.domain.usecase.auth
 
-import com.servilocal.core.security.PasswordHasher
 import com.servilocal.core.util.Validators
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.servilocal.domain.model.User
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.UserRepository
@@ -13,6 +14,7 @@ sealed interface RegisterResult {
     data object InvalidName : RegisterResult
     data object InvalidEmail : RegisterResult
     data object WeakPassword : RegisterResult
+    data object Failed : RegisterResult
 }
 
 class RegisterUserUseCase @Inject constructor(
@@ -27,14 +29,16 @@ class RegisterUserUseCase @Inject constructor(
         if (password.length < MIN_PASSWORD_LENGTH) return RegisterResult.WeakPassword
         if (userRepository.findByEmail(normalizedEmail) != null) return RegisterResult.EmailAlreadyExists
 
-        val user = User(
-            id = 0L,
-            name = normalizedName,
-            email = normalizedEmail,
-            passwordHash = PasswordHasher.hash(password),
-            role = UserRole.USER
-        )
-        val savedUser = userRepository.save(user)
+        val savedUser = try {
+            userRepository.createAccount(normalizedName, normalizedEmail, password)
+        } catch (error: FirebaseAuthException) {
+            if (error.errorCode == "ERROR_EMAIL_ALREADY_IN_USE") {
+                return RegisterResult.EmailAlreadyExists
+            }
+            return RegisterResult.Failed
+        } catch (_: Exception) {
+            return RegisterResult.Failed
+        } ?: return RegisterResult.Failed
         return RegisterResult.Success(savedUser)
     }
 

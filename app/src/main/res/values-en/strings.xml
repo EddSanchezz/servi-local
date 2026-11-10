@@ -444,6 +444,11 @@
     <string name="sample_review_note">The installer’s license number was checked against the SEC registry. Confirm whether the price range includes VAT.</string>
     <string name="login_success">Signed in successfully.</string>
     <string name="login_failure">Incorrect email or password.</string>
+    <string name="continue_with_google">Continue with Google</string>
+    <string name="google_logo_description">Google logo</string>
+    <string name="google_sign_in_network_error">Could not connect to Google. Check your connection and try again.</string>
+    <string name="google_account_conflict">This account uses another sign-in method. Sign in with that method instead.</string>
+    <string name="google_sign_in_failed">Could not sign in with Google.</string>
     <string name="register_success">Account created successfully.</string>
     <string name="email_already_registered">That email is already registered.</string>
     <string name="review_name">Check your name.</string>

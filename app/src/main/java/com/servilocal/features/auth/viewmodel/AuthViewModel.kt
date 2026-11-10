@@ -1,5 +1,6 @@
 package com.servilocal.features.auth.viewmodel
 
+import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.core.util.RequestResult
@@ -10,6 +11,8 @@ import com.servilocal.domain.usecase.auth.LoginUserUseCase
 import com.servilocal.domain.usecase.auth.RegisterResult
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
+import com.servilocal.domain.usecase.auth.SignInWithGoogleUseCase
+import com.servilocal.domain.repository.GoogleSignInResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +36,8 @@ class AuthViewModel @Inject constructor(
     private val validateLogin: ValidateLoginCredentialsUseCase,
     private val loginUser: LoginUserUseCase,
     private val registerUser: RegisterUserUseCase,
-    private val resources: ResourceProvider
+    private val resources: ResourceProvider,
+    private val signInWithGoogle: SignInWithGoogleUseCase? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -117,6 +121,39 @@ class AuthViewModel @Inject constructor(
                     it.copy(
                         passwordError = resources.getString(R.string.min_eight_characters),
                         registerResult = RequestResult.Failure(resources.getString(R.string.review_password))
+                    )
+                }
+                RegisterResult.Failed -> _uiState.update {
+                    it.copy(
+                        registerResult = RequestResult.Failure(
+                            resources.getString(R.string.login_failure)
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun loginWithGoogle(activity: Activity) {
+        if (_uiState.value.loginResult is RequestResult.Loading) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(loginResult = RequestResult.Loading, authenticatedRole = null) }
+            val result = signInWithGoogle?.invoke(activity) ?: GoogleSignInResult.Unavailable
+            _uiState.update {
+                when (result) {
+                    is GoogleSignInResult.Success -> it.copy(
+                        loginResult = RequestResult.Success(resources.getString(R.string.login_success)),
+                        authenticatedRole = result.user.role
+                    )
+                    GoogleSignInResult.Cancelled -> it.copy(loginResult = null)
+                    GoogleSignInResult.NetworkError -> it.copy(
+                        loginResult = RequestResult.Failure(resources.getString(R.string.google_sign_in_network_error))
+                    )
+                    GoogleSignInResult.AccountConflict -> it.copy(
+                        loginResult = RequestResult.Failure(resources.getString(R.string.google_account_conflict))
+                    )
+                    GoogleSignInResult.ProviderError, GoogleSignInResult.Unavailable -> it.copy(
+                        loginResult = RequestResult.Failure(resources.getString(R.string.google_sign_in_failed))
                     )
                 }
             }

@@ -3,9 +3,8 @@ package com.servilocal.core.di
 import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.data.repository.cloudinary.CloudinaryImageStorageRepository
 import com.servilocal.data.repository.memory.BadgeRepositoryImpl
-import com.servilocal.data.repository.memory.PasswordResetRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
-import com.servilocal.data.repository.memory.UserRepositoryImpl
+import com.servilocal.data.repository.firebase.FirebaseUserRepository
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.BadgeRepository
 import com.servilocal.domain.repository.ChatRepository
@@ -14,7 +13,6 @@ import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.domain.repository.LikeRepository
 import com.servilocal.domain.repository.ModerationRepository
 import com.servilocal.domain.repository.NotificationRepository
-import com.servilocal.domain.repository.PasswordResetRepository
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.repository.SessionRepository
 import com.servilocal.domain.repository.UserRepository
@@ -61,17 +59,11 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindUserRepository(repository: UserRepositoryImpl): UserRepository
+    abstract fun bindUserRepository(repository: FirebaseUserRepository): UserRepository
 
     @Binds
     @Singleton
     abstract fun bindSessionRepository(repository: SessionRepositoryImpl): SessionRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindPasswordResetRepository(
-        repository: PasswordResetRepositoryImpl
-    ): PasswordResetRepository
 
     @Binds
     @Singleton

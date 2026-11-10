@@ -35,20 +35,20 @@ class PostInteractionUseCaseTest {
     fun `profile photo is persisted on the user and survives user flow updates`() = runTest {
         val users = UserRepositoryImpl()
         val session = SessionRepositoryImpl()
-        session.saveSession(userId = 1L, role = UserRole.USER)
+        session.saveSession(userId = "1", role = UserRole.USER)
         val repository = MockDataRepository(users, session)
         val photoUrl = "content://servilocal/profile-photo"
 
         repository.updateCurrentUserPhoto(photoUrl)
-        assertEquals(photoUrl, users.findById(1L)?.photoUrl)
+        assertEquals(photoUrl, users.findById("1")?.photoUrl)
 
-        val storedUser = requireNotNull(users.findById(1L))
+        val storedUser = requireNotNull(users.findById("1"))
         users.save(storedUser.copy(name = "Valentina Actualizada"))
         val refreshedProfile = repository.currentUser.first { it.name == "Valentina Actualizada" }
         assertEquals(photoUrl, refreshedProfile.photoUrl)
 
         repository.updateCurrentUserPhoto(null)
-        assertEquals(null, users.findById(1L)?.photoUrl)
+        assertEquals(null, users.findById("1")?.photoUrl)
     }
 
     @Test
@@ -138,7 +138,7 @@ class PostInteractionUseCaseTest {
     fun `approving a new post does not add a like automatically`() = runTest {
         val users = UserRepositoryImpl()
         val session = SessionRepositoryImpl()
-        session.saveSession(userId = 3L, role = com.servilocal.domain.model.UserRole.MODERATOR)
+        session.saveSession(userId = "3", role = com.servilocal.domain.model.UserRole.MODERATOR)
         val repository = MockDataRepository(users, session)
         repository.currentUser.first { it.role == com.servilocal.domain.model.UserRole.MODERATOR }
         val newPost = repository.createPost(

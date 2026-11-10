@@ -25,24 +25,24 @@ class UserUseCaseTest {
 
     @Test
     fun `current user returns the owner of the active session`() = runTest {
-        sessions.saveSession(1L, UserRole.USER)
+        sessions.saveSession("1", UserRole.USER)
 
         val user = getCurrentUser()
 
-        assertEquals(1L, user?.id)
+        assertEquals("1", user?.id)
         assertEquals("Valentina Morales", user?.name)
         assertEquals(UserRole.USER, user?.role)
     }
 
     @Test
     fun `current user follows the session when it changes`() = runTest {
-        sessions.saveSession(2L, UserRole.USER)
+        sessions.saveSession("2", UserRole.USER)
 
-        assertEquals(2L, getCurrentUser()?.id)
+        assertEquals("2", getCurrentUser()?.id)
 
-        sessions.saveSession(3L, UserRole.MODERATOR)
+        sessions.saveSession("3", UserRole.MODERATOR)
 
-        assertEquals(3L, getCurrentUser()?.id)
+        assertEquals("3", getCurrentUser()?.id)
         assertEquals(UserRole.MODERATOR, getCurrentUser()?.role)
     }
 
@@ -53,7 +53,7 @@ class UserUseCaseTest {
 
     @Test
     fun `current user is null when the session points to an unknown user`() = runTest {
-        sessions.saveSession(999L, UserRole.USER)
+        sessions.saveSession("999", UserRole.USER)
 
         assertNull(getCurrentUser())
     }

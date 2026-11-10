@@ -48,9 +48,9 @@ class TogglePostLikeUseCase @Inject constructor(
     }
 
     private fun isAuthor(
-        providerId: Long?,
+        providerId: String?,
         providerName: String,
-        userId: Long,
+        userId: String,
         userName: String
     ): Boolean = (providerId != null && providerId == userId) ||
         providerName.equals(userName, ignoreCase = true)

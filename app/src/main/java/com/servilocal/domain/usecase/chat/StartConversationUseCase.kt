@@ -17,7 +17,7 @@ class StartConversationUseCase @Inject constructor(
         val convId = chatRepository.startConversation(postId) ?: return null
         val post = postRepository.posts.value.firstOrNull { it.id == postId }
         val currentUser = authRepository.currentUser.value
-        val providerId = post?.providerId ?: 2L
+        val providerId = post?.providerId ?: "demo-provider"
 
         if (providerId != currentUser.id) {
             createNotification(

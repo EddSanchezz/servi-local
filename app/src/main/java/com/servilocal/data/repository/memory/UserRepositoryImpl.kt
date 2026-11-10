@@ -11,28 +11,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import java.util.concurrent.atomic.AtomicLong
 
 @Singleton
 class UserRepositoryImpl @Inject constructor() : UserRepository {
 
     private val _users = MutableStateFlow(seedUsers())
     override val users: StateFlow<List<User>> = _users.asStateFlow()
-    private val idCounter = AtomicLong(seedUsers().maxOfOrNull { it.id } ?: 0L)
-
     override suspend fun save(user: User): User {
-        val userToSave = if (user.id == 0L) {
-            user.copy(id = idCounter.incrementAndGet())
-        } else {
-            user
-        }
+        val userToSave = user
         _users.update { current ->
             current.filterNot { it.id == userToSave.id } + userToSave
         }
         return userToSave
     }
 
-    override suspend fun findById(id: Long): User? =
+    override suspend fun findById(id: String): User? =
         _users.value.firstOrNull { it.id == id }
 
     override suspend fun findByEmail(email: String): User? {
@@ -45,18 +38,25 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         return user.takeIf { it.passwordHash == PasswordHasher.hash(password) }
     }
 
-    override suspend fun updatePassword(userId: Long, passwordHash: String) {
-        _users.update { current ->
-            current.map { user ->
-                if (user.id == userId) user.copy(passwordHash = passwordHash) else user
-            }
-        }
-    }
+    override suspend fun createAccount(name: String, email: String, password: String): User =
+        save(
+            User(
+                id = "memory-${_users.value.size + 1}",
+                name = name,
+                email = email,
+                passwordHash = PasswordHasher.hash(password),
+                role = UserRole.USER
+            )
+        )
+
+    override suspend fun sendPasswordResetEmail(email: String): Boolean = true
+
+    override suspend fun confirmPasswordResetCode(code: String, newPassword: String): Boolean = false
 
     private fun seedUsers(): List<User> = listOf(
         // Usuario principal (cliente/provider)
         User(
-            id = 1L,
+            id = "1",
             name = "Valentina Morales",
             email = "valentina@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),
@@ -66,7 +66,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         ),
         // Carlos Mendoza - Servicios eléctricos y plomería (pub_1, pub_2)
         User(
-            id = 2L,
+            id = "2",
             name = "Carlos Mendoza",
             email = "carlos@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),
@@ -76,7 +76,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         ),
         // Moderador del sistema
         User(
-            id = 3L,
+            id = "3",
             name = "Alejandro Vargas",
             email = "alejandro@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),
@@ -86,7 +86,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         ),
         // Matías S. - Servicios de mascotas (pub_4)
         User(
-            id = 4L,
+            id = "4",
             name = "Matías Sepúlveda",
             email = "matias@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),
@@ -96,7 +96,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         ),
         // Rodrigo Tapia - Cerrajería (pub_5)
         User(
-            id = 5L,
+            id = "5",
             name = "Rodrigo Tapia",
             email = "rodrigo@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),
@@ -106,7 +106,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         ),
         // Fernando Lucas - Electricidad (pub_6)
         User(
-            id = 6L,
+            id = "6",
             name = "Fernando Lucas",
             email = "fernando@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),
@@ -116,7 +116,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         ),
         // Francisca Valenzuela - Cliente que comenta y solicita servicios
         User(
-            id = 7L,
+            id = "7",
             name = "Francisca Valenzuela",
             email = "francisca@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),
@@ -126,7 +126,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         ),
         // Andrés Gómez - Cliente de servicios de plomería
         User(
-            id = 8L,
+            id = "8",
             name = "Andrés Gómez",
             email = "andres@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),
@@ -136,7 +136,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         ),
         // Mariana Rivas - Cliente que solicita servicios
         User(
-            id = 9L,
+            id = "9",
             name = "Mariana Rivas",
             email = "mariana@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),
@@ -146,7 +146,7 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         ),
         // Jorge Palacios - Cliente de servicios de pintura
         User(
-            id = 10L,
+            id = "10",
             name = "Jorge Palacios",
             email = "jorge@gmail.com",
             passwordHash = PasswordHasher.hash("password123"),

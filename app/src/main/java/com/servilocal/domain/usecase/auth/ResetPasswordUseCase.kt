@@ -1,7 +1,8 @@
 package com.servilocal.domain.usecase.auth
 
-import com.servilocal.core.security.PasswordHasher
 import com.servilocal.core.util.Validators
+import com.servilocal.core.security.PasswordHasher
+import com.google.firebase.auth.FirebaseAuthException
 import com.servilocal.domain.repository.PasswordResetRepository
 import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
@@ -12,31 +13,52 @@ sealed interface ResetPasswordResult {
     data object UserNotFound : ResetPasswordResult
     data object InvalidCode : ResetPasswordResult
     data object WeakPassword : ResetPasswordResult
+    data object Failed : ResetPasswordResult
 }
 
-/**
- * Verifica el código de recuperación y reemplaza la contraseña del usuario.
- * El código es de un solo uso: se elimina cuando el cambio se completa.
- */
 class ResetPasswordUseCase @Inject constructor(
-    private val userRepository: UserRepository,
-    private val passwordResetRepository: PasswordResetRepository
+    private val userRepository: UserRepository
 ) {
-    suspend operator fun invoke(email: String, code: String, newPassword: String): ResetPasswordResult {
-        val normalizedEmail = email.trim().lowercase()
-        if (!Validators.isValidEmail(normalizedEmail)) return ResetPasswordResult.InvalidEmail
+    @Suppress("UNUSED_PARAMETER")
+    private var legacyResetRepository: PasswordResetRepository? = null
 
-        val user = userRepository.findByEmail(normalizedEmail) ?: return ResetPasswordResult.UserNotFound
-        val storedCode = passwordResetRepository.findCode(normalizedEmail)
-        if (storedCode == null || storedCode != code.trim()) return ResetPasswordResult.InvalidCode
-        if (newPassword.length < MIN_PASSWORD_LENGTH) return ResetPasswordResult.WeakPassword
-
-        userRepository.updatePassword(user.id, PasswordHasher.hash(newPassword))
-        passwordResetRepository.clearCode(normalizedEmail)
-        return ResetPasswordResult.Success
+    constructor(
+        userRepository: UserRepository,
+        legacyResetRepository: PasswordResetRepository
+    ) : this(userRepository) {
+        this.legacyResetRepository = legacyResetRepository
     }
 
-    private companion object {
-        const val MIN_PASSWORD_LENGTH = 8
+    suspend operator fun invoke(email: String, code: String, newPassword: String): ResetPasswordResult {
+        val normalizedEmail = email.trim().lowercase()
+        if (legacyResetRepository != null && !Validators.isValidEmail(normalizedEmail)) {
+            return ResetPasswordResult.InvalidEmail
+        }
+        if (newPassword.length < 8) return ResetPasswordResult.WeakPassword
+        legacyResetRepository?.let { legacy ->
+            val user = userRepository.findByEmail(normalizedEmail)
+                ?: return ResetPasswordResult.UserNotFound
+            if (legacy.findCode(normalizedEmail) != code) {
+                return ResetPasswordResult.InvalidCode
+            }
+            userRepository.save(user.copy(passwordHash = PasswordHasher.hash(newPassword)))
+            legacy.clearCode(normalizedEmail)
+            return ResetPasswordResult.Success
+        }
+        if (code.isBlank()) return ResetPasswordResult.InvalidCode
+        return try {
+            userRepository.confirmPasswordResetCode(code, newPassword)
+            ResetPasswordResult.Success
+        } catch (error: FirebaseAuthException) {
+            if (error.errorCode == "ERROR_INVALID_ACTION_CODE" ||
+                error.errorCode == "ERROR_EXPIRED_ACTION_CODE"
+            ) {
+                ResetPasswordResult.InvalidCode
+            } else {
+                ResetPasswordResult.Failed
+            }
+        } catch (_: Exception) {
+            ResetPasswordResult.Failed
+        }
     }
 }

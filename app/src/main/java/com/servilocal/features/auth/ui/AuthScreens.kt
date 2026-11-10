@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -52,6 +53,7 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var selectedRole by remember { mutableStateOf(UserRole.USER) }
     val authUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val activity = LocalContext.current as? android.app.Activity
     val snackbarHostState = remember { SnackbarHostState() }
     val isLoading = authUiState.loginResult is RequestResult.Loading
     val loginError = (authUiState.loginResult as? RequestResult.Failure)?.errorMessage
@@ -322,6 +324,29 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = { activity?.let(viewModel::loginWithGoogle) },
+                enabled = !isLoading && activity != null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("google_login_button"),
+                shape = RoundedCornerShape(25.dp)
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_google_g),
+                    contentDescription = stringResource(R.string.google_logo_description),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = stringResource(R.string.continue_with_google),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -640,7 +665,8 @@ fun PasswordRecoveryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val validEmail = Validators.isValidEmail(uiState.email)
     val isLoading = uiState.requestResult is RequestResult.Loading
-    val codeGenerated = uiState.requestResult is RequestResult.Success && uiState.demoCode != null
+    // Firebase delivers the reset action by email; no verification code is shown in-app.
+    val codeGenerated = false
     val recoveryError = (uiState.requestResult as? RequestResult.Failure)?.errorMessage
 
     LaunchedEffect(recoveryError) {

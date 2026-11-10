@@ -48,9 +48,9 @@ class AuthUseCaseTest {
         val user = login("valentina@gmail.com", "password123")
 
         assertNotNull(user)
-        assertEquals(1L, user?.id)
+        assertEquals("1", user?.id)
         assertEquals(UserRole.USER, sessions.session.value?.role)
-        assertEquals(1L, sessions.session.value?.userId)
+        assertEquals("1", sessions.session.value?.userId)
     }
 
     @Test
@@ -58,17 +58,17 @@ class AuthUseCaseTest {
         val user = login("matias@gmail.com", "password123")
 
         assertNotNull(user)
-        assertEquals(4L, user?.id)
+        assertEquals("4", user?.id)
         assertEquals("Matías Sepúlveda", user?.name)
         assertEquals(UserRole.USER, sessions.session.value?.role)
-        assertEquals(4L, sessions.session.value?.userId)
+        assertEquals("4", sessions.session.value?.userId)
     }
 
     @Test
     fun `login normalizes the email before authenticating`() = runTest {
         val user = login("  VALENTINA@GMAIL.COM  ", "password123")
 
-        assertEquals(1L, user?.id)
+        assertEquals("1", user?.id)
     }
 
     @Test
@@ -148,7 +148,7 @@ class AuthUseCaseTest {
 
         login("alejandro@gmail.com", "password123")
 
-        assertEquals(3L, observed().value?.userId)
+        assertEquals("3", observed().value?.userId)
         assertEquals(UserRole.MODERATOR, observed().value?.role)
     }
 

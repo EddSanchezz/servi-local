@@ -60,7 +60,7 @@ class ProfileUseCaseTest {
 
     @Test
     fun `add points recalculates the level`() = runTest {
-        val updated = addPoints(1L, 50)
+        val updated = addPoints("1", 50)
 
         assertEquals(270, updated?.points)
         assertEquals(UserLevel.EXPERTO, updated?.level)
@@ -68,35 +68,35 @@ class ProfileUseCaseTest {
 
     @Test
     fun `award publication points grants reputation and unlocks badges`() = runTest {
-        sessions.saveSession(1L, UserRole.USER)
+        sessions.saveSession("1", UserRole.USER)
 
-        val updated = awardPublicationPoints(1L)
+        val updated = awardPublicationPoints("1")
 
         assertEquals(270, updated?.points)
         assertEquals(UserLevel.EXPERTO, updated?.level)
         assertTrue(
             badges.userBadges.value.any {
-                it.userId == 1L && it.badgeId == "badge_3"
+                it.userId == "1" && it.badgeId == "badge_3"
             }
         )
     }
 
     @Test
     fun `check and award badges grants new badges and creates a notification`() = runTest {
-        sessions.saveSession(1L, UserRole.USER)
-        addPoints(1L, 50)
+        sessions.saveSession("1", UserRole.USER)
+        addPoints("1", 50)
 
         val awarded = checkAndAwardBadges()
 
         assertEquals(listOf("badge_3"), awarded.map { it.id })
         assertTrue(
             badges.userBadges.value.any {
-                it.userId == 1L && it.badgeId == "badge_3"
+                it.userId == "1" && it.badgeId == "badge_3"
             }
         )
         assertTrue(
             posts.notifications.value.any {
-                it.userId == 1L &&
+                it.userId == "1" &&
                     it.type == NotificationType.ACHIEVEMENT &&
                     it.title.contains("Súper Proveedor")
             }
@@ -105,8 +105,8 @@ class ProfileUseCaseTest {
 
     @Test
     fun `check and award badges does not duplicate an existing badge`() = runTest {
-        sessions.saveSession(1L, UserRole.USER)
-        addPoints(1L, 50)
+        sessions.saveSession("1", UserRole.USER)
+        addPoints("1", 50)
 
         assertEquals(1, checkAndAwardBadges().size)
         assertTrue(checkAndAwardBadges().isEmpty())
@@ -114,7 +114,7 @@ class ProfileUseCaseTest {
 
     @Test
     fun `first publication badge requires at least one post`() = runTest {
-        sessions.saveSession(4L, UserRole.USER)
+        sessions.saveSession("4", UserRole.USER)
 
         val awarded = checkAndAwardBadges()
 
@@ -123,7 +123,7 @@ class ProfileUseCaseTest {
 
     @Test
     fun `observe user badges exposes the catalog with unlocked state`() = runTest {
-        sessions.saveSession(1L, UserRole.USER)
+        sessions.saveSession("1", UserRole.USER)
 
         val catalog = observeUserBadges().first()
 
@@ -135,12 +135,12 @@ class ProfileUseCaseTest {
 
     @Test
     fun `profile stats combine points posts and badges`() = runTest {
-        sessions.saveSession(1L, UserRole.USER)
+        sessions.saveSession("1", UserRole.USER)
 
         val stats = getProfileStats().first()
 
         assertNotNull(stats)
-        assertEquals(1L, stats?.user?.id)
+        assertEquals("1", stats?.user?.id)
         assertEquals(220, stats?.user?.points)
         assertEquals(2, stats?.badgeCount)
         assertEquals(250, stats?.nextLevelPoints)
@@ -152,7 +152,7 @@ class ProfileUseCaseTest {
 
     @Test
     fun `master level exposes full progress without a next level`() = runTest {
-        sessions.saveSession(3L, UserRole.MODERATOR)
+        sessions.saveSession("3", UserRole.MODERATOR)
 
         val stats = getProfileStats().first()
 

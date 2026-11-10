@@ -135,14 +135,14 @@ class ModerationUseCaseTest {
 
     private class FakeAuthRepository(
         role: UserRole = UserRole.MODERATOR,
-        userId: Long = 3L,
+        userId: String = "3",
         userName: String = "Mod"
     ) : AuthRepository {
         private val _currentUser = MutableStateFlow(
             UserProfile(id = userId, name = userName, email = "mod@test.com", role = role)
         )
         private val _moderatorUser = MutableStateFlow(
-            UserProfile(id = 3L, name = "Mod", email = "mod@test.com", role = UserRole.MODERATOR)
+            UserProfile(id = "3", name = "Mod", email = "mod@test.com", role = UserRole.MODERATOR)
         )
         override val currentUser: StateFlow<UserProfile> = _currentUser
         override val moderatorUser: StateFlow<UserProfile> = _moderatorUser
@@ -306,7 +306,7 @@ class ModerationUseCaseTest {
     fun `RejectPostUseCase can withdraw an approved post after moderator review`() {
         val approvedPost = ServicePost(
             id = "post_approved", title = "P", category = "Hogar", description = "Desc",
-            providerName = "Provider", providerId = 2L, status = PostStatus.APPROVED
+            providerName = "Provider", providerId = "2", status = PostStatus.APPROVED
         )
         val postRepo = FakePostRepository(listOf(approvedPost))
         val authRepo = FakeAuthRepository(UserRole.MODERATOR)
@@ -321,11 +321,11 @@ class ModerationUseCaseTest {
 
     @Test
     fun `ReportPostUseCase allows reporting other users post and prevents reporting own post`() {
-        val postOther = ServicePost(id = "post_1", title = "P1", category = "Hogar", description = "Desc", providerName = "Other User", providerId = 2L)
-        val postOwn = ServicePost(id = "post_2", title = "P2", category = "Hogar", description = "Desc", providerName = "Test User", providerId = 1L)
+        val postOther = ServicePost(id = "post_1", title = "P1", category = "Hogar", description = "Desc", providerName = "Other User", providerId = "2")
+        val postOwn = ServicePost(id = "post_2", title = "P2", category = "Hogar", description = "Desc", providerName = "Test User", providerId = "1")
 
         val postRepo = FakePostRepository(listOf(postOther, postOwn))
-        val authRepo = FakeAuthRepository(role = UserRole.USER, userId = 1L, userName = "Test User")
+        val authRepo = FakeAuthRepository(role = UserRole.USER, userId = "1", userName = "Test User")
         val modRepo = FakeModerationRepository()
         val reportUseCase = ReportPostUseCase(postRepo, authRepo, modRepo)
 
@@ -345,10 +345,10 @@ class ModerationUseCaseTest {
     fun `ResolveReportUseCase dismisses an invalid report without changing the post`() {
         val post = ServicePost(
             id = "post_1", title = "P1", category = "Hogar", description = "Desc",
-            providerName = "Other User", providerId = 2L, status = PostStatus.APPROVED
+            providerName = "Other User", providerId = "2", status = PostStatus.APPROVED
         )
         val postRepo = FakePostRepository(listOf(post))
-        val authRepo = FakeAuthRepository(role = UserRole.MODERATOR, userId = 3L, userName = "Mod")
+        val authRepo = FakeAuthRepository(role = UserRole.MODERATOR, userId = "3", userName = "Mod")
         val modRepo = FakeModerationRepository()
         modRepo.createReport("Estafa", "Detalles", "P1", "post_1")
         val reportId = modRepo.reports.value.first().id
@@ -363,10 +363,10 @@ class ModerationUseCaseTest {
     fun `ResolveReportUseCase upheld can reject the reported post`() {
         val post = ServicePost(
             id = "post_1", title = "P1", category = "Hogar", description = "Desc",
-            providerName = "Other User", providerId = 2L, status = PostStatus.APPROVED
+            providerName = "Other User", providerId = "2", status = PostStatus.APPROVED
         )
         val postRepo = FakePostRepository(listOf(post))
-        val authRepo = FakeAuthRepository(role = UserRole.MODERATOR, userId = 3L, userName = "Mod")
+        val authRepo = FakeAuthRepository(role = UserRole.MODERATOR, userId = "3", userName = "Mod")
         val modRepo = FakeModerationRepository()
         modRepo.createReport("Solicitud de pago externo", "Detalles", "P1", "post_1")
         val reportId = modRepo.reports.value.first().id
@@ -388,10 +388,10 @@ class ModerationUseCaseTest {
     fun `ResolveReportUseCase rejects resolutions from non moderators`() {
         val post = ServicePost(
             id = "post_1", title = "P1", category = "Hogar", description = "Desc",
-            providerName = "Other User", providerId = 2L, status = PostStatus.APPROVED
+            providerName = "Other User", providerId = "2", status = PostStatus.APPROVED
         )
         val postRepo = FakePostRepository(listOf(post))
-        val authRepo = FakeAuthRepository(role = UserRole.USER, userId = 1L, userName = "User")
+        val authRepo = FakeAuthRepository(role = UserRole.USER, userId = "1", userName = "User")
         val modRepo = FakeModerationRepository()
         modRepo.createReport("Estafa", "Detalles", "P1", "post_1")
         val reportId = modRepo.reports.value.first().id
@@ -405,11 +405,11 @@ class ModerationUseCaseTest {
     fun `moderation cases authorize the signed in user, not the seeded staff profile`() {
         val pending = ServicePost(
             id = "post_pending", title = "P", category = "Hogar", description = "Desc",
-            providerName = "Provider", providerId = 2L, status = PostStatus.PENDING_VERIFICATION
+            providerName = "Provider", providerId = "2", status = PostStatus.PENDING_VERIFICATION
         )
         val posts = FakePostRepository(listOf(pending))
         // This mirrors the real repository: the staff profile is seeded even when a regular user is signed in.
-        val auth = FakeAuthRepository(role = UserRole.USER, userId = 1L, userName = "User")
+        val auth = FakeAuthRepository(role = UserRole.USER, userId = "1", userName = "User")
         val notifications = MockDataRepository()
         val initialNotificationCount = notifications.notifications.value.size
         val approve = com.servilocal.domain.usecase.moderation.ApprovePostUseCase(
@@ -431,7 +431,7 @@ class ModerationUseCaseTest {
     fun `moderator can resolve a pending post and regular users cannot toggle moderator shift`() {
         val pending = ServicePost(
             id = "post_pending", title = "P", category = "Hogar", description = "Desc",
-            providerName = "Provider", providerId = 2L, status = PostStatus.PENDING_VERIFICATION
+            providerName = "Provider", providerId = "2", status = PostStatus.PENDING_VERIFICATION
         )
         val posts = FakePostRepository(listOf(pending))
         val moderatorAuth = FakeAuthRepository(UserRole.MODERATOR)
@@ -440,7 +440,7 @@ class ModerationUseCaseTest {
         assertTrue(useCase("post_pending"))
         assertEquals(PostStatus.FINISHED, posts.posts.value.single().status)
 
-        val userAuth = FakeAuthRepository(UserRole.USER, userId = 1L, userName = "User")
+        val userAuth = FakeAuthRepository(UserRole.USER, userId = "1", userName = "User")
         val initialShift = userAuth.moderatorUser.value.activeShift
         assertFalse(ToggleModeratorShiftUseCase(userAuth)())
         assertEquals(initialShift, userAuth.moderatorUser.value.activeShift)

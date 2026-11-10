@@ -13,8 +13,8 @@ class PostManagementUseCaseTest {
     @Test
     fun `owner edits and finishes approved posts and cannot open a self conversation`() {
         val repository = MockDataRepository()
-        val ownPost = repository.posts.value.first { it.providerId == 1L && it.status == PostStatus.APPROVED }
-        val otherPost = repository.posts.value.first { it.providerId != 1L && it.status == PostStatus.APPROVED }
+        val ownPost = repository.posts.value.first { it.providerId == "1" && it.status == PostStatus.APPROVED }
+        val otherPost = repository.posts.value.first { it.providerId != "1" && it.status == PostStatus.APPROVED }
 
         assertNull(repository.startConversation(ownPost.id))
         assertFalse(

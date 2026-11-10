@@ -74,6 +74,7 @@ import com.servilocal.features.auth.viewmodel.RESET_CODE_LENGTH
 fun PasswordResetScreen(
     viewModel: PasswordRecoveryViewModel,
     email: String,
+    actionCode: String = "",
     onBack: () -> Unit,
     onReset: (String) -> Unit
 ) {
@@ -84,8 +85,8 @@ fun PasswordResetScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
-    LaunchedEffect(email) {
-        viewModel.prepareReset(email)
+    LaunchedEffect(email, actionCode) {
+        viewModel.prepareReset(email, actionCode)
     }
 
     val isLoading = uiState.resetResult is RequestResult.Loading
@@ -174,7 +175,13 @@ fun PasswordResetScreen(
                 )
 
                 Text(
-                    text = stringResource(R.string.reset_password_intro),
+                    text = stringResource(
+                        if (actionCode.isBlank()) {
+                            R.string.reset_password_intro
+                        } else {
+                            R.string.reset_link_ready
+                        }
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -191,7 +198,7 @@ fun PasswordResetScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                Row(
+                if (actionCode.isBlank()) Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {

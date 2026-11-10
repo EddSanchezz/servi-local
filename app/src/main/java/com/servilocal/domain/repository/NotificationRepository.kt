@@ -9,7 +9,6 @@ interface NotificationRepository {
     fun create(notification: AppNotification)
 
     /** Marca una notificación solo si pertenece al usuario indicado. */
-    suspend fun markRead(notificationId: String, userId: Long, isRead: Boolean): Boolean
-
-    suspend fun markAllRead(userId: Long)
+    suspend fun markRead(notificationId: String, userId: String, isRead: Boolean): Boolean
+    suspend fun markAllRead(userId: String)
 }

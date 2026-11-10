@@ -14,14 +14,14 @@ class CreateNotificationUseCase @Inject constructor(
     private val notificationRepository: NotificationRepository
 ) {
     operator fun invoke(
-        userId: Long,
+        userId: String,
         title: String,
         body: String,
         type: NotificationType = NotificationType.SYSTEM,
         relatedPostId: String? = null,
         relatedChatId: String? = null
     ): AppNotification? {
-        if (userId <= 0L || title.isBlank() || body.isBlank()) return null
+        if (userId.isBlank() || title.isBlank() || body.isBlank()) return null
 
         val notification = AppNotification(
             id = "notif_${UUID.randomUUID()}",

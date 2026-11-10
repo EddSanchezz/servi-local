@@ -1,6 +1,7 @@
 package com.servilocal.domain.repository
 
 import com.servilocal.domain.model.UserProfile
+import com.servilocal.domain.model.User
 import kotlinx.coroutines.flow.StateFlow
 
 interface AuthRepository {
@@ -10,4 +11,5 @@ interface AuthRepository {
     suspend fun updateCurrentUser(name: String, email: String)
     suspend fun updateCurrentUserPhoto(photoUrl: String?)
     fun toggleModeratorShift()
+    suspend fun syncCurrentUser(user: User) {}
 }
