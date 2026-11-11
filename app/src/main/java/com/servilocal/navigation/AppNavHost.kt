@@ -379,6 +379,12 @@ private fun DashboardNavigation(
                     viewModel, appUiState,
                     onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) },
                     onNotificationsChange = appViewModel::setNotificationsEnabled,
+                    onDarkThemeChange = appViewModel::setDarkTheme,
+                    onLanguageChange = { languageTag ->
+                        AppCompatDelegate.setApplicationLocales(
+                            LocaleListCompat.forLanguageTags(languageTag)
+                        )
+                    },
                     onLogout = onLogout
                 )
             }

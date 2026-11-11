@@ -7,6 +7,9 @@
     <string name="settings_appearance_section">Apariencia e idioma</string>
     <string name="settings_dark_theme">Tema oscuro</string>
     <string name="settings_dark_theme_summary">Usar colores oscuros en la aplicación</string>
+    <string name="settings_theme_title">Tema de la aplicación</string>
+    <string name="settings_theme_light">Modo claro</string>
+    <string name="settings_theme_dark">Modo oscuro</string>
     <string name="settings_language">Idioma</string>
     <string name="settings_change">Cambiar</string>
     <string name="language_spanish">Español</string>
@@ -14,6 +17,8 @@
     <string name="settings_notifications_section">Notificaciones</string>
     <string name="settings_in_app_notifications">Notificaciones de la aplicación</string>
     <string name="settings_notifications_summary">Mostrar avisos y contadores dentro de ServiLocal</string>
+    <string name="settings_notification_permissions">Permisos de notificaciones</string>
+    <string name="settings_notification_permissions_summary">Activa o desactiva las notificaciones generales de la aplicación</string>
     <string name="settings_permissions_section">Permisos de la aplicación</string>
     <string name="permission_location">Ubicación</string>
     <string name="permission_location_granted">Permiso concedido. Se usa cuando eliges buscar servicios cerca de ti.</string>

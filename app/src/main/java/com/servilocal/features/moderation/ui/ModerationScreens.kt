@@ -1,5 +1,11 @@
 package com.servilocal.features.moderation.ui
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.compose.animation.*
@@ -22,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +42,7 @@ import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
 import com.servilocal.core.ui.localizedServiceCategory
 import com.servilocal.core.ui.components.ProfileNavRow
+import com.servilocal.core.ui.components.ProfilePhotoAvatar
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import com.servilocal.R
@@ -1113,13 +1122,21 @@ fun ModeratorProfileScreen(
     appUiState: AppUiState,
     onOpenNotifications: () -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
+    onDarkThemeChange: (Boolean) -> Unit,
+    onLanguageChange: (String) -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val moderatorUser by viewModel.moderatorUser.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val notificationsEnabled = appUiState.notificationsEnabled
-    var activeInfoDialog by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    var showPolicies by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    val selectedLanguage = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+        .substringBefore(',')
+        .substringBefore('-')
+        .ifBlank { "es" }
 
     Column(
         modifier = modifier
@@ -1157,12 +1174,12 @@ fun ModeratorProfileScreen(
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Box(modifier = Modifier.size(60.dp)) {
-                        Box(
-                            modifier = Modifier.fillMaxSize().clip(CircleShape).background(MaterialTheme.colorScheme.primary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(moderatorUser.name.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""), style = MaterialTheme.typography.titleLarge.copy(color = Color.White, fontWeight = FontWeight.Bold))
-                        }
+                        ProfilePhotoAvatar(
+                            name = moderatorUser.name,
+                            photoUrl = moderatorUser.photoUrl,
+                            modifier = Modifier.fillMaxSize(),
+                            initialsStyle = MaterialTheme.typography.titleLarge
+                        )
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
@@ -1190,69 +1207,79 @@ fun ModeratorProfileScreen(
             }
         }
 
-        // Active Shift Card
+        // App settings
+        Text(
+            text = stringResource(R.string.settings_entry_title),
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (moderatorUser.activeShift) Color(0xFF10B981) else MaterialTheme.colorScheme.outline)
+            Column {
+                ModeratorSettingsRow(
+                    icon = Icons.Default.Palette,
+                    title = stringResource(R.string.settings_theme_title),
+                    subtitle = stringResource(
+                        if (appUiState.darkTheme) R.string.settings_theme_dark else R.string.settings_theme_light
                     )
-                    Column {
-                        Text(stringResource(R.string.queue_availability), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                        Text(
-                            text = stringResource(if (moderatorUser.activeShift) R.string.active_shift else R.string.paused_shift, moderatorUser.workingHours),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                            maxLines = 2
-                        )
+                ) {
+                    Switch(
+                        checked = appUiState.darkTheme,
+                        onCheckedChange = onDarkThemeChange
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
+                ModeratorSettingsRow(
+                    icon = Icons.Default.Language,
+                    title = stringResource(R.string.settings_language),
+                    subtitle = stringResource(
+                        if (selectedLanguage == "en") R.string.language_english else R.string.language_spanish
+                    )
+                ) {
+                    TextButton(onClick = { showLanguageDialog = true }) {
+                        Text(stringResource(R.string.settings_change))
                     }
                 }
-                Switch(
-                    checked = moderatorUser.activeShift,
-                    onCheckedChange = { viewModel.toggleModeratorShift() }
-                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
+                ModeratorSettingsRow(
+                    icon = Icons.Default.Notifications,
+                    title = stringResource(R.string.settings_notification_permissions),
+                    subtitle = stringResource(R.string.settings_notification_permissions_summary)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(
+                            checked = notificationsEnabled,
+                            onCheckedChange = onNotificationsChange
+                        )
+                        IconButton(onClick = { context.openNotificationSettings() }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = stringResource(R.string.permission_manage),
+                                tint = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
 
-        // Guidelines & Config
+        // Community guidelines
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column {
-                ProfileNavRow(
-                    icon = Icons.Default.NotificationsActive,
-                    title = stringResource(R.string.audit_notification_settings),
-                    subtitle = stringResource(R.string.critical_queue_alerts),
-                    onClick = { activeInfoDialog = "Ajustes de Notificaciones de Auditoría" }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
-                ProfileNavRow(
-                    icon = Icons.Default.MenuBook,
-                    title = stringResource(R.string.community_policies),
-                    subtitle = stringResource(R.string.revocation_criteria),
-                    onClick = { activeInfoDialog = "Políticas Comunitarias y Guía v4.2" }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
-                ProfileNavRow(
-                    icon = Icons.Default.HistoryToggleOff,
-                    title = stringResource(R.string.own_decision_history),
-                    subtitle = stringResource(R.string.last_90_days),
-                    onClick = { activeInfoDialog = "Historial de Decisiones Propias" }
-                )
-            }
+            ProfileNavRow(
+                icon = Icons.Default.MenuBook,
+                title = stringResource(R.string.community_policies),
+                subtitle = stringResource(R.string.revocation_criteria),
+                onClick = { showPolicies = true }
+            )
         }
 
         Button(
@@ -1272,30 +1299,94 @@ fun ModeratorProfileScreen(
         Spacer(modifier = Modifier.height(24.dp))
     }
 
-    activeInfoDialog?.let { title ->
+    if (showPolicies) {
         AlertDialog(
-            onDismissRequest = { activeInfoDialog = null },
-            title = { Text(stringResource(when (title) {
-                "Ajustes de Notificaciones de Auditoría" -> R.string.audit_notification_settings
-                "Políticas Comunitarias y Guía v4.2" -> R.string.community_policies
-                else -> R.string.own_decision_history
-            })) },
-            text = {
-                when (title) {
-                    "Ajustes de Notificaciones de Auditoría" -> Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(stringResource(R.string.in_app_alerts), modifier = Modifier.weight(1f))
-                        Switch(checked = notificationsEnabled, onCheckedChange = onNotificationsChange)
-                    }
-                    "Políticas Comunitarias y Guía v4.2" -> Text(stringResource(R.string.community_policies_body))
-                    else -> Text(stringResource(R.string.decision_history_memory))
-                }
-            },
-            confirmButton = { TextButton(onClick = { activeInfoDialog = null }) { Text(stringResource(R.string.done)) } }
+            onDismissRequest = { showPolicies = false },
+            title = { Text(stringResource(R.string.community_policies)) },
+            text = { Text(stringResource(R.string.community_policies_body)) },
+            confirmButton = { TextButton(onClick = { showPolicies = false }) { Text(stringResource(R.string.done)) } }
         )
     }
+
+    if (showLanguageDialog) {
+        AlertDialog(
+            onDismissRequest = { showLanguageDialog = false },
+            title = { Text(stringResource(R.string.settings_language)) },
+            text = {
+                Column {
+                    ModeratorLanguageOption(
+                        label = stringResource(R.string.language_spanish),
+                        selected = selectedLanguage == "es",
+                        onClick = {
+                            showLanguageDialog = false
+                            onLanguageChange("es")
+                        }
+                    )
+                    ModeratorLanguageOption(
+                        label = stringResource(R.string.language_english),
+                        selected = selectedLanguage == "en",
+                        onClick = {
+                            showLanguageDialog = false
+                            onLanguageChange("en")
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLanguageDialog = false }) {
+                    Text(stringResource(R.string.done))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ModeratorSettingsRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    trailing: @Composable () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        }
+        trailing()
+    }
+}
+
+@Composable
+private fun ModeratorLanguageOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        TextButton(onClick = onClick) { Text(label) }
+    }
+}
+
+private fun Context.openNotificationSettings() {
+    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+    } else {
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(Uri.fromParts("package", packageName, null))
+    }
+    startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
 internal fun formatReportDate(millis: Long): String =
