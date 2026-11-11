@@ -1,10 +1,9 @@
 package com.servilocal.domain.usecase.auth
 
 import com.servilocal.core.util.Validators
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
+import com.servilocal.domain.exception.EmailAlreadyInUseException
 import com.servilocal.domain.model.User
-import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
 
@@ -27,8 +26,9 @@ class RegisterUserUseCase @Inject constructor(
         if (normalizedName.isBlank()) return RegisterResult.InvalidName
         if (!Validators.isValidEmail(normalizedEmail)) return RegisterResult.InvalidEmail
         if (password.length < MIN_PASSWORD_LENGTH) return RegisterResult.WeakPassword
-        if (userRepository.findByEmail(normalizedEmail) != null) return RegisterResult.EmailAlreadyExists
 
+        // Firebase Auth es la autoridad del correo: no se consulta Firestore antes
+        // de crear la cuenta porque todavía no existe una sesión autenticada.
         val savedUser = try {
             userRepository.createAccount(normalizedName, normalizedEmail, password)
         } catch (error: FirebaseAuthException) {
@@ -36,6 +36,8 @@ class RegisterUserUseCase @Inject constructor(
                 return RegisterResult.EmailAlreadyExists
             }
             return RegisterResult.Failed
+        } catch (_: EmailAlreadyInUseException) {
+            return RegisterResult.EmailAlreadyExists
         } catch (_: Exception) {
             return RegisterResult.Failed
         } ?: return RegisterResult.Failed

@@ -17,6 +17,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import com.servilocal.domain.model.User
 import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.model.UserRole
+import com.servilocal.domain.model.UserStatus
 import com.servilocal.domain.repository.UserRepository
 import com.servilocal.domain.repository.GoogleSignInResult
 import jakarta.inject.Inject
@@ -38,10 +39,33 @@ class FirebaseUserRepository @Inject constructor(
 
     override suspend fun save(user: User): User {
         val uid = user.id.ifBlank { auth.currentUser?.uid ?: error("No authenticated user") }
-        val saved = user.copy(id = uid, passwordHash = null)
+        // El estado lo controla el sistema: al guardar se conserva el que ya existe
+        // en Firestore (o ACTIVE si el documento todavía no lo tiene).
+        val currentStatus = usersCollection.document(uid).get().await()
+            .getString("status")
+            ?.let { runCatching { UserStatus.valueOf(it) }.getOrNull() }
+            ?: UserStatus.ACTIVE
+        val saved = user.copy(id = uid, passwordHash = null, status = currentStatus)
         usersCollection.document(uid).set(saved.toMap(), SetOptions.merge()).await()
         publish(saved)
         return saved
+    }
+
+    override suspend fun deleteById(id: String): Boolean {
+        val uid = id.ifBlank { auth.currentUser?.uid ?: return false }
+        return try {
+            usersCollection.document(uid).delete().await()
+            _users.value = _users.value.filterNot { it.id == uid }
+            // Si es la cuenta autenticada, se elimina también de Firebase Auth.
+            // Puede requerir un inicio de sesión reciente; si falla, la sesión se cierra
+            // igualmente y el perfil ya no existe en Firestore.
+            auth.currentUser
+                ?.takeIf { it.uid == uid }
+                ?.let { current -> runCatching { current.delete().await() } }
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     override suspend fun findById(id: String): User? =
@@ -70,7 +94,8 @@ class FirebaseUserRepository @Inject constructor(
             name = name.trim(),
             email = email.trim().lowercase(),
             role = UserRole.USER,
-            level = UserLevel.PRINCIPIANTE
+            level = UserLevel.PRINCIPIANTE,
+            status = UserStatus.ACTIVE
         )
         return try {
             usersCollection.document(firebaseUser.uid).set(profile.toMap()).await()
@@ -150,6 +175,7 @@ class FirebaseUserRepository @Inject constructor(
                     email = firebaseUser.email.orEmpty(),
                     role = UserRole.USER,
                     level = UserLevel.PRINCIPIANTE,
+                    status = UserStatus.ACTIVE,
                     photoUrl = null
                 )
                 usersCollection.document(firebaseUser.uid).set(profile.toMap()).await()
@@ -167,6 +193,7 @@ class FirebaseUserRepository @Inject constructor(
         "role" to role.name,
         "points" to points,
         "level" to level.name,
+        "status" to status.name,
         "createdAtMillis" to createdAtMillis,
         "photoUrl" to photoUrl
     )
@@ -195,6 +222,7 @@ class FirebaseUserRepository @Inject constructor(
             role = runCatching { UserRole.valueOf(getString("role").orEmpty()) }.getOrDefault(UserRole.USER),
             points = getLong("points")?.toInt() ?: 0,
             level = runCatching { UserLevel.valueOf(getString("level").orEmpty()) }.getOrDefault(UserLevel.PRINCIPIANTE),
+            status = runCatching { UserStatus.valueOf(getString("status").orEmpty()) }.getOrDefault(UserStatus.ACTIVE),
             createdAtMillis = getLong("createdAtMillis") ?: System.currentTimeMillis(),
             photoUrl = getString("photoUrl")
         )

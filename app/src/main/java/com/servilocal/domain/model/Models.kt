@@ -35,6 +35,13 @@ enum class UserLevel(val minPoints: Int) {
     }
 }
 
+/** users.status — disponibilidad del perfil. */
+enum class UserStatus {
+    ACTIVE,     // Activo
+    DELETED,    // Eliminado
+    BLOCKED     // Bloqueado
+}
+
 /** posts.category */
 enum class PostCategory { HOGAR, EDUCACION, MASCOTAS, TECNOLOGIA, TRANSPORTE }
 
@@ -76,6 +83,8 @@ data class User(
     val role: UserRole,
     val points: Int = 0,
     val level: UserLevel = UserLevel.PRINCIPIANTE,
+    /** Estado del perfil. Un usuario no puede modificarlo; solo lo gestiona el sistema. */
+    val status: UserStatus = UserStatus.ACTIVE,
     val createdAtMillis: Long = System.currentTimeMillis(),
     val photoUrl: String? = null
 )

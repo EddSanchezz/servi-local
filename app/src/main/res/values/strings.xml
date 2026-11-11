@@ -154,6 +154,9 @@
     <string name="delete_post_title">Eliminar publicación</string>
     <string name="delete_post_confirmation">¿Quieres eliminar “%1$s”? Esta acción no se puede deshacer.</string>
     <string name="delete_account_title">Eliminar cuenta</string>
+    <string name="delete_account_confirmation">¿Seguro que quieres eliminar tu cuenta? Se eliminarán tu perfil, tus publicaciones y tus conversaciones. Esta acción no se puede deshacer.</string>
+    <string name="delete_account_failed">No se pudo eliminar la cuenta. Verifica que tu sesión siga activa e inténtalo de nuevo.</string>
+    <string name="deleting_account">Eliminando cuenta…</string>
     <string name="demo_account_notice">Esta es una cuenta de demostración sin almacenamiento ni sesión persistente. Puedes cerrar la sesión para regresar a la pantalla de acceso.</string>
     <string name="logout_lowercase">Cerrar sesión</string>
     <string name="published_status">Publicada</string>
@@ -455,6 +458,8 @@
     <string name="google_sign_in_failed">No se pudo iniciar sesión con Google.</string>
     <string name="register_success">Cuenta creada correctamente.</string>
     <string name="email_already_registered">Ese correo ya está registrado.</string>
+    <string name="auth_generic_error">No se pudo completar la operación. Inténtalo de nuevo.</string>
+    <string name="firebase_permission_error">No tienes permisos para acceder a la base de datos. Revisa la configuración de Firestore e inténtalo de nuevo.</string>
     <string name="review_name">Revisa tu nombre.</string>
     <string name="review_email">Revisa el correo.</string>
     <string name="review_password">Revisa la contraseña.</string>

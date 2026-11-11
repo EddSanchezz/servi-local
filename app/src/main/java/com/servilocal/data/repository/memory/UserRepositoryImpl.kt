@@ -1,9 +1,11 @@
 package com.servilocal.data.repository.memory
 
 import com.servilocal.core.security.PasswordHasher
+import com.servilocal.domain.exception.EmailAlreadyInUseException
 import com.servilocal.domain.model.User
 import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.model.UserRole
+import com.servilocal.domain.model.UserStatus
 import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -18,11 +20,20 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
     private val _users = MutableStateFlow(seedUsers())
     override val users: StateFlow<List<User>> = _users.asStateFlow()
     override suspend fun save(user: User): User {
-        val userToSave = user
+        // El estado lo controla el sistema: no se permite cambiarlo desde un guardado normal.
+        val currentStatus = _users.value.firstOrNull { it.id == user.id }?.status
+        val userToSave = user.copy(status = currentStatus ?: UserStatus.ACTIVE)
         _users.update { current ->
             current.filterNot { it.id == userToSave.id } + userToSave
         }
         return userToSave
+    }
+
+    override suspend fun deleteById(id: String): Boolean {
+        val exists = _users.value.any { it.id == id }
+        if (!exists) return false
+        _users.update { current -> current.filterNot { it.id == id } }
+        return true
     }
 
     override suspend fun findById(id: String): User? =
@@ -38,16 +49,19 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         return user.takeIf { it.passwordHash == PasswordHasher.hash(password) }
     }
 
-    override suspend fun createAccount(name: String, email: String, password: String): User =
-        save(
+    override suspend fun createAccount(name: String, email: String, password: String): User {
+        if (findByEmail(email) != null) throw EmailAlreadyInUseException()
+        return save(
             User(
                 id = "memory-${_users.value.size + 1}",
                 name = name,
                 email = email,
                 passwordHash = PasswordHasher.hash(password),
-                role = UserRole.USER
+                role = UserRole.USER,
+                status = UserStatus.ACTIVE
             )
         )
+    }
 
     override suspend fun sendPasswordResetEmail(email: String): Boolean = true
 

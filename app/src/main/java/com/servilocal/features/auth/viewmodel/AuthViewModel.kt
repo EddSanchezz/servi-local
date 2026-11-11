@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.servilocal.core.util.RequestResult
 import com.servilocal.core.util.ResourceProvider
 import com.servilocal.R
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.usecase.auth.LoginUserUseCase
 import com.servilocal.domain.usecase.auth.RegisterResult
@@ -59,7 +60,12 @@ class AuthViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(loginResult = RequestResult.Loading) }
-            val user = loginUser(email, password)
+            val user = runCatching { loginUser(email, password) }.getOrElse { error ->
+                _uiState.update {
+                    it.copy(loginResult = RequestResult.Failure(authFailureMessage(error)))
+                }
+                return@launch
+            }
             _uiState.update { state ->
                 if (user != null) {
                     state.copy(
@@ -88,7 +94,13 @@ class AuthViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(registerResult = RequestResult.Loading) }
-            when (val result = registerUser(name, email, password)) {
+            val result = runCatching { registerUser(name, email, password) }.getOrElse { error ->
+                _uiState.update {
+                    it.copy(registerResult = RequestResult.Failure(authFailureMessage(error)))
+                }
+                return@launch
+            }
+            when (result) {
                 is RegisterResult.Success -> _uiState.update {
                     it.copy(
                         registerResult = RequestResult.Success(resources.getString(R.string.register_success)),
@@ -126,13 +138,22 @@ class AuthViewModel @Inject constructor(
                 RegisterResult.Failed -> _uiState.update {
                     it.copy(
                         registerResult = RequestResult.Failure(
-                            resources.getString(R.string.login_failure)
+                            resources.getString(R.string.auth_generic_error)
                         )
                     )
                 }
             }
         }
     }
+
+    private fun authFailureMessage(error: Throwable): String =
+        if (error is FirebaseFirestoreException &&
+            error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
+        ) {
+            resources.getString(R.string.firebase_permission_error)
+        } else {
+            resources.getString(R.string.auth_generic_error)
+        }
 
     fun loginWithGoogle(activity: Activity) {
         if (_uiState.value.loginResult is RequestResult.Loading) return

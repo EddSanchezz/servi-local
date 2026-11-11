@@ -27,6 +27,7 @@ interface PostRepository {
         location: String
     ): Boolean
     fun deletePost(postId: String): Boolean
+    fun deletePostsByUser(userId: String): Boolean = false
     fun finishPost(postId: String): Boolean
     fun approvePost(postId: String)
     fun rejectPost(postId: String, reason: String, notes: String? = null)

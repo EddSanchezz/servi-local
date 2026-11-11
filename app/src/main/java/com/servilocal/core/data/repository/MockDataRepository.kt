@@ -334,11 +334,34 @@ class MockDataRepository @Inject constructor(
         val post = _posts.value.firstOrNull { it.id == postId } ?: return false
         if (post.providerId != _currentUser.value.id) return false
 
+        deletePostCascade(postId)
+        return true
+    }
+
+    override fun deletePostsByUser(userId: String): Boolean {
+        val postIds = (
+            _posts.value.filter { it.providerId == userId }.map { it.id } +
+                erdPosts.value.filter { it.userId == userId }.map { it.id }
+            ).toSet()
+        postIds.forEach(::deletePostCascade)
+        return true
+    }
+
+    private fun deletePostCascade(postId: String) {
         _posts.update { posts -> posts.filterNot { it.id == postId } }
         erdPosts.update { posts -> posts.filterNot { it.id == postId } }
         erdComments.update { comments -> comments.filterNot { it.postId == postId } }
         erdLikes.update { likes -> likes.filterNot { it.postId == postId } }
-        return true
+        erdReports.update { reports -> reports.filterNot { it.targetId == postId } }
+        _reports.update { reports -> reports.filterNot { it.targetPostId == postId } }
+        _notifications.update { notifications ->
+            notifications.filterNot { it.relatedPostId == postId }
+        }
+        val conversationIds = _allConversations.value
+            .filter { it.postId == postId }
+            .map { it.id }
+            .toSet()
+        removeConversations(conversationIds)
     }
 
     override fun finishPost(postId: String): Boolean {
@@ -551,6 +574,32 @@ class MockDataRepository @Inject constructor(
                     )
                 )
             }
+        }
+        refreshConversations()
+    }
+
+    override fun deleteConversationsForUser(userId: String): Boolean {
+        val conversationIds = _allConversations.value
+            .filter { it.clientId == userId || it.providerId == userId }
+            .map { it.id }
+            .toSet()
+        removeConversations(conversationIds)
+        return true
+    }
+
+    private fun removeConversations(conversationIds: Set<String>) {
+        if (conversationIds.isEmpty()) return
+        _allConversations.update { conversations ->
+            conversations.filterNot { it.id in conversationIds }
+        }
+        erdRequests.update { requests ->
+            requests.filterNot { it.id in conversationIds }
+        }
+        erdMessages.update { messages ->
+            messages.filterNot { it.serviceRequestId in conversationIds }
+        }
+        _notifications.update { notifications ->
+            notifications.filterNot { it.relatedChatId?.let(conversationIds::contains) == true }
         }
         refreshConversations()
     }
