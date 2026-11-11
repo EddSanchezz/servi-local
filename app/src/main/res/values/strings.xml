@@ -94,7 +94,7 @@
     <string name="already_have_account">¿Ya tienes una cuenta? Inicia sesión aquí</string>
     <string name="servilocal_id">ServiLocal ID</string>
     <string name="recover_password">Recuperar contraseña</string>
-    <string name="recover_password_intro">Ingresa el correo electrónico asociado a tu cuenta de ServiLocal y generaremos un código de verificación de 5 dígitos para restablecer tu acceso.</string>
+    <string name="recover_password_intro">Ingresa el correo electrónico asociado a tu cuenta de ServiLocal y te enviaremos un enlace para restablecer tu contraseña.</string>
     <string name="registered_email">Correo electrónico registrado</string>
     <string name="email_example_domain">ejemplo@servilocal.co</string>
     <string name="email_invalid_continue">Ingresa un correo válido para continuar.</string>
@@ -460,6 +460,9 @@
     <string name="review_password">Revisa la contraseña.</string>
     <string name="recovery_code_generated">Código generado. Úsalo para restablecer tu contraseña.</string>
     <string name="recovery_email_sent">Si la cuenta existe, recibirás un enlace para restablecer tu contraseña.</string>
+    <string name="recovery_email_sent_title">Correo enviado</string>
+    <string name="recovery_email_instructions">Revisa tu correo y abre el enlace de Firebase. Si el enlace abre esta aplicación, podrás definir tu nueva contraseña.</string>
+    <string name="recovery_email_failed">No se pudo enviar el correo de recuperación. Revisa tu conexión e inténtalo de nuevo.</string>
     <string name="account_not_found">No encontramos una cuenta con ese correo.</string>
     <string name="reset_code_digits_required">Ingresa los 5 dígitos del código.</string>
     <string name="password_reset_success">Contraseña actualizada. Ya puedes iniciar sesión.</string>

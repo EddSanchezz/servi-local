@@ -665,8 +665,7 @@ fun PasswordRecoveryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val validEmail = Validators.isValidEmail(uiState.email)
     val isLoading = uiState.requestResult is RequestResult.Loading
-    // Firebase delivers the reset action by email; no verification code is shown in-app.
-    val codeGenerated = false
+    val recoverySent = uiState.requestResult is RequestResult.Success
     val recoveryError = (uiState.requestResult as? RequestResult.Failure)?.errorMessage
 
     LaunchedEffect(recoveryError) {
@@ -767,7 +766,7 @@ fun PasswordRecoveryScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            AnimatedVisibility(visible = codeGenerated) {
+            AnimatedVisibility(visible = recoverySent) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                     shape = RoundedCornerShape(12.dp),
@@ -783,23 +782,14 @@ fun PasswordRecoveryScreen(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Text(
-                                text = stringResource(R.string.verification_code),
+                                text = stringResource(R.string.recovery_email_sent_title),
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = uiState.demoCode.orEmpty(),
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 8.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.demo_code_note),
+                            text = stringResource(R.string.recovery_email_instructions),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                             textAlign = TextAlign.Center
@@ -829,29 +819,9 @@ fun PasswordRecoveryScreen(
                     Icon(Icons.Default.Send, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = stringResource(if (codeGenerated) R.string.resend_code else R.string.send_recovery_code),
+                        text = stringResource(if (recoverySent) R.string.resend_code else R.string.send_recovery_code),
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                     )
-                }
-            }
-
-            AnimatedVisibility(visible = codeGenerated) {
-                Column {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = { onContinue(uiState.email) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(26.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.continue_label),
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(Icons.Default.ArrowForward, contentDescription = null)
-                    }
                 }
             }
 

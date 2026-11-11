@@ -1,6 +1,7 @@
 package com.servilocal.domain.usecase.auth
 
 import com.servilocal.core.util.Validators
+import com.google.firebase.auth.FirebaseAuthException
 import com.servilocal.domain.repository.PasswordResetRepository
 import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
@@ -8,6 +9,7 @@ import jakarta.inject.Inject
 sealed interface RecoverPasswordResult {
     data class Success(val code: String = "") : RecoverPasswordResult
     data object InvalidEmail : RecoverPasswordResult
+    data object Failed : RecoverPasswordResult
     @Deprecated("Firebase intentionally does not reveal whether an account exists")
     data object UserNotFound : RecoverPasswordResult
 }
@@ -37,7 +39,13 @@ class RecoverPasswordUseCase @Inject constructor(
             return RecoverPasswordResult.Success(code)
         }
         // Firebase deliberately returns the same UX for known and unknown accounts.
-        userRepository.sendPasswordResetEmail(normalizedEmail)
-        return RecoverPasswordResult.Success()
+        return try {
+            userRepository.sendPasswordResetEmail(normalizedEmail)
+            RecoverPasswordResult.Success()
+        } catch (_: FirebaseAuthException) {
+            RecoverPasswordResult.Failed
+        } catch (_: Exception) {
+            RecoverPasswordResult.Failed
+        }
     }
 }

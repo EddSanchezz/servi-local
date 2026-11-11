@@ -75,7 +75,7 @@ class PasswordRecoveryViewModel @Inject constructor(
                 is RecoverPasswordResult.Success -> _uiState.update {
                     it.copy(
                         email = it.email.trim().lowercase(),
-                        demoCode = null,
+                        demoCode = result.code.ifBlank { null },
                         requestResult = RequestResult.Success(
                             resources.getString(R.string.recovery_email_sent)
                         )
@@ -96,6 +96,13 @@ class PasswordRecoveryViewModel @Inject constructor(
                         emailError = resources.getString(R.string.email_invalid_continue),
                         requestResult = RequestResult.Failure(
                             resources.getString(R.string.email_invalid_continue)
+                        )
+                    )
+                }
+                RecoverPasswordResult.Failed -> _uiState.update {
+                    it.copy(
+                        requestResult = RequestResult.Failure(
+                            resources.getString(R.string.recovery_email_failed)
                         )
                     )
                 }
