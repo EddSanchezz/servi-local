@@ -161,7 +161,9 @@ class ModerationViewModel @Inject constructor(
     }
 
     fun resolveReportsForPost(id: String): Boolean = resolveReportsForPostUseCase(id)
-    fun toggleModeratorShift(): Boolean = toggleModeratorShiftUseCase()
+    fun toggleModeratorShift() {
+        viewModelScope.launch { runCatching { toggleModeratorShiftUseCase() } }
+    }
 
     fun clearFeedback() {
         _uiState.update { it.copy(error = null, actionResult = null) }

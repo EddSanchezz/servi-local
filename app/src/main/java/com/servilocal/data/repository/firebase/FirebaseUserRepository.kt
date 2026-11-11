@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -17,6 +18,8 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import com.servilocal.domain.model.User
 import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.model.UserRole
+import com.servilocal.domain.model.UserProfile
+import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.UserRepository
 import com.servilocal.domain.repository.GoogleSignInResult
 import jakarta.inject.Inject
@@ -31,10 +34,48 @@ class FirebaseUserRepository @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val credentialManager: CredentialManager
-) : UserRepository {
+) : UserRepository, AuthRepository {
     private val _users = MutableStateFlow<List<User>>(emptyList())
     override val users: StateFlow<List<User>> = _users.asStateFlow()
     private val usersCollection get() = firestore.collection("users")
+    private val _currentUser = MutableStateFlow(signedOutProfile())
+    override val currentUser: StateFlow<UserProfile> = _currentUser.asStateFlow()
+    private val _moderatorUser = MutableStateFlow(signedOutModeratorProfile())
+    override val moderatorUser: StateFlow<UserProfile> = _moderatorUser.asStateFlow()
+    private var profileRegistration: ListenerRegistration? = null
+    private var moderatorRegistration: ListenerRegistration? = null
+
+    private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+        val firebaseUser = firebaseAuth.currentUser
+        profileRegistration?.remove()
+        moderatorRegistration?.remove()
+        profileRegistration = null
+        moderatorRegistration = null
+        if (firebaseUser == null) {
+            _currentUser.value = signedOutProfile()
+            _moderatorUser.value = signedOutModeratorProfile()
+        } else {
+            profileRegistration = usersCollection.document(firebaseUser.uid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
+                    val user = snapshot.toUser(firebaseUser.uid) ?: return@addSnapshotListener
+                    publish(user)
+                    val profile = user.toUserProfile()
+                    _currentUser.value = profile
+                    if (user.role == UserRole.MODERATOR) {
+                        observeModeratorProfile(firebaseUser.uid, profile)
+                    } else {
+                        moderatorRegistration?.remove()
+                        moderatorRegistration = null
+                        _moderatorUser.value = signedOutModeratorProfile()
+                    }
+                }
+        }
+    }
+
+    init {
+        auth.addAuthStateListener(authStateListener)
+    }
 
     override suspend fun save(user: User): User {
         val uid = user.id.ifBlank { auth.currentUser?.uid ?: error("No authenticated user") }
@@ -47,9 +88,11 @@ class FirebaseUserRepository @Inject constructor(
     override suspend fun findById(id: String): User? =
         usersCollection.document(id).get().await().toUser(id)?.also(::publish)
 
+    /** User documents contain PII; clients may only resolve their own email to a profile. */
     override suspend fun findByEmail(email: String): User? {
-        val snapshot = usersCollection.whereEqualTo("email", email.trim().lowercase()).limit(1).get().await()
-        return snapshot.documents.firstOrNull()?.toUser()?.also(::publish)
+        val firebaseUser = auth.currentUser ?: return null
+        if (!firebaseUser.email.equals(email.trim(), ignoreCase = true)) return null
+        return findById(firebaseUser.uid)
     }
 
     override suspend fun login(email: String, password: String): User? {
@@ -94,6 +137,35 @@ class FirebaseUserRepository @Inject constructor(
     override suspend fun confirmPasswordResetCode(code: String, newPassword: String): Boolean {
         auth.confirmPasswordReset(code, newPassword).await()
         return true
+    }
+
+    override suspend fun updateCurrentUser(name: String, email: String) {
+        val firebaseUser = auth.currentUser ?: error("No authenticated user")
+        val normalizedEmail = email.trim().lowercase()
+        if (!firebaseUser.email.equals(normalizedEmail, ignoreCase = true)) {
+            firebaseUser.updateEmail(normalizedEmail).await()
+        }
+        usersCollection.document(firebaseUser.uid).update(
+            mapOf("name" to name.trim(), "email" to normalizedEmail)
+        ).await()
+    }
+
+    override suspend fun updateCurrentUserPhoto(photoUrl: String?) {
+        val uid = auth.currentUser?.uid ?: error("No authenticated user")
+        usersCollection.document(uid).update("photoUrl", photoUrl).await()
+    }
+
+    override suspend fun syncCurrentUser(user: User) {
+        publish(user)
+        _currentUser.value = user.toUserProfile()
+    }
+
+    override suspend fun toggleModeratorShift() {
+        val uid = auth.currentUser?.uid ?: error("No authenticated user")
+        val moderatorDocument = firestore.collection(MODERATORS_COLLECTION).document(uid)
+        val snapshot = moderatorDocument.get().await()
+        if (!snapshot.exists()) throw SecurityException("El usuario no está registrado como moderador.")
+        moderatorDocument.update("activeShift", !(snapshot.getBoolean("activeShift") ?: true)).await()
     }
 
     override suspend fun signInWithGoogle(activity: Activity): GoogleSignInResult {
@@ -175,7 +247,55 @@ class FirebaseUserRepository @Inject constructor(
         _users.value = (_users.value.filterNot { it.id == user.id } + user)
     }
 
+    private fun observeModeratorProfile(uid: String, profile: UserProfile) {
+        moderatorRegistration?.remove()
+        moderatorRegistration = firestore.collection(MODERATORS_COLLECTION).document(uid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                _moderatorUser.value = profile.copy(
+                    staffId = snapshot.getString("staffId") ?: "MOD-${uid.takeLast(4).uppercase()}",
+                    activeShift = snapshot.getBoolean("activeShift") ?: true,
+                    workingHours = snapshot.getString("workingHours")
+                        ?: "Lunes a viernes · 8:00 a. m. - 4:30 p. m."
+                )
+            }
+    }
+
+    private fun User.toUserProfile(): UserProfile {
+        val isModerator = role == UserRole.MODERATOR
+        return UserProfile(
+            id = id,
+            name = name,
+            email = email,
+            photoUrl = photoUrl,
+            role = role,
+            level = level.displayName(),
+            points = points,
+            nextLevelPoints = level.next?.minPoints ?: 1000,
+            staffId = if (isModerator) "MOD-${id.takeLast(4).uppercase()}" else null,
+            activeShift = true,
+            workingHours = if (isModerator) "Lunes a viernes · 8:00 a. m. - 4:30 p. m."
+            else "Lunes a sábado · 8:00 a. m. - 6:00 p. m."
+        )
+    }
+
+    private fun signedOutProfile() = UserProfile(
+        id = "",
+        name = "",
+        email = "",
+        role = UserRole.USER
+    )
+
+    private fun signedOutModeratorProfile() = UserProfile(
+        id = "",
+        name = "",
+        email = "",
+        role = UserRole.MODERATOR,
+        activeShift = false
+    )
+
     private companion object {
+        const val MODERATORS_COLLECTION = "moderators"
         val INVALID_LOGIN_CODES: Set<String> = setOf(
             "ERROR_INVALID_CREDENTIAL",
             ERROR_USER_NOT_FOUND,

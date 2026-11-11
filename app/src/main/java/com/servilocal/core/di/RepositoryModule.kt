@@ -32,7 +32,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindAuthRepository(repository: MockDataRepository): AuthRepository
+    abstract fun bindAuthRepository(repository: FirebaseUserRepository): AuthRepository
 
     @Binds
     @Singleton

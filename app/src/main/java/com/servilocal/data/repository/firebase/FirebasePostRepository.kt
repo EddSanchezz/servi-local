@@ -1,6 +1,7 @@
 package com.servilocal.data.repository.firebase
 
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
@@ -8,6 +9,7 @@ import com.servilocal.domain.model.PostCategory
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
+import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.repository.SessionRepository
 import jakarta.inject.Inject
@@ -85,6 +87,8 @@ class FirebasePostRepository @Inject constructor(
             ?: throw IllegalStateException("Inicia sesión antes de crear una publicación.")
         val user = firestore.collection(USERS_COLLECTION).document(session.userId).get().await()
         val providerName = user.getString("name").orEmpty()
+        val updatedPoints = (user.getLong("points")?.toInt() ?: 0) + PUBLICATION_REWARD_POINTS
+        val updatedLevel = UserLevel.fromPoints(updatedPoints).name
         val providerLevel = user.getString("level")
             ?.let { runCatching { com.servilocal.domain.model.UserLevel.valueOf(it).displayName() }.getOrNull() }
             ?: "Nivel 1: Principiante"
@@ -126,7 +130,17 @@ class FirebasePostRepository @Inject constructor(
             comments = emptyList(),
             createdAtMillis = createdAt
         )
-        reference.set(post.toFirestoreMap()).await()
+        val batch = firestore.batch()
+        batch.set(reference, post.toFirestoreMap())
+        batch.update(
+            user.reference,
+            mapOf(
+                "points" to updatedPoints,
+                "level" to updatedLevel,
+                "lastAwardedPostId" to reference.id
+            )
+        )
+        batch.commit().await()
         return post
     }
 
@@ -195,7 +209,7 @@ class FirebasePostRepository @Inject constructor(
             mapOf(
                 FIELD_STATUS to PostStatus.APPROVED.name,
                 "moderatorId" to session.userId,
-                "moderatedAtMillis" to System.currentTimeMillis()
+                "moderatedAt" to FieldValue.serverTimestamp()
             )
         ).await()
     }
@@ -209,7 +223,7 @@ class FirebasePostRepository @Inject constructor(
                 "moderatorId" to session.userId,
                 "rejectionReason" to reason.trim(),
                 "rejectionNotes" to notes?.trim(),
-                "moderatedAtMillis" to System.currentTimeMillis()
+                "moderatedAt" to FieldValue.serverTimestamp()
             )
         ).await()
     }
@@ -229,7 +243,7 @@ class FirebasePostRepository @Inject constructor(
                 "moderatorId" to session.userId,
                 "rejectionReason" to if (status == PostStatus.REJECTED) reason?.trim() else null,
                 "rejectionNotes" to if (status == PostStatus.REJECTED) notes?.trim() else null,
-                "moderatedAtMillis" to System.currentTimeMillis()
+                "moderatedAt" to FieldValue.serverTimestamp()
             )
         ).await()
         return true
@@ -309,7 +323,8 @@ class FirebasePostRepository @Inject constructor(
         "rating" to rating.toDouble(),
         "warrantyMonths" to warrantyMonths,
         "responseTime" to responseTime,
-        "createdAtMillis" to createdAtMillis
+        "createdAtMillis" to createdAtMillis,
+        "createdAt" to FieldValue.serverTimestamp()
     )
 
     private fun locationMap(latitude: Double, longitude: Double): Map<String, Any> = mapOf(
@@ -360,5 +375,6 @@ class FirebasePostRepository @Inject constructor(
         const val FIELD_STATUS = "status"
         const val FIELD_PROVIDER_ID = "providerId"
         const val DEFAULT_COVERAGE_RADIUS_KM = 15f
+        const val PUBLICATION_REWARD_POINTS = 50
     }
 }

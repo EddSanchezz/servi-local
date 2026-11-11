@@ -32,9 +32,9 @@ app/src/main/java/com/servilocal/
 
 Flujo de datos: `Compose` → `ViewModel` → casos de uso → interfaces de repositorio. Hilt conecta los contratos con sus implementaciones. Navigation Compose tiene un grafo raíz para onboarding/autenticación y un dashboard con navegación distinta según el rol: Home es la pestaña inicial del usuario y Auditoría la del moderador.
 
-La aplicación usa Firebase para autenticación y perfiles, y Cloudinary para la carga de imágenes. El PDF de procesos y reparto está en la raíz. La carpeta `/docs` está excluida de Git y no se incluye en esta copia del proyecto.
+La aplicación usa Firebase Authentication y Firestore. En la rama `migracion-firebase`, los perfiles y las publicaciones ya usan Firestore; comentarios, likes, solicitudes, chats, notificaciones y reportes siguen en memoria mientras avanza su migración. Cloudinary almacena imágenes de perfil y publicaciones. El PDF de procesos y reparto está en la raíz.
 
-El módulo de publicaciones permite buscar por texto, filtrar por categoría y zona, y limitar por distancias calculadas desde coordenadas aproximadas de prueba en Armenia. No usa GPS ni geocodificación real. Desde el perfil se pueden consultar y eliminar publicaciones propias; editar y finalizar está permitido al autor para publicaciones aprobadas. La moderación ofrece una cola FIFO de pendientes, aprobación, rechazo con motivo obligatorio y resolución de publicaciones/reportes.
+El módulo de publicaciones permite buscar por texto, filtrar por categoría y zona, y limitar por distancia desde coordenadas de la publicación. Al crear o editar, se selecciona el punto en OpenStreetMap/osmdroid y se puede escribir una descripción; el GPS es opcional y solo se solicita al pulsar “Usar mi ubicación”. La dirección no se geocodifica automáticamente. Desde el perfil se consultan y eliminan publicaciones propias; editar y finalizar está permitido al autor para publicaciones aprobadas. La moderación ofrece una cola FIFO de pendientes, aprobación y rechazo con motivo obligatorio.
 
 ## Requisitos
 
@@ -51,18 +51,19 @@ El feed usa OpenStreetMap mediante osmdroid. La pestaña Mapa muestra tiles real
 
 ### Firebase
 
-Firebase se usa para la autenticación y los perfiles de usuario en Firestore.
+Firebase Authentication gestiona las cuentas. Firestore guarda perfiles en `users/{uid}` y publicaciones en `posts/{postId}`; cada publicación incluye su descripción, el punto y la cobertura. El registro de moderadores se mantiene separado en `moderators/{uid}` y solo debe provisionarse desde una sesión administrativa, nunca desde la app.
 
 1. Crea un proyecto Firebase y registra el paquete `com.aistudio.servilocal.quindio`.
 2. Habilita los proveedores Email/Password y Google, además de Firestore.
 3. Registra las huellas SHA-1 y SHA-256 del certificado usado para instalar la aplicación.
 4. Descarga `google-services.json` y colócalo en `app/google-services.json`.
+5. Revisa `firestore.rules` antes de desplegarlas. La configuración local de reglas usa denegación por defecto y, durante la migración, solo habilita los flujos de perfiles, publicaciones y moderadores.
 
 Los usuarios pueden registrarse con correo y contraseña o iniciar sesión con Google. `google-services.json` no debe subirse a Git.
 
 ### Cloudinary
 
-Cloudinary se usa para almacenar las imágenes de las publicaciones. Configura sus datos en `local.properties`:
+Cloudinary se usa para almacenar las imágenes de perfil y publicaciones. La app conserva en Firestore únicamente las URLs HTTPS devueltas por Cloudinary. Configura sus datos en `local.properties`:
 
 ```properties
 CLOUDINARY_CLOUD_NAME=tu_cloud_name
@@ -87,7 +88,7 @@ En macOS o Linux:
 ./gradlew :app:testDebugUnitTest
 ```
 
-Las pruebas unitarias de `app/src/test` cubren la sesión, validación de acceso y registro, creación de publicaciones, filtros y horarios. Las pruebas instrumentadas de `app/src/androidTest` verifican la configuración básica del proyecto en Android.
+Las pruebas unitarias de `app/src/test` usan repositorios falsos para que no consuman lecturas/escrituras de Firebase ni subidas de Cloudinary. Las pruebas instrumentadas de `app/src/androidTest` verifican la configuración básica del proyecto en Android. La validación manual de servicios reales debe ser limitada: una publicación de prueba y una subida de imagen.
 
 El APK de depuración se genera en `app/build/outputs/apk/debug/app-debug.apk`. Para instalarlo en un dispositivo conectado por ADB:
 

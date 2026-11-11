@@ -158,7 +158,7 @@ class ModerationUseCaseTest {
 
         override suspend fun updateCurrentUser(name: String, email: String) {}
         override suspend fun updateCurrentUserPhoto(photoUrl: String?) {}
-        override fun toggleModeratorShift() {
+        override suspend fun toggleModeratorShift() {
             _moderatorUser.value = _moderatorUser.value.copy(activeShift = !_moderatorUser.value.activeShift)
         }
     }

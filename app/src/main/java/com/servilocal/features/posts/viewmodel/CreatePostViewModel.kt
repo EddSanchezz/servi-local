@@ -7,7 +7,6 @@ import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.exception.ImageUploadException
 import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
-import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +28,6 @@ data class CreatePostUiState(
 @HiltViewModel
 class CreatePostViewModel @Inject constructor(
     private val createServicePost: CreateServicePostUseCase,
-    private val awardPublicationPoints: AwardPublicationPointsUseCase,
     private val imageStorageRepository: ImageStorageRepository,
     private val resources: ResourceProvider
 ) : ViewModel() {
@@ -99,9 +97,6 @@ class CreatePostViewModel @Inject constructor(
                     longitude = longitude,
                     photos = listOf(uploadedUrl)
                 )
-                post.providerId?.let { providerId ->
-                    runCatching { awardPublicationPoints(providerId) }
-                }
                 _uiState.update { it.copy(isSubmitting = false, isCreated = true, uploadProgress = null) }
             } catch (_: ImageUploadException) {
                 _uiState.update {

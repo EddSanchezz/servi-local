@@ -3,7 +3,6 @@ package com.servilocal
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.servilocal.core.util.RequestResult
-import com.servilocal.data.repository.memory.BadgeRepositoryImpl
 import com.servilocal.data.repository.memory.PasswordResetRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.memory.UserRepositoryImpl
@@ -41,9 +40,6 @@ import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByQueryUseCase
 import com.servilocal.domain.usecase.posts.ObservePostsUseCase
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
-import com.servilocal.domain.usecase.profile.AddPointsUseCase
-import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
-import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
 import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
@@ -224,19 +220,6 @@ class FeatureViewModelTest {
     @Test
     fun `create post validation returns an actionable error and saves valid posts`() = runTest {
         val repository = MockDataRepository()
-        val users = UserRepositoryImpl()
-        val sessions = SessionRepositoryImpl()
-        val badges = BadgeRepositoryImpl()
-        val awardPublicationPoints = AwardPublicationPointsUseCase(
-            AddPointsUseCase(users),
-            CheckAndAwardBadgesUseCase(
-                sessions,
-                users,
-                badges,
-                repository,
-                CreateNotificationUseCase(repository)
-            )
-        )
         var uploadCalls = 0
         val imageStorageRepository = object : ImageStorageRepository {
             override suspend fun uploadImage(localUri: String, folder: String, onProgress: (Float) -> Unit): String {
@@ -247,7 +230,6 @@ class FeatureViewModelTest {
         }
         val viewModel = CreatePostViewModel(
             CreateServicePostUseCase(repository, repository, CreateNotificationUseCase(repository)),
-            awardPublicationPoints,
             imageStorageRepository,
             testResourceProvider
         )
@@ -290,7 +272,7 @@ class FeatureViewModelTest {
     }
 
     @Test
-    fun `schedules are available and a regular user cannot toggle the moderator shift`() {
+    fun `schedules are available and a regular user cannot toggle the moderator shift`() = runTest {
         val repository = MockDataRepository()
         val notifications = CreateNotificationUseCase(repository)
         val moderationViewModel = ModerationViewModel(
@@ -313,7 +295,8 @@ class FeatureViewModelTest {
         assertTrue(repository.moderatorUser.value.workingHours.contains("viernes"))
         assertTrue(repository.moderatorUser.value.activeShift)
 
-        assertFalse(moderationViewModel.toggleModeratorShift())
+        moderationViewModel.toggleModeratorShift()
+        advanceUntilIdle()
         assertTrue(repository.moderatorUser.value.activeShift)
     }
 

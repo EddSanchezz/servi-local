@@ -759,7 +759,7 @@ class MockDataRepository @Inject constructor(
         }
     }
 
-    override fun toggleModeratorShift() {
+    override suspend fun toggleModeratorShift() {
         _moderatorUser.update { it.copy(activeShift = !it.activeShift) }
     }
 
