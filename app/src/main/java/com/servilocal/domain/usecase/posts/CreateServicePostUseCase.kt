@@ -12,14 +12,17 @@ class CreateServicePostUseCase @Inject constructor(
     private val authRepository: AuthRepository,
     private val createNotification: CreateNotificationUseCase
 ) {
-    operator fun invoke(
+    suspend operator fun invoke(
         title: String,
         category: String,
         description: String,
         minPrice: Int,
         maxPrice: Int,
         isPriceToAgree: Boolean,
-        location: String
+        location: String,
+        latitude: Double?,
+        longitude: Double?,
+        photos: List<String>
     ): ServicePost {
         val post = postRepository.createPost(
             title,
@@ -28,7 +31,10 @@ class CreateServicePostUseCase @Inject constructor(
             minPrice,
             maxPrice,
             isPriceToAgree,
-            location
+            location,
+            latitude,
+            longitude,
+            photos
         )
         val currentUser = authRepository.currentUser.value
         val authorId = post.providerId ?: currentUser.id

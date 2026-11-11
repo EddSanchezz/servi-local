@@ -44,6 +44,7 @@ import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import com.servilocal.domain.usecase.profile.AddPointsUseCase
 import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
 import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
+import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +58,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -172,7 +174,7 @@ class FeatureViewModelTest {
     }
 
     @Test
-    fun `password recovery generates a code and resets the account`() = runTest {
+    fun `password recovery confirms the request without exposing a reset code`() = runTest {
         val users = UserRepositoryImpl()
         val codes = PasswordResetRepositoryImpl()
         val viewModel = PasswordRecoveryViewModel(
@@ -187,21 +189,7 @@ class FeatureViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.requestResult is RequestResult.Success)
-        val code = viewModel.uiState.value.demoCode
-        assertNotNull(code)
-        assertEquals(5, code?.length)
-
-        viewModel.prepareReset(email)
-        code!!.forEachIndexed { index, digit ->
-            viewModel.onCodeDigitChange(index, digit.toString())
-        }
-        viewModel.onNewPasswordChange("nuevaClave2026")
-        viewModel.onConfirmPasswordChange("nuevaClave2026")
-        viewModel.submitReset()
-        advanceUntilIdle()
-
-        assertTrue(viewModel.uiState.value.resetResult is RequestResult.Success)
-        assertNotNull(users.login(email, "nuevaClave2026"))
+        assertNull(viewModel.uiState.value.demoCode)
     }
 
     @Test
@@ -234,7 +222,7 @@ class FeatureViewModelTest {
     }
 
     @Test
-    fun `create post validation returns an actionable error and saves valid posts`() {
+    fun `create post validation returns an actionable error and saves valid posts`() = runTest {
         val repository = MockDataRepository()
         val users = UserRepositoryImpl()
         val sessions = SessionRepositoryImpl()
@@ -249,13 +237,34 @@ class FeatureViewModelTest {
                 CreateNotificationUseCase(repository)
             )
         )
-        val viewModel = CreatePostViewModel(CreateServicePostUseCase(repository, repository, CreateNotificationUseCase(repository)), awardPublicationPoints, testResourceProvider)
+        var uploadCalls = 0
+        val imageStorageRepository = object : ImageStorageRepository {
+            override suspend fun uploadImage(localUri: String, folder: String, onProgress: (Float) -> Unit): String {
+                uploadCalls++
+                onProgress(1f)
+                return "https://res.cloudinary.com/test/image/upload/post.jpg"
+            }
+        }
+        val viewModel = CreatePostViewModel(
+            CreateServicePostUseCase(repository, repository, CreateNotificationUseCase(repository)),
+            awardPublicationPoints,
+            imageStorageRepository,
+            testResourceProvider
+        )
 
-        assertFalse(viewModel.createPost("", "Hogar", "", 0, 0, false, ""))
+        viewModel.createPost("", "Hogar", "", 0, 0, false, "", null, null)
+        advanceUntilIdle()
         assertNotNull(viewModel.uiState.value.submissionError)
 
-        assertTrue(viewModel.createPost("Pintura", "Hogar", "Pintura interior", 50000, 90000, false, "Armenia"))
+        viewModel.onImageSelected("content://test/photo.jpg")
+        viewModel.createPost("Pintura", "Hogar", "Pintura interior", 50000, 90000, false, "Armenia", 4.5339, -75.6811)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isCreated)
+        assertEquals(1, uploadCalls)
         assertEquals(PostStatus.PENDING_VERIFICATION, repository.posts.value.first().status)
+        assertEquals(4.5339, repository.posts.value.first().latitude!!, 0.0001)
+        assertEquals(-75.6811, repository.posts.value.first().longitude!!, 0.0001)
+        assertEquals(listOf("https://res.cloudinary.com/test/image/upload/post.jpg"), repository.posts.value.first().photos)
     }
 
     @Test

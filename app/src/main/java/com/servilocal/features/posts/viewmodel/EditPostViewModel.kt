@@ -1,23 +1,30 @@
 package com.servilocal.features.posts.viewmodel
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.R
 import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.model.ServicePost
-import com.servilocal.domain.usecase.posts.GetPostDetailUseCase
 import com.servilocal.domain.usecase.posts.FinishServicePostUseCase
+import com.servilocal.domain.usecase.posts.GetPostDetailUseCase
 import com.servilocal.domain.usecase.posts.UpdateServicePostUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-data class EditPostUiState(val submissionError: String? = null)
+data class EditPostUiState(
+    val submissionError: String? = null,
+    val isSubmitting: Boolean = false,
+    val isUpdated: Boolean = false,
+    val isFinished: Boolean = false
+)
 
 @HiltViewModel
 class EditPostViewModel @Inject constructor(
@@ -41,33 +48,50 @@ class EditPostViewModel @Inject constructor(
         minPrice: Int,
         maxPrice: Int,
         isPriceToAgree: Boolean,
-        location: String
-    ): Boolean {
-        val updated = updateServicePost(
-            postId,
-            title,
-            category,
-            description,
-            minPrice,
-            maxPrice,
-            isPriceToAgree,
-            location
-        )
-        _uiState.value = if (updated) {
-            EditPostUiState()
-        } else {
-            EditPostUiState(resources.getString(R.string.edit_post_failed))
+        location: String,
+        latitude: Double?,
+        longitude: Double?
+    ) {
+        if (_uiState.value.isSubmitting) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, submissionError = null, isUpdated = false) }
+            val updated = runCatching {
+                updateServicePost(
+                    postId,
+                    title,
+                    category,
+                    description,
+                    minPrice,
+                    maxPrice,
+                    isPriceToAgree,
+                    location,
+                    latitude,
+                    longitude,
+                    null
+                )
+            }.getOrDefault(false)
+            _uiState.update {
+                it.copy(
+                    isSubmitting = false,
+                    isUpdated = updated,
+                    submissionError = if (updated) null else resources.getString(R.string.edit_post_failed)
+                )
+            }
         }
-        return updated
     }
 
-    fun finishPost(postId: String): Boolean {
-        val finished = finishServicePost(postId)
-        _uiState.value = if (finished) {
-            EditPostUiState()
-        } else {
-            EditPostUiState(resources.getString(R.string.finish_post_failed))
+    fun finishPost(postId: String) {
+        if (_uiState.value.isSubmitting) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, submissionError = null, isFinished = false) }
+            val finished = runCatching { finishServicePost(postId) }.getOrDefault(false)
+            _uiState.update {
+                it.copy(
+                    isSubmitting = false,
+                    isFinished = finished,
+                    submissionError = if (finished) null else resources.getString(R.string.finish_post_failed)
+                )
+            }
         }
-        return finished
     }
 }

@@ -11,7 +11,7 @@ class MarkPostAsResolvedUseCase @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository
 ) {
-    operator fun invoke(postId: String): Boolean {
+    suspend operator fun invoke(postId: String): Boolean {
         val post = postRepository.posts.value.firstOrNull { it.id == postId } ?: return false
         return when (authRepository.currentUser.value.role) {
             UserRole.USER -> postRepository.finishPost(postId)

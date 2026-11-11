@@ -60,14 +60,17 @@ class ModerationUseCaseTest {
         private val _posts = MutableStateFlow(initialPosts)
         override val posts: StateFlow<List<ServicePost>> = _posts
 
-        override fun createPost(
+        override suspend fun createPost(
             title: String,
             category: String,
             description: String,
             minPrice: Int,
             maxPrice: Int,
             isPriceToAgree: Boolean,
-            location: String
+            location: String,
+            latitude: Double?,
+            longitude: Double?,
+            photos: List<String>
         ): ServicePost {
             val post = ServicePost(
                 id = "post_${System.currentTimeMillis()}",
@@ -79,13 +82,16 @@ class ModerationUseCaseTest {
                 maxPrice = maxPrice,
                 isPriceToAgree = isPriceToAgree,
                 location = location,
+                latitude = latitude,
+                longitude = longitude,
+                photos = photos,
                 status = PostStatus.PENDING_VERIFICATION
             )
             _posts.value = _posts.value + post
             return post
         }
 
-        override fun updatePost(
+        override suspend fun updatePost(
             postId: String,
             title: String,
             category: String,
@@ -93,26 +99,29 @@ class ModerationUseCaseTest {
             minPrice: Int,
             maxPrice: Int,
             isPriceToAgree: Boolean,
-            location: String
+            location: String,
+            latitude: Double?,
+            longitude: Double?,
+            photos: List<String>?
         ): Boolean = false
 
-        override fun deletePost(postId: String): Boolean = false
+        override suspend fun deletePost(postId: String): Boolean = false
 
-        override fun finishPost(postId: String): Boolean = false
+        override suspend fun finishPost(postId: String): Boolean = false
 
-        override fun approvePost(postId: String) {
+        override suspend fun approvePost(postId: String) {
             _posts.value = _posts.value.map {
                 if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it
             }
         }
 
-        override fun rejectPost(postId: String, reason: String, notes: String?) {
+        override suspend fun rejectPost(postId: String, reason: String, notes: String?) {
             _posts.value = _posts.value.map {
                 if (it.id == postId) it.copy(status = PostStatus.REJECTED, rejectionReason = reason, rejectionNotes = notes) else it
             }
         }
 
-        override fun moderatePost(
+        override suspend fun moderatePost(
             postId: String,
             status: PostStatus,
             reason: String?,
@@ -259,7 +268,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `ApprovePendingPostUseCase approves pending post idempotently when moderator`() {
+    fun `ApprovePendingPostUseCase approves pending post idempotently when moderator`() = runTest {
         val pendingPost = ServicePost(id = "post_pending", title = "P", category = "Hogar", description = "Desc", providerName = "P", status = PostStatus.PENDING_VERIFICATION)
         val approvedPost = ServicePost(id = "post_approved", title = "P2", category = "Hogar", description = "Desc", providerName = "P", status = PostStatus.APPROVED)
 
@@ -280,7 +289,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `RejectPendingPostUseCase rejects pending post when moderator and fails when non-moderator or blank reason`() {
+    fun `RejectPendingPostUseCase rejects pending post when moderator and fails when non-moderator or blank reason`() = runTest {
         val pendingPost = ServicePost(id = "post_pending", title = "P", category = "Hogar", description = "Desc", providerName = "P", status = PostStatus.PENDING_VERIFICATION)
 
         val postRepo = FakePostRepository(listOf(pendingPost))
@@ -303,7 +312,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `RejectPostUseCase can withdraw an approved post after moderator review`() {
+    fun `RejectPostUseCase can withdraw an approved post after moderator review`() = runTest {
         val approvedPost = ServicePost(
             id = "post_approved", title = "P", category = "Hogar", description = "Desc",
             providerName = "Provider", providerId = "2", status = PostStatus.APPROVED
@@ -342,7 +351,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `ResolveReportUseCase dismisses an invalid report without changing the post`() {
+    fun `ResolveReportUseCase dismisses an invalid report without changing the post`() = runTest {
         val post = ServicePost(
             id = "post_1", title = "P1", category = "Hogar", description = "Desc",
             providerName = "Other User", providerId = "2", status = PostStatus.APPROVED
@@ -360,7 +369,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `ResolveReportUseCase upheld can reject the reported post`() {
+    fun `ResolveReportUseCase upheld can reject the reported post`() = runTest {
         val post = ServicePost(
             id = "post_1", title = "P1", category = "Hogar", description = "Desc",
             providerName = "Other User", providerId = "2", status = PostStatus.APPROVED
@@ -385,7 +394,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `ResolveReportUseCase rejects resolutions from non moderators`() {
+    fun `ResolveReportUseCase rejects resolutions from non moderators`() = runTest {
         val post = ServicePost(
             id = "post_1", title = "P1", category = "Hogar", description = "Desc",
             providerName = "Other User", providerId = "2", status = PostStatus.APPROVED
@@ -402,7 +411,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `moderation cases authorize the signed in user, not the seeded staff profile`() {
+    fun `moderation cases authorize the signed in user, not the seeded staff profile`() = runTest {
         val pending = ServicePost(
             id = "post_pending", title = "P", category = "Hogar", description = "Desc",
             providerName = "Provider", providerId = "2", status = PostStatus.PENDING_VERIFICATION
@@ -428,7 +437,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `moderator can resolve a pending post and regular users cannot toggle moderator shift`() {
+    fun `moderator can resolve a pending post and regular users cannot toggle moderator shift`() = runTest {
         val pending = ServicePost(
             id = "post_pending", title = "P", category = "Hogar", description = "Desc",
             providerName = "Provider", providerId = "2", status = PostStatus.PENDING_VERIFICATION
@@ -447,7 +456,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `moderator status is checked against the active account rather than seeded moderator profile`() {
+    fun `moderator status is checked against the active account rather than seeded moderator profile`() = runTest {
         val repository = MockDataRepository()
         val pendingPost = repository.posts.value.first { it.status == PostStatus.PENDING_VERIFICATION }
 

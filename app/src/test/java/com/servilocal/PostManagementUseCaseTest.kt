@@ -7,11 +7,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.test.runTest
 
 class PostManagementUseCaseTest {
 
     @Test
-    fun `owner edits and finishes approved posts and cannot open a self conversation`() {
+    fun `owner edits and finishes approved posts and cannot open a self conversation`() = runTest {
         val repository = MockDataRepository()
         val ownPost = repository.posts.value.first { it.providerId == "1" && it.status == PostStatus.APPROVED }
         val otherPost = repository.posts.value.first { it.providerId != "1" && it.status == PostStatus.APPROVED }

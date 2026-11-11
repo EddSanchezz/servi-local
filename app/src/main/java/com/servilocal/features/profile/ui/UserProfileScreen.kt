@@ -31,6 +31,7 @@ import com.servilocal.core.ui.components.ProfilePhotoAvatar
 import com.servilocal.R
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +52,7 @@ fun UserProfileScreen(
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val profileUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val badges by viewModel.badges.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
     val stats = profileUiState.stats
     val notificationsEnabled = appUiState.notificationsEnabled
     var activeDialog by remember { mutableStateOf<String?>(null) }
@@ -440,11 +442,13 @@ fun UserProfileScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    if (viewModel.deletePost(post.id)) {
-                        postPendingDeletion = null
-                        deletePostFailed = false
-                    } else {
-                        deletePostFailed = true
+                    coroutineScope.launch {
+                        if (viewModel.deletePost(post.id)) {
+                            postPendingDeletion = null
+                            deletePostFailed = false
+                        } else {
+                            deletePostFailed = true
+                        }
                     }
                 }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             },

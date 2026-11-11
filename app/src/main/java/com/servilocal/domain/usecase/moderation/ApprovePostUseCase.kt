@@ -13,7 +13,7 @@ class ApprovePostUseCase @Inject constructor(
     private val authRepository: AuthRepository,
     private val createNotification: CreateNotificationUseCase
 ) {
-    operator fun invoke(postId: String): Boolean {
+    suspend operator fun invoke(postId: String): Boolean {
         if (authRepository.currentUser.value.role != UserRole.MODERATOR) {
             return false
         }

@@ -496,4 +496,22 @@
     <string name="badge_influencer">Influencer</string>
     <string name="badge_super_provider">Súper proveedor</string>
     <string name="badge_community">Comunitario</string>
+    <string name="pick_post_location">Seleccionar ubicación</string>
+    <string name="pick_post_location_help">Toca el mapa para elegir el punto de tu servicio. No necesitas conceder acceso al GPS para hacerlo.</string>
+    <string name="selected_post_location">Ubicación seleccionada</string>
+    <string name="selected_coordinates">Punto: %1$.5f, %2$.5f</string>
+    <string name="confirm_location">Confirmar punto</string>
+    <string name="open_location_map">Elegir punto en el mapa</string>
+    <string name="use_current_location">Usar mi ubicación actual</string>
+    <string name="post_location_not_selected">Selecciona un punto en el mapa.</string>
+    <string name="location_permission_denied_manual_available">No se concedió el permiso. Puedes elegir el punto manualmente en el mapa.</string>
+    <string name="current_location_unavailable">No se pudo obtener la ubicación actual. Puedes elegir el punto manualmente en el mapa.</string>
+    <string name="image_required_for_post">Agrega al menos una foto de tu servicio.</string>
+    <string name="add_post_image">Agregar foto</string>
+    <string name="remove_post_image">Quitar foto</string>
+    <string name="uploading_post_image">Subiendo imagen… %1$d%%</string>
+    <string name="post_image_upload_failed">No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="post_create_network_failed">No se pudo guardar la publicación. Inténtalo de nuevo.</string>
+    <string name="required_field">Obligatorio</string>
+    <string name="post_image_selected">Foto seleccionada</string>
 </resources>

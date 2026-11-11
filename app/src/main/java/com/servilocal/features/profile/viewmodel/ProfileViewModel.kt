@@ -110,5 +110,5 @@ class ProfileViewModel @Inject constructor(
         return true
     }
 
-    fun deletePost(postId: String): Boolean = deleteServicePost(postId)
+    suspend fun deletePost(postId: String): Boolean = deleteServicePost(postId)
 }

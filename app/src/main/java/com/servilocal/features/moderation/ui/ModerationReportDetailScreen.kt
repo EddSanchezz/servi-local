@@ -188,13 +188,14 @@ fun ModerationReportDetailScreen(
         ResolveReportSheet(
             postStatus = post?.status,
             onDismiss = { showResolveSheet = false },
-            onConfirm = { resolution, comment, newStatus ->
-                val success = viewModel.resolveReport(report.id, resolution, comment, newStatus)
-                if (success) {
-                    showResolveSheet = false
-                    onBack()
+            onConfirm = { resolution, comment, newStatus, onComplete ->
+                viewModel.resolveReport(report.id, resolution, comment, newStatus) { success ->
+                    if (success) {
+                        showResolveSheet = false
+                        onBack()
+                    }
+                    onComplete(success)
                 }
-                success
             }
         )
     }
@@ -385,7 +386,7 @@ private fun PostStatusChip(status: PostStatus) {
 private fun ResolveReportSheet(
     postStatus: PostStatus?,
     onDismiss: () -> Unit,
-    onConfirm: (ReportResolution, String, PostStatus?) -> Boolean
+    onConfirm: (ReportResolution, String, PostStatus?, (Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     var resolution by remember { mutableStateOf(ReportResolution.DISMISSED) }
@@ -519,13 +520,12 @@ private fun ResolveReportSheet(
                     if (resolution == ReportResolution.UPHELD && comment.isBlank()) {
                         error = context.getString(R.string.resolution_comment_required)
                     } else {
-                        val success = onConfirm(
+                        onConfirm(
                             resolution,
                             comment.trim(),
                             if (resolution == ReportResolution.UPHELD) newStatus else null
-                        )
-                        if (!success) {
-                            error = context.getString(R.string.resolution_failed)
+                        ) { success ->
+                            if (!success) error = context.getString(R.string.resolution_failed)
                         }
                     }
                 },

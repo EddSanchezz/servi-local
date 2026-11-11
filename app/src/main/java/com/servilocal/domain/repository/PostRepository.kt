@@ -7,16 +7,19 @@ import kotlinx.coroutines.flow.StateFlow
 interface PostRepository {
     val posts: StateFlow<List<ServicePost>>
 
-    fun createPost(
+    suspend fun createPost(
         title: String,
         category: String,
         description: String,
         minPrice: Int,
         maxPrice: Int,
         isPriceToAgree: Boolean,
-        location: String
+        location: String,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        photos: List<String> = emptyList()
     ): ServicePost
-    fun updatePost(
+    suspend fun updatePost(
         postId: String,
         title: String,
         category: String,
@@ -24,13 +27,16 @@ interface PostRepository {
         minPrice: Int,
         maxPrice: Int,
         isPriceToAgree: Boolean,
-        location: String
+        location: String,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        photos: List<String>? = null
     ): Boolean
-    fun deletePost(postId: String): Boolean
-    fun finishPost(postId: String): Boolean
-    fun approvePost(postId: String)
-    fun rejectPost(postId: String, reason: String, notes: String? = null)
-    fun moderatePost(
+    suspend fun deletePost(postId: String): Boolean
+    suspend fun finishPost(postId: String): Boolean
+    suspend fun approvePost(postId: String)
+    suspend fun rejectPost(postId: String, reason: String, notes: String? = null)
+    suspend fun moderatePost(
         postId: String,
         status: PostStatus,
         reason: String? = null,

@@ -491,4 +491,22 @@
     <string name="badge_influencer">Influencer</string>
     <string name="badge_super_provider">Super Provider</string>
     <string name="badge_community">Community</string>
+    <string name="pick_post_location">Choose location</string>
+    <string name="pick_post_location_help">Tap the map to choose the service point. You do not need to grant GPS access to do this.</string>
+    <string name="selected_post_location">Selected location</string>
+    <string name="selected_coordinates">Point: %1$.5f, %2$.5f</string>
+    <string name="confirm_location">Confirm point</string>
+    <string name="open_location_map">Choose point on map</string>
+    <string name="use_current_location">Use my current location</string>
+    <string name="post_location_not_selected">Choose a point on the map.</string>
+    <string name="location_permission_denied_manual_available">Location permission was denied. You can still choose the point manually on the map.</string>
+    <string name="current_location_unavailable">Could not get the current location. You can choose the point manually on the map.</string>
+    <string name="image_required_for_post">Add at least one photo of your service.</string>
+    <string name="add_post_image">Add photo</string>
+    <string name="remove_post_image">Remove photo</string>
+    <string name="uploading_post_image">Uploading image… %1$d%%</string>
+    <string name="post_image_upload_failed">Could not upload the photo. Check your connection and try again.</string>
+    <string name="post_create_network_failed">Could not save the post. Please try again.</string>
+    <string name="required_field">Required</string>
+    <string name="post_image_selected">Photo selected</string>
 </resources>

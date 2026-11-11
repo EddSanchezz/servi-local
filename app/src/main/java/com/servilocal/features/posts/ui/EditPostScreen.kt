@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -70,8 +71,18 @@ fun EditPostScreen(
     var minPrice by remember(post.id) { mutableStateOf(if (post.isPriceToAgree) "" else post.minPrice.toString()) }
     var maxPrice by remember(post.id) { mutableStateOf(if (post.isPriceToAgree) "" else post.maxPrice.toString()) }
     var location by remember(post.id) { mutableStateOf(post.location) }
+    var locationLatitude by rememberSaveable(post.id) { mutableStateOf(post.latitude) }
+    var locationLongitude by rememberSaveable(post.id) { mutableStateOf(post.longitude) }
+    var showLocationPicker by remember { mutableStateOf(false) }
     var isCategoryDropdownExpanded by remember { mutableStateOf(false) }
     var attemptedSubmit by remember { mutableStateOf(false) }
+
+    LaunchedEffect(formUiState.isUpdated, formUiState.isFinished) {
+        if (formUiState.isUpdated || formUiState.isFinished) onBack()
+    }
+    LaunchedEffect(formUiState.submissionError) {
+        formUiState.submissionError?.let { snackbarHostState.showSnackbar(it) }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -113,8 +124,8 @@ fun EditPostScreen(
                                 val parsedMin = minPrice.toIntOrNull() ?: 0
                                 val parsedMax = maxPrice.toIntOrNull() ?: 0
                                 val pricesAreValid = isPriceToAgree || (parsedMin > 0 && parsedMax >= parsedMin)
-                                if (title.isNotBlank() && description.isNotBlank() && location.isNotBlank() && pricesAreValid) {
-                                    val saved = viewModel.updatePost(
+                                if (title.isNotBlank() && description.isNotBlank() && location.isNotBlank() && pricesAreValid && locationLatitude != null && locationLongitude != null) {
+                                    viewModel.updatePost(
                                         postId = post.id,
                                         title = title.trim(),
                                         category = selectedCategory,
@@ -122,24 +133,37 @@ fun EditPostScreen(
                                         minPrice = parsedMin,
                                         maxPrice = parsedMax,
                                         isPriceToAgree = isPriceToAgree,
-                                        location = location.trim()
+                                        location = location.trim(),
+                                        latitude = locationLatitude,
+                                        longitude = locationLongitude
                                     )
-                                    if (saved) onBack()
                                 } else {
                                     coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(context.getString(R.string.complete_required_fields))
+                                        val message = if (locationLatitude == null || locationLongitude == null) {
+                                            context.getString(R.string.post_location_not_selected)
+                                        } else {
+                                            context.getString(R.string.complete_required_fields)
+                                        }
+                                        snackbarHostState.showSnackbar(message)
                                     }
                                 }
                             },
+                            enabled = !formUiState.isSubmitting,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
                                 .testTag("save_post_changes_button"),
                             shape = RoundedCornerShape(26.dp)
                         ) {
-                            Icon(Icons.Default.Save, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.save_changes), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                            if (formUiState.isSubmitting) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.loading))
+                            } else {
+                                Icon(Icons.Default.Save, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.save_changes), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                            }
                         }
                         OutlinedButton(
                             onClick = { showFinishConfirmation = true },
@@ -352,6 +376,24 @@ fun EditPostScreen(
                         isError = attemptedSubmit && location.isBlank(),
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { showLocationPicker = true },
+                            enabled = canEdit,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Map, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.open_location_map))
+                        }
+                        if (locationLatitude != null && locationLongitude != null) {
+                            Text(
+                                stringResource(R.string.selected_coordinates, locationLatitude!!, locationLongitude!!),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
 
@@ -368,12 +410,25 @@ fun EditPostScreen(
                 TextButton(
                     onClick = {
                         showFinishConfirmation = false
-                        if (viewModel.finishPost(post.id)) onBack()
+                        viewModel.finishPost(post.id)
                     }
                 ) { Text(stringResource(R.string.finish), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = { showFinishConfirmation = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+
+    if (showLocationPicker) {
+        LocationPickerDialog(
+            initialLatitude = locationLatitude,
+            initialLongitude = locationLongitude,
+            onDismiss = { showLocationPicker = false },
+            onConfirm = { latitude, longitude ->
+                locationLatitude = latitude
+                locationLongitude = longitude
+                showLocationPicker = false
             }
         )
     }

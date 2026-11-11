@@ -74,7 +74,7 @@ class PostUseCaseTest {
     }
 
     @Test
-    fun `shared resolved use case lets the owner finish an approved publication`() {
+    fun `shared resolved use case lets the owner finish an approved publication`() = runTest {
         val repository = MockDataRepository()
         val finishPost = FinishServicePostUseCase(
             com.servilocal.domain.usecase.posts.MarkPostAsResolvedUseCase(repository, repository)
@@ -86,7 +86,7 @@ class PostUseCaseTest {
     }
 
     @Test
-    fun `new publications receive unique ids and start pending moderation`() {
+    fun `new publications receive unique ids and start pending moderation`() = runTest {
         val repository = MockDataRepository()
 
         val first = repository.createPost("Servicio uno", "Hogar", "Descripción", 10000, 20000, false, "Armenia")
@@ -100,7 +100,7 @@ class PostUseCaseTest {
     }
 
     @Test
-    fun `localized category names are accepted and unknown categories are rejected`() {
+    fun `localized category names are accepted and unknown categories are rejected`() = runTest {
         val repository = MockDataRepository()
 
         val educationPost = repository.createPost(

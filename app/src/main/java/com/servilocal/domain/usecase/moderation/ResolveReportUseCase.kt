@@ -24,7 +24,7 @@ class ResolveReportUseCase @Inject constructor(
     private val authRepository: AuthRepository,
     private val createNotification: CreateNotificationUseCase
 ) {
-    operator fun invoke(
+    suspend operator fun invoke(
         reportId: String,
         resolution: ReportResolution,
         moderatorComment: String,

@@ -6,5 +6,5 @@ import jakarta.inject.Inject
 class DeleteServicePostUseCase @Inject constructor(
     private val postRepository: PostRepository
 ) {
-    operator fun invoke(postId: String): Boolean = postRepository.deletePost(postId)
+    suspend operator fun invoke(postId: String): Boolean = postRepository.deletePost(postId)
 }

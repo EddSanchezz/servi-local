@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class ModerationUiState(
     val filter: String = "FIFO",
@@ -101,51 +102,62 @@ class ModerationViewModel @Inject constructor(
 
     fun setStatsTimeRange(value: String) = _uiState.update { it.copy(statsTimeRange = value) }
 
-    fun approvePost(id: String): Boolean {
-        val success = approvePostUseCase(id)
-        if (success) {
-            _uiState.update { it.copy(actionResult = resources.getString(R.string.post_approved_success), error = null) }
-        } else {
-            _uiState.update { it.copy(error = resources.getString(R.string.post_approve_failed)) }
+    fun approvePost(id: String, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val success = runCatching { approvePostUseCase(id) }.getOrDefault(false)
+            if (success) {
+                _uiState.update { it.copy(actionResult = resources.getString(R.string.post_approved_success), error = null) }
+            } else {
+                _uiState.update { it.copy(error = resources.getString(R.string.post_approve_failed)) }
+            }
+            onComplete(success)
         }
-        return success
     }
 
-    fun rejectPost(id: String, reason: String, notes: String? = null): Boolean {
-        val success = rejectPostUseCase(id, reason, notes)
-        if (success) {
-            _uiState.update { it.copy(actionResult = resources.getString(R.string.post_rejected_success), error = null) }
-        } else {
-            _uiState.update { it.copy(error = resources.getString(R.string.post_reject_failed)) }
+    fun rejectPost(id: String, reason: String, notes: String? = null, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val success = runCatching { rejectPostUseCase(id, reason, notes) }.getOrDefault(false)
+            if (success) {
+                _uiState.update { it.copy(actionResult = resources.getString(R.string.post_rejected_success), error = null) }
+            } else {
+                _uiState.update { it.copy(error = resources.getString(R.string.post_reject_failed)) }
+            }
+            onComplete(success)
         }
-        return success
     }
 
-    fun markPostResolved(id: String): Boolean {
-        val success = markPostAsResolvedUseCase(id)
-        _uiState.update {
-            it.copy(
-                actionResult = if (success) resources.getString(R.string.post_resolved_success) else null,
-                error = if (success) null else resources.getString(R.string.post_resolve_failed)
-            )
+    fun markPostResolved(id: String, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val success = runCatching { markPostAsResolvedUseCase(id) }.getOrDefault(false)
+            _uiState.update {
+                it.copy(
+                    actionResult = if (success) resources.getString(R.string.post_resolved_success) else null,
+                    error = if (success) null else resources.getString(R.string.post_resolve_failed)
+                )
+            }
+            onComplete(success)
         }
-        return success
     }
 
     fun resolveReport(
         reportId: String,
         resolution: ReportResolution,
         moderatorComment: String,
-        newPostStatus: PostStatus? = null
-    ): Boolean {
-        val success = resolveReportUseCase(reportId, resolution, moderatorComment, newPostStatus)
-        _uiState.update {
-            it.copy(
-                actionResult = if (success) resources.getString(R.string.report_resolved) else null,
-                error = if (success) null else resources.getString(R.string.report_resolve_failed)
-            )
+        newPostStatus: PostStatus? = null,
+        onComplete: (Boolean) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val success = runCatching {
+                resolveReportUseCase(reportId, resolution, moderatorComment, newPostStatus)
+            }.getOrDefault(false)
+            _uiState.update {
+                it.copy(
+                    actionResult = if (success) resources.getString(R.string.report_resolved) else null,
+                    error = if (success) null else resources.getString(R.string.report_resolve_failed)
+                )
+            }
+            onComplete(success)
         }
-        return success
     }
 
     fun resolveReportsForPost(id: String): Boolean = resolveReportsForPostUseCase(id)

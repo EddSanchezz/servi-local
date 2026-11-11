@@ -44,6 +44,7 @@ data class ServicePost(
     val location: String = "Armenia, Quindío",
     val latitude: Double? = null,
     val longitude: Double? = null,
+    val coverageRadiusKm: Float = 15f,
     val distance: String = "A 1.2 km",
     val rating: Float = 4.9f,
     val reviewCount: Int = 38,

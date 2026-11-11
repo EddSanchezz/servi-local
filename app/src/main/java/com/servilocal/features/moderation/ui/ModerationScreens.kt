@@ -387,7 +387,9 @@ fun ModerationDetailScreen(
                                     leadingIcon = { Icon(Icons.Default.TaskAlt, contentDescription = null) },
                                     onClick = {
                                         showDetailMenu = false
-                                        if (viewModel.markPostResolved(post.id)) onBack()
+                                        viewModel.markPostResolved(post.id) { resolved ->
+                                            if (resolved) onBack()
+                                        }
                                     }
                                 )
                             }
@@ -416,7 +418,11 @@ fun ModerationDetailScreen(
                             Text(stringResource(R.string.reject), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                         Button(
-                            onClick = { if (viewModel.approvePost(post.id)) onBack() },
+                            onClick = {
+                                viewModel.approvePost(post.id) { approved ->
+                                    if (approved) onBack()
+                                }
+                            },
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
                         ) {
@@ -439,13 +445,14 @@ fun ModerationDetailScreen(
                         ) { Text(stringResource(R.string.keep_active)) }
                         Button(
                             onClick = {
-                                val rejected = viewModel.rejectPost(
+                                viewModel.rejectPost(
                                     post.id,
                                     "Incumplimiento confirmado",
                                     "Publicación retirada tras revisar las denuncias."
-                                )
-                                val reportsResolved = viewModel.resolveReportsForPost(post.id)
-                                if (rejected && reportsResolved) onBack()
+                                ) { rejected ->
+                                    val reportsResolved = viewModel.resolveReportsForPost(post.id)
+                                    if (rejected && reportsResolved) onBack()
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             shape = RoundedCornerShape(24.dp),
@@ -658,9 +665,11 @@ fun ModerationDetailScreen(
             errorMessage = moderationUiState.error,
             onDismiss = { showRejectSheet = false },
             onConfirm = { reason, notes ->
-                if (viewModel.rejectPost(post.id, reason, notes)) {
-                    showRejectSheet = false
-                    onBack()
+                viewModel.rejectPost(post.id, reason, notes) { rejected ->
+                    if (rejected) {
+                        showRejectSheet = false
+                        onBack()
+                    }
                 }
             }
         )

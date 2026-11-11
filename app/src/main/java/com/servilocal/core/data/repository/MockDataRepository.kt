@@ -222,14 +222,17 @@ class MockDataRepository @Inject constructor(
         return true
     }
 
-    override fun createPost(
+    override suspend fun createPost(
         title: String,
         category: String,
         description: String,
         minPrice: Int,
         maxPrice: Int,
         isPriceToAgree: Boolean,
-        location: String
+        location: String,
+        latitude: Double?,
+        longitude: Double?,
+        photos: List<String>
     ): ServicePost {
         require(title.isNotBlank()) { "El título es obligatorio." }
         require(description.isNotBlank()) { "La descripción es obligatoria." }
@@ -237,7 +240,11 @@ class MockDataRepository @Inject constructor(
         require(isPriceToAgree || (minPrice > 0 && maxPrice >= minPrice)) { "El rango de precios no es válido." }
         val categoryEnum = parsePostCategory(category)
             ?: throw IllegalArgumentException("Selecciona una categoría válida.")
-        val coordinates = coordinatesForLocation(location)
+        val coordinates = if (latitude != null && longitude != null) {
+            latitude to longitude
+        } else {
+            coordinatesForLocation(location)
+        }
 
         val newErdPost = Post(
             id = "pub_${UUID.randomUUID()}",
@@ -265,6 +272,7 @@ class MockDataRepository @Inject constructor(
             location = location,
             latitude = coordinates?.first,
             longitude = coordinates?.second,
+            photos = photos,
             distance = formatDistance(coordinates),
             rating = 5.0f,
             reviewCount = 0,
@@ -278,7 +286,7 @@ class MockDataRepository @Inject constructor(
         return newPost
     }
 
-    override fun updatePost(
+    override suspend fun updatePost(
         postId: String,
         title: String,
         category: String,
@@ -286,7 +294,10 @@ class MockDataRepository @Inject constructor(
         minPrice: Int,
         maxPrice: Int,
         isPriceToAgree: Boolean,
-        location: String
+        location: String,
+        latitude: Double?,
+        longitude: Double?,
+        photos: List<String>?
     ): Boolean {
         val post = _posts.value.firstOrNull { it.id == postId } ?: return false
         if (!canManagePost(post)) return false
@@ -294,7 +305,13 @@ class MockDataRepository @Inject constructor(
         if (!isPriceToAgree && (minPrice <= 0 || maxPrice < minPrice)) return false
 
         val categoryEnum = parsePostCategory(category) ?: return false
-        val coordinates = coordinatesForLocation(location)
+        val coordinates = if (latitude != null && longitude != null) {
+            latitude to longitude
+        } else {
+            post.latitude?.let { currentLatitude ->
+                post.longitude?.let { currentLongitude -> currentLatitude to currentLongitude }
+            } ?: coordinatesForLocation(location)
+        }
 
         _posts.update { list ->
             list.map {
@@ -309,6 +326,7 @@ class MockDataRepository @Inject constructor(
                         location = location,
                         latitude = coordinates?.first,
                         longitude = coordinates?.second,
+                        photos = photos ?: it.photos,
                         distance = formatDistance(coordinates)
                     )
                 } else it
@@ -330,7 +348,7 @@ class MockDataRepository @Inject constructor(
         return true
     }
 
-    override fun deletePost(postId: String): Boolean {
+    override suspend fun deletePost(postId: String): Boolean {
         val post = _posts.value.firstOrNull { it.id == postId } ?: return false
         if (post.providerId != _currentUser.value.id) return false
 
@@ -341,7 +359,7 @@ class MockDataRepository @Inject constructor(
         return true
     }
 
-    override fun finishPost(postId: String): Boolean {
+    override suspend fun finishPost(postId: String): Boolean {
         val post = _posts.value.firstOrNull { it.id == postId } ?: return false
         if (!canManagePost(post)) return false
 
@@ -401,7 +419,7 @@ class MockDataRepository @Inject constructor(
         return String.format(Locale.ROOT, "A %.1f km", distanceKm)
     }
 
-    override fun approvePost(postId: String) {
+    override suspend fun approvePost(postId: String) {
         val moderatorId = _currentUser.value.takeIf { it.role == UserRole.MODERATOR }?.id ?: return
         erdPosts.update { list ->
             list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED, moderatorId = moderatorId) else it }
@@ -409,7 +427,7 @@ class MockDataRepository @Inject constructor(
         _posts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.APPROVED) else it } }
     }
 
-    override fun rejectPost(postId: String, reason: String, notes: String?) {
+    override suspend fun rejectPost(postId: String, reason: String, notes: String?) {
         erdPosts.update { list -> list.map { if (it.id == postId) it.copy(status = PostStatus.REJECTED, rejectionReason = reason) else it } }
         _posts.update { list ->
             list.map { post ->
@@ -420,7 +438,7 @@ class MockDataRepository @Inject constructor(
         }
     }
 
-    override fun moderatePost(
+    override suspend fun moderatePost(
         postId: String,
         status: PostStatus,
         reason: String?,

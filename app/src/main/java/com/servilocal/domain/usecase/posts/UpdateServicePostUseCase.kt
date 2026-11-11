@@ -6,7 +6,7 @@ import jakarta.inject.Inject
 class UpdateServicePostUseCase @Inject constructor(
     private val postRepository: PostRepository
 ) {
-    operator fun invoke(
+    suspend operator fun invoke(
         postId: String,
         title: String,
         category: String,
@@ -14,7 +14,10 @@ class UpdateServicePostUseCase @Inject constructor(
         minPrice: Int,
         maxPrice: Int,
         isPriceToAgree: Boolean,
-        location: String
+        location: String,
+        latitude: Double?,
+        longitude: Double?,
+        photos: List<String>?
     ): Boolean = postRepository.updatePost(
         postId,
         title,
@@ -23,6 +26,9 @@ class UpdateServicePostUseCase @Inject constructor(
         minPrice,
         maxPrice,
         isPriceToAgree,
-        location
+        location,
+        latitude,
+        longitude,
+        photos
     )
 }

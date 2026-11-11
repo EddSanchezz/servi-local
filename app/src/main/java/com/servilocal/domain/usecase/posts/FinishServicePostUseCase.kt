@@ -5,5 +5,5 @@ import jakarta.inject.Inject
 class FinishServicePostUseCase @Inject constructor(
     private val markPostAsResolved: MarkPostAsResolvedUseCase
 ) {
-    operator fun invoke(postId: String): Boolean = markPostAsResolved(postId)
+    suspend operator fun invoke(postId: String): Boolean = markPostAsResolved(postId)
 }
