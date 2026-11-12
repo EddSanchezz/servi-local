@@ -32,7 +32,8 @@ import com.servilocal.core.util.createTempImageUri
 @Composable
 fun ImagePicker(
     onImageSelected: (Uri) -> Unit,
-    trigger: @Composable (onClick: () -> Unit) -> Unit
+    onImagesSelected: (List<Uri>) -> Unit = { uris -> uris.firstOrNull()?.let(onImageSelected) },
+    trigger: @Composable (onCameraClick: () -> Unit, onGalleryClick: () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     var showPicker by rememberSaveable { mutableStateOf(false) }
@@ -42,8 +43,8 @@ fun ImagePicker(
     var tempCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri -> uri?.let(onImageSelected) }
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris -> if (uris.isNotEmpty()) onImagesSelected(uris) }
 
     val galleryPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -86,27 +87,42 @@ fun ImagePicker(
         }
     }
 
-    trigger { showPicker = true }
+    fun openCamera() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            runCatching { createTempImageUri(context) }
+                .onSuccess(launchCamera)
+                .onFailure { showCameraError = true }
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    fun openGallery() {
+        if (context.hasImageReadPermission()) {
+            galleryLauncher.launch("image/*")
+        } else {
+            galleryPermissionLauncher.launch(imageReadPermissions())
+        }
+    }
+
+    trigger(
+        {
+            openCamera()
+        },
+        {
+            openGallery()
+        }
+    )
 
     if (showPicker) {
         ImagePickerBottomSheet(
             onCameraClick = {
                 showPicker = false
-                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                    runCatching { createTempImageUri(context) }
-                        .onSuccess(launchCamera)
-                        .onFailure { showCameraError = true }
-                } else {
-                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                }
+                openCamera()
             },
             onGalleryClick = {
                 showPicker = false
-                if (context.hasImageReadPermission()) {
-                    galleryLauncher.launch("image/*")
-                } else {
-                    galleryPermissionLauncher.launch(imageReadPermissions())
-                }
+                openGallery()
             },
             onDismiss = { showPicker = false }
         )

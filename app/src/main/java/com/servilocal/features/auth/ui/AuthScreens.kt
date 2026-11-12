@@ -365,21 +365,6 @@ fun LoginScreen(
                 Text(stringResource(R.string.create_new_account), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold))
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // Community Validation Highlights
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(bottom = 24.dp)
-            ) {
-                Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                Text(
-                    text = stringResource(R.string.validated_specialists),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
     SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(16.dp))

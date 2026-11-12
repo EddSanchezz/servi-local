@@ -39,6 +39,7 @@
     <string name="select_image">Seleccionar imagen</string>
     <string name="take_photo">Tomar foto</string>
     <string name="choose_from_gallery">Elegir de la galería</string>
+    <string name="gallery_short_label">Galería</string>
     <string name="done">Listo</string>
     <!-- General UI -->
     <string name="nav_home">Inicio</string>
@@ -82,7 +83,6 @@
     <string name="forgot_password">¿Olvidaste tu contraseña?</string>
     <string name="login">Iniciar sesión</string>
     <string name="create_new_account">Crear una cuenta nueva</string>
-    <string name="validated_specialists">Más de 1.200 especialistas validados en tu zona</string>
     <string name="register_title">Registro de Usuario</string>
     <string name="register_intro">Crea tu cuenta para contratar y ofrecer servicios locales en Armenia y alrededores.</string>
     <string name="full_name">Nombre completo</string>
@@ -155,6 +155,8 @@
     <string name="prototype_memory_notice">Esta versión mantiene los datos solo en memoria durante el uso de la aplicación. No se envían a un servidor desde este prototipo.</string>
     <string name="delete_post_title">Eliminar publicación</string>
     <string name="delete_post_confirmation">¿Quieres eliminar “%1$s”? Esta acción no se puede deshacer.</string>
+    <string name="delete_publication_irreversible_message">La publicación “%1$s” se eliminará permanentemente y no podrás recuperarla.</string>
+    <string name="delete_permanently">Eliminar definitivamente</string>
     <string name="delete_account_title">Eliminar cuenta</string>
     <string name="delete_account_confirmation">¿Seguro que quieres eliminar tu cuenta? Se eliminarán tu perfil, tus publicaciones y tus conversaciones. Esta acción no se puede deshacer.</string>
     <string name="delete_account_failed">No se pudo eliminar la cuenta. Verifica que tu sesión siga activa e inténtalo de nuevo.</string>
@@ -230,6 +232,22 @@
     <string name="valid_price_range">Ingresa un rango válido: el mínimo debe ser mayor que cero y no superar el máximo.</string>
     <string name="image_gallery">Galería de imágenes</string>
     <string name="show_real_work">Muestra tu trabajo real</string>
+    <string name="post_photo_uploader_title">Sube tus fotos</string>
+    <string name="post_photo_uploader_subtitle">Rápido y fácil</string>
+    <string name="no_selected_photos">No hay fotos seleccionadas</string>
+    <string name="photo_picker_help">Usa Cámara o Galería abajo</string>
+    <string name="attached_photos">Fotos adjuntas:</string>
+    <string name="photo_count">%1$d fotos</string>
+    <string name="photo_count_singular">%1$d foto</string>
+    <string name="add_more_photos">Agregar más fotos</string>
+    <string name="remove_photo">Quitar foto %1$d</string>
+    <string name="photo_position">%1$d / %2$d</string>
+    <string name="no_photos">Sin fotos</string>
+    <string name="post_has_no_photos">Esta publicación no tiene fotos</string>
+    <string name="invalid_post_images">Revisa las imágenes seleccionadas. Puedes agregar hasta 5 imágenes válidas.</string>
+    <string name="post_upload_progress">Subiendo imagen %1$d de %2$d (%3$d%%)</string>
+    <string name="retry">Reintentar</string>
+    <string name="post_location_map_loading">Cargando mapa de ubicación…</string>
     <string name="location_and_coverage">Ubicación del servicio</string>
     <string name="location_required">Indica una ubicación.</string>
     <string name="create_post_help">Completa el título, la descripción, el precio y la ubicación. La publicación quedará pendiente hasta que un moderador la revise.</string>
@@ -323,6 +341,7 @@
     <string name="save_note">Guardar nota</string>
     <string name="review_guidelines">Revisa que la descripción sea clara, que el precio no solicite pagos previos fuera de la plataforma y que el contenido respete las políticas comunitarias. Las imágenes y verificaciones externas no están incluidas en esta fase.</string>
     <string name="rejection_reason_title">Motivo del rechazo</string>
+    <string name="rejection_notes_title">Notas del moderador</string>
     <string name="select_required_reason">Selecciona una justificación obligatoria para notificar al autor</string>
     <string name="close_dialog">Cerrar</string>
     <string name="predefined_options">Opciones predefinidas</string>
@@ -405,7 +424,6 @@
     <string name="slide_caption_repairs">Reparaciones domiciliarias y normalización en Armenia</string>
     <string name="service_description_title">Descripción del servicio</string>
     <string name="neighborhoods_coverage">Barrios Granada, Los Profesionales, Centro y Norte de Armenia</string>
-    <string name="quality_satisfaction">99.2%% de satisfacción</string>
     <string name="owner_reply_hint">Responde a los comentarios…</string>
     <string name="visitor_question_hint">Escribe una pregunta al autor…</string>
     <string name="author">Autor</string>
@@ -498,8 +516,8 @@
     <string name="selected_post_location">Ubicación seleccionada</string>
     <string name="selected_coordinates">Punto: %1$.5f, %2$.5f</string>
     <string name="confirm_location">Confirmar punto</string>
-    <string name="open_location_map">Elegir punto en el mapa</string>
-    <string name="use_current_location">Usar mi ubicación actual</string>
+    <string name="open_location_map">Elegir en mapa</string>
+    <string name="use_current_location">Mi ubicación</string>
     <string name="post_location_not_selected">Selecciona un punto en el mapa.</string>
     <string name="location_permission_denied_manual_available">No se concedió el permiso. Puedes elegir el punto manualmente en el mapa.</string>
     <string name="current_location_unavailable">No se pudo obtener la ubicación actual. Puedes elegir el punto manualmente en el mapa.</string>

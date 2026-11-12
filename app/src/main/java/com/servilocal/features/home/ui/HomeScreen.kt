@@ -3,8 +3,13 @@ package com.servilocal.features.home.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationManager
+import android.net.Uri
+import android.provider.Settings
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -20,23 +25,27 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -50,9 +59,13 @@ import com.servilocal.R
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.core.ui.localizedDistance
 import com.servilocal.core.ui.localizedServiceCategory
+import com.servilocal.core.ui.components.ProfilePhotoAvatar
+import com.servilocal.core.ui.components.ServicePostCard
+import coil.compose.AsyncImage
 import com.servilocal.core.util.requestCurrentLocation
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
+import com.servilocal.features.posts.coordinator.PublishPostEvent
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
@@ -76,7 +89,6 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery = uiState.searchQuery
     val selectedCategory = uiState.selectedCategory
-    val locationQuery = uiState.locationQuery
     val maxDistanceKm = uiState.maxDistanceKm
     val originLatitude = uiState.originLatitude
     val originLongitude = uiState.originLongitude
@@ -96,26 +108,92 @@ fun HomeScreen(
     )
 
     var distanceMenuExpanded by remember { mutableStateOf(false) }
+    var locationDialogVisible by remember { mutableStateOf(false) }
+    var permissionRequested by remember { mutableStateOf(false) }
+    var pendingMapActivation by remember { mutableStateOf(false) }
+    var pendingDistanceSelection by remember { mutableStateOf(false) }
+    var mapRecenterRequest by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    fun loadDeviceLocation() {
+    LaunchedEffect(Unit) { viewModel.setLocationQuery("") }
+
+    LaunchedEffect(Unit) {
+        viewModel.publicationEvents.collect { event ->
+            when (event) {
+                is PublishPostEvent.Success -> snackbarHostState.showSnackbar(context.getString(R.string.publication_sent_review))
+                is PublishPostEvent.Failure -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = event.message,
+                        actionLabel = context.getString(R.string.retry)
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.retryPublication()
+                    }
+                }
+                is PublishPostEvent.Progress -> Unit
+            }
+        }
+    }
+
+    fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    fun isLocationEnabled(): Boolean {
+        val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return runCatching {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) manager.isLocationEnabled
+            else manager.isProviderEnabled(LocationManager.GPS_PROVIDER) || manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }.getOrDefault(false)
+    }
+
+    fun loadDeviceLocation(activateMap: Boolean = false, recenterMap: Boolean = false) {
         requestCurrentLocation(context) { location ->
             if (location == null) {
+                if (activateMap) locationDialogVisible = true
                 coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_not_found)) }
             } else {
                 viewModel.setOriginLocation(location.latitude, location.longitude)
-                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_updated)) }
+                if (recenterMap) mapRecenterRequest++
+                if (activateMap) {
+                    viewModel.setDisplayMode(ViewDisplayMode.MAP)
+                    pendingMapActivation = false
+                    locationDialogVisible = false
+                }
+                if (pendingDistanceSelection) {
+                    distanceMenuExpanded = true
+                    pendingDistanceSelection = false
+                }
             }
         }
+    }
+
+    fun activateMapIfReady() {
+        if (!hasLocationPermission() || !isLocationEnabled()) {
+            pendingMapActivation = true
+            locationDialogVisible = true
+        } else {
+            loadDeviceLocation(activateMap = true)
+        }
+    }
+
+    val locationSettingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (pendingMapActivation && hasLocationPermission() && isLocationEnabled()) activateMapIfReady()
+        else if (pendingDistanceSelection && hasLocationPermission() && isLocationEnabled()) loadDeviceLocation()
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        if (permissions.values.any { it }) loadDeviceLocation()
-        else coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_permission_prompt)) }
+        if (permissions.values.any { it } && isLocationEnabled()) {
+            if (pendingMapActivation) activateMapIfReady() else loadDeviceLocation()
+        } else {
+            locationDialogVisible = true
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -182,11 +260,13 @@ fun HomeScreen(
             }
         }
 
-        // Search Bar
-        Box(
+        // Search bar and distance control
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedTextField(
                 value = searchQuery,
@@ -211,67 +291,31 @@ fun HomeScreen(
                     focusedBorderColor = MaterialTheme.colorScheme.primary
                 ),
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .weight(1f)
                     .testTag("search_services_input")
             )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = locationQuery,
-                onValueChange = viewModel::setLocationQuery,
-                placeholder = { Text(stringResource(R.string.neighborhood_or_area)) },
-                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-                trailingIcon = {
-                    if (locationQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setLocationQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear_location))
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.weight(1f).testTag("search_location_input")
-            )
-            IconButton(
-                onClick = {
-                    val fineGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                    val coarseGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                    if (fineGranted || coarseGranted) loadDeviceLocation()
-                    else locationPermissionLauncher.launch(
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                    )
-                },
-                modifier = Modifier.testTag("use_device_location_button")
-            ) {
-                Icon(
-                    imageVector = if (originLatitude != null) Icons.Default.MyLocation else Icons.Default.GpsFixed,
-                    contentDescription = stringResource(R.string.use_gps_location),
-                    tint = if (originLatitude != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
             Box {
                 FilterChip(
                     selected = maxDistanceKm != null,
-                    onClick = { distanceMenuExpanded = true },
-                    label = { Text(maxDistanceKm?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.distance)) },
-                    leadingIcon = { Icon(Icons.Default.NearMe, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    onClick = {
+                        if (originLatitude != null && originLongitude != null) distanceMenuExpanded = true
+                        else {
+                            pendingDistanceSelection = true
+                            if (hasLocationPermission() && isLocationEnabled()) loadDeviceLocation()
+                            else locationDialogVisible = true
+                        }
+                    },
+                    label = {
+                        Text(maxDistanceKm?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.distance), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                    },
+                    leadingIcon = { Icon(Icons.Default.NearMe, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    modifier = Modifier.height(48.dp)
                 )
-                DropdownMenu(
-                    expanded = distanceMenuExpanded,
-                    onDismissRequest = { distanceMenuExpanded = false }
-                ) {
-                    listOf(null, 1.0, 3.0, 5.0, 10.0).forEach { distance ->
+                DropdownMenu(expanded = distanceMenuExpanded, onDismissRequest = { distanceMenuExpanded = false }) {
+                    listOf(null, 1.0, 5.0, 10.0).forEach { distance ->
                         DropdownMenuItem(
-                            text = { Text(distance?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.any_distance)) },
-                            onClick = {
-                                viewModel.setMaxDistanceKm(distance)
-                                distanceMenuExpanded = false
-                            }
+                            text = { Text(distance?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.any_distance), maxLines = 1) },
+                            onClick = { viewModel.setMaxDistanceKm(distance); distanceMenuExpanded = false }
                         )
                     }
                 }
@@ -279,14 +323,14 @@ fun HomeScreen(
         }
 
         // Category Filter Chips (Horizontal Scroll)
-        Row(
+        LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            categories.forEach { cat ->
+            items(categories, key = { it.key }) { cat ->
                 val isSelected = selectedCategory == cat.key
                 FilterChip(
                     selected = isSelected,
@@ -308,69 +352,43 @@ fun HomeScreen(
             }
         }
 
-        // Segmented View Toggle: Lista vs Mapa
+        // Main view selector
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .padding(3.dp)
-            ) {
-                // List Mode
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (viewDisplayMode == ViewDisplayMode.LIST) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent)
-                        .clickable { viewModel.setDisplayMode(ViewDisplayMode.LIST) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(
-                            Icons.Default.FormatListBulleted,
-                            contentDescription = null,
-                            tint = if (viewDisplayMode == ViewDisplayMode.LIST) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.list_view),
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (viewDisplayMode == ViewDisplayMode.LIST) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Map Mode
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (viewDisplayMode == ViewDisplayMode.MAP) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent)
-                        .clickable { viewModel.setDisplayMode(ViewDisplayMode.MAP) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(
-                            Icons.Default.Map,
-                            contentDescription = null,
-                            tint = if (viewDisplayMode == ViewDisplayMode.MAP) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.map_view),
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (viewDisplayMode == ViewDisplayMode.MAP) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = viewDisplayMode == ViewDisplayMode.LIST,
+                    onClick = { viewModel.setDisplayMode(ViewDisplayMode.LIST) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    icon = { Icon(Icons.Default.FormatListBulleted, contentDescription = null) }
+                ) { Text(stringResource(R.string.list_view), maxLines = 1) }
+                SegmentedButton(
+                    selected = viewDisplayMode == ViewDisplayMode.MAP,
+                    onClick = ::activateMapIfReady,
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    icon = { Icon(Icons.Default.Map, contentDescription = null) }
+                ) { Text(stringResource(R.string.map_view), maxLines = 1) }
             }
+        }
+
+        AnimatedContent(
+            targetState = viewDisplayMode,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "home_contextual_filters"
+        ) { mode ->
+            if (mode == ViewDisplayMode.MAP) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.NearMe, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Mostrando servicios cercanos", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            } else Spacer(Modifier.height(0.dp))
         }
 
         // Main Content: List or Map View
@@ -424,7 +442,12 @@ fun HomeScreen(
                 posts = filteredPosts,
                 originLatitude = originLatitude,
                 originLongitude = originLongitude,
-                onPostSelected = { onOpenServiceDetail(it.id) }
+                onPostSelected = { onOpenServiceDetail(it.id) },
+                recenterRequest = mapRecenterRequest,
+                onRecenter = {
+                    if (hasLocationPermission() && isLocationEnabled()) loadDeviceLocation(recenterMap = true)
+                    else { pendingMapActivation = true; locationDialogVisible = true }
+                }
             )
         }
       }
@@ -432,6 +455,34 @@ fun HomeScreen(
           hostState = snackbarHostState,
           modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
       )
+      if (locationDialogVisible) {
+          AlertDialog(
+              onDismissRequest = { locationDialogVisible = false; pendingMapActivation = false; pendingDistanceSelection = false },
+              title = { Text("Ubicación necesaria") },
+              text = { Text("Esta funcionalidad no está disponible sin ubicación. Activa la ubicación de tu dispositivo para explorar servicios cercanos en el mapa.") },
+              confirmButton = {
+                  TextButton(onClick = {
+                      if (!hasLocationPermission()) {
+                          val activity = context.findActivity()
+                          val fineRationale = activity?.let { androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.ACCESS_FINE_LOCATION) } ?: true
+                          val coarseRationale = activity?.let { androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.ACCESS_COARSE_LOCATION) } ?: true
+                          if (permissionRequested && !fineRationale && !coarseRationale) {
+                              val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                              locationSettingsLauncher.launch(intent)
+                          } else {
+                              permissionRequested = true
+                              locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                          }
+                      } else {
+                          locationSettingsLauncher.launch(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                      }
+                  }) { Text("Reintentar") }
+              },
+              dismissButton = {
+                  TextButton(onClick = { locationDialogVisible = false; pendingMapActivation = false; pendingDistanceSelection = false }) { Text("Cancelar") }
+              }
+          )
+      }
     }
 }
 
@@ -442,6 +493,14 @@ fun ServiceCardItem(
     onUpvoteClick: () -> Unit,
     showUpvote: Boolean = true
 ) {
+    ServicePostCard(
+        post = post,
+        onClick = onDetailClick,
+        onUpvote = onUpvoteClick,
+        showUpvote = showUpvote
+    )
+    return
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -463,19 +522,7 @@ fun ServiceCardItem(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // Provider Avatar
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.secondaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = post.providerName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""),
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    ProfilePhotoAvatar(post.providerName, post.providerAvatar, Modifier.size(44.dp))
 
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -527,65 +574,24 @@ fun ServiceCardItem(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Service Image Banner Box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                                MaterialTheme.colorScheme.secondary
-                            )
-                        )
-                    )
-            ) {
-                // Background icon aesthetic
-                Icon(
-                    imageVector = when (post.category) {
-                        "Hogar" -> Icons.Default.Roofing
-                        "Educación" -> Icons.Default.School
-                        "Mascotas" -> Icons.Default.Pets
-                        "Electricidad" -> Icons.Default.Bolt
-                        else -> Icons.Default.Handyman
-                    },
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.15f),
-                    modifier = Modifier
-                        .size(120.dp)
-                        .align(Alignment.CenterEnd)
-                        .offset(x = 20.dp)
-                )
-
-                // Overlay details
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
+            if (post.photos.firstOrNull().isNullOrBlank()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF4ADE80), modifier = Modifier.size(14.dp))
-                            Text(stringResource(R.string.available_now), style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.SemiBold))
-                        }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.ImageNotSupported, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.no_photos), color = MaterialTheme.colorScheme.outline)
                     }
-
-                    Text(
-                        text = post.description,
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.95f)),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
+            } else {
+                AsyncImage(
+                    model = post.photos.first(),
+                    contentDescription = stringResource(R.string.image_gallery),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(12.dp))
+                )
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -671,7 +677,9 @@ fun InteractiveMapPreview(
     posts: List<ServicePost>,
     originLatitude: Double?,
     originLongitude: Double?,
-    onPostSelected: (ServicePost) -> Unit
+    onPostSelected: (ServicePost) -> Unit,
+    recenterRequest: Int,
+    onRecenter: () -> Unit
 ) {
     val context = LocalContext.current
     val center = GeoPoint(
@@ -746,7 +754,7 @@ fun InteractiveMapPreview(
                             }
                         })
                     }
-                map.controller.setCenter(center)
+                if (recenterRequest > 0) map.controller.animateTo(center) else map.controller.setCenter(center)
                 map.invalidate()
             }
         )
@@ -773,7 +781,20 @@ fun InteractiveMapPreview(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
         }
+        SmallFloatingActionButton(
+            onClick = onRecenter,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Icon(Icons.Default.MyLocation, contentDescription = "Centrar en mi ubicación")
+        }
     }
+}
+
+private tailrec fun Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 private fun createMapMarkerIcon(context: Context, count: Int): BitmapDrawable {

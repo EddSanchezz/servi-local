@@ -19,20 +19,26 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.servilocal.domain.model.ModerationReportItem
@@ -43,9 +49,15 @@ import com.servilocal.domain.model.UserRole
 import com.servilocal.core.ui.localizedServiceCategory
 import com.servilocal.core.ui.components.ProfileNavRow
 import com.servilocal.core.ui.components.ProfilePhotoAvatar
+import com.servilocal.core.ui.components.ServicePostCard
+import com.servilocal.core.ui.components.PostPhotoViewer
+import com.servilocal.core.ui.components.PostLocationMap
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.features.moderation.viewmodel.ModerationViewModel
 import com.servilocal.R
+import kotlinx.coroutines.launch
 
 @Composable
 fun ModerationFeedScreen(
@@ -209,8 +221,7 @@ fun ModerationFeedScreen(
                 items(pendingPosts, key = { it.id }) { post ->
                     ModerationAuditCard(
                         post = post,
-                        onAuditDetail = { onOpenDetail(post.id) },
-                        onApprove = { viewModel.approvePost(post.id) }
+                        onAuditDetail = { onOpenDetail(post.id) }
                     )
                 }
             }
@@ -226,12 +237,19 @@ fun ModerationFeedScreen(
 @Composable
 fun ModerationAuditCard(
     post: ServicePost,
-    onAuditDetail: () -> Unit,
-    onApprove: () -> Unit
+    onAuditDetail: () -> Unit
 ) {
+    ServicePostCard(
+        post = post,
+        onClick = onAuditDetail,
+        statusBadge = stringResource(R.string.to_verify)
+    )
+    return
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onAuditDetail)
             .testTag("moderation_card_${post.id}"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -268,14 +286,20 @@ fun ModerationAuditCard(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+                if (post.photos.firstOrNull().isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier.size(64.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.ImageNotSupported, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+                    }
+                } else {
+                    AsyncImage(
+                        model = post.photos.first(),
+                        contentDescription = stringResource(R.string.image_gallery),
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(64.dp).clip(RoundedCornerShape(10.dp))
+                    )
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
@@ -300,31 +324,6 @@ fun ModerationAuditCard(
                 }
             }
 
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = onAuditDetail,
-                    modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.audit_detail), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                }
-
-                FilledTonalButton(
-                    onClick = onApprove,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(40.dp)
-                ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.approve), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                }
-            }
         }
     }
 }
@@ -341,12 +340,10 @@ fun ModerationDetailScreen(
     val post = posts.find { it.id == postId }
 
     var showRejectSheet by remember { mutableStateOf(false) }
-    var noteMode by remember { mutableStateOf("internal") } // internal vs author
-    var noteInput by remember { mutableStateOf("") }
-    val sampleReviewNote = stringResource(R.string.sample_review_note)
-    var notesList by remember(sampleReviewNote) { mutableStateOf(listOf(sampleReviewNote)) }
     var showDetailMenu by remember { mutableStateOf(false) }
     var showGuidelines by remember { mutableStateOf(false) }
+    var viewerIndex by remember { mutableStateOf<Int?>(null) }
+    var activePhotoIndex by remember { mutableIntStateOf(0) }
     val moderationUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(moderationUiState.error, moderationUiState.actionResult) {
@@ -533,18 +530,109 @@ fun ModerationDetailScreen(
                 }
             }
 
-            // Image uploads are outside this phase, so the empty state is explicit.
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                contentAlignment = Alignment.Center
+            if (post.photos.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(stringResource(R.string.post_has_no_photos), color = MaterialTheme.colorScheme.outline)
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { viewerIndex = activePhotoIndex }
+                ) {
+                    AsyncImage(
+                        model = post.photos[activePhotoIndex.coerceIn(post.photos.indices)],
+                        contentDescription = stringResource(R.string.photo_position, activePhotoIndex + 1, post.photos.size),
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.55f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)
+                    ) {
+                        Text(
+                            "${activePhotoIndex + 1} / ${post.photos.size}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().align(Alignment.Center).padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(
+                            onClick = {
+                                activePhotoIndex = (activePhotoIndex - 1 + post.photos.size) % post.photos.size
+                            },
+                            modifier = Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.7f))
+                        ) {
+                            Icon(Icons.Default.ChevronLeft, stringResource(R.string.previous_photo), tint = Color.Black)
+                        }
+                        IconButton(
+                            onClick = {
+                                activePhotoIndex = (activePhotoIndex + 1) % post.photos.size
+                            },
+                            modifier = Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.7f))
+                        ) {
+                            Icon(Icons.Default.ChevronRight, stringResource(R.string.next_photo), tint = Color.Black)
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        post.photos.indices.forEach { index ->
+                            Box(
+                                Modifier
+                                    .size(if (index == activePhotoIndex) 8.dp else 6.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (index == activePhotoIndex) Color.White
+                                        else Color.White.copy(alpha = 0.4f)
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.ImageNotSupported, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(40.dp))
-                    Text(stringResource(R.string.no_attached_images), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.location_and_coverage),
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text(post.location, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (post.latitude != null && post.longitude != null) {
+                        Text(
+                            stringResource(R.string.selected_coordinates, post.latitude!!, post.longitude!!),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        PostLocationMap(
+                            latitude = post.latitude,
+                            longitude = post.longitude,
+                            locationLabel = post.location,
+                            modifier = Modifier.fillMaxWidth().height(180.dp)
+                        )
+                    }
                 }
             }
 
@@ -574,17 +662,13 @@ fun ModerationDetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box(
-                                modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(post.providerName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                            }
+                            ProfilePhotoAvatar(post.providerName, post.providerAvatar, Modifier.size(40.dp))
                             Column {
                                 Text(post.providerName, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                                 Text(stringResource(R.string.registered_date), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                             }
                         }
+
                     }
 
                     // Metrics row
@@ -607,58 +691,6 @@ fun ModerationDetailScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(postReportCount.toString(), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                             Text(stringResource(R.string.nav_reports), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        }
-                    }
-                }
-            }
-
-            // AI Safety & Moderation Log
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Policy, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Text(stringResource(R.string.review_log_title), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
-
-                    Text(stringResource(R.string.moderator_notes), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-
-                    notesList.forEach { note ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(note, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(10.dp))
-                        }
-                    }
-
-                    // Append note input
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = noteInput,
-                            onValueChange = { noteInput = it },
-                            placeholder = { Text(stringResource(R.string.review_note_hint), style = MaterialTheme.typography.bodySmall) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        IconButton(
-                            onClick = {
-                                if (noteInput.isNotBlank()) {
-                                    notesList = notesList + listOf(noteInput)
-                                    noteInput = ""
-                                }
-                            }
-                        ) {
-                            Icon(Icons.Default.Send, contentDescription = stringResource(R.string.save_note), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -692,6 +724,14 @@ fun ModerationDetailScreen(
             confirmButton = { TextButton(onClick = { showGuidelines = false }) { Text(stringResource(R.string.understood)) } }
         )
     }
+
+    viewerIndex?.let { index ->
+        PostPhotoViewer(
+            photos = post.photos,
+            initialIndex = index,
+            onDismiss = { viewerIndex = null }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -702,7 +742,10 @@ fun RejectionReasonBottomSheet(
     onConfirm: (reason: String, notes: String) -> Unit
 ) {
     var selectedReason by remember { mutableStateOf("Precio no concordante") }
-    var notes by remember { mutableStateOf("") }
+    var notes by rememberSaveable { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
 
     val reasons = listOf(
         "Precio no concordante" to R.string.price_mismatch,
@@ -714,14 +757,17 @@ fun RejectionReasonBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-                .navigationBarsPadding(),
+                .imePadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
@@ -770,9 +816,15 @@ fun RejectionReasonBottomSheet(
                 onValueChange = { notes = it },
                 label = { Text(stringResource(R.string.additional_details_author)) },
                 placeholder = { Text(stringResource(R.string.additional_details_hint)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) coroutineScope.launch { sheetState.expand() }
+                    },
                 maxLines = 3,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
             )
 
             errorMessage?.let { message ->

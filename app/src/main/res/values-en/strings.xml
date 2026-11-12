@@ -39,6 +39,7 @@
     <string name="select_image">Select image</string>
     <string name="take_photo">Take photo</string>
     <string name="choose_from_gallery">Choose from gallery</string>
+    <string name="gallery_short_label">Gallery</string>
     <string name="done">Done</string>
     <string name="nav_home">Home</string>
     <string name="nav_messages">Messages</string>
@@ -80,7 +81,6 @@
     <string name="forgot_password">Forgot your password?</string>
     <string name="login">Sign in</string>
     <string name="create_new_account">Create a new account</string>
-    <string name="validated_specialists">Over 1,200 verified specialists in your area</string>
     <string name="register_title">User registration</string>
     <string name="register_intro">Create an account to hire or offer local services in Armenia and nearby areas.</string>
     <string name="full_name">Full name</string>
@@ -153,6 +153,8 @@
     <string name="prototype_memory_notice">This version keeps data in memory while the app is running. Data is not sent to a server in this prototype.</string>
     <string name="delete_post_title">Delete post</string>
     <string name="delete_post_confirmation">Do you want to delete “%1$s”? This action cannot be undone.</string>
+    <string name="delete_publication_irreversible_message">“%1$s” will be permanently deleted and you will not be able to recover it.</string>
+    <string name="delete_permanently">Delete permanently</string>
     <string name="delete_account_title">Delete account</string>
     <string name="delete_account_confirmation">Are you sure you want to delete your account? Your profile, posts, and conversations will be deleted. This action cannot be undone.</string>
     <string name="delete_account_failed">Could not delete the account. Make sure your session is still active and try again.</string>
@@ -228,6 +230,22 @@
     <string name="valid_price_range">Enter a valid range: the minimum must be greater than zero and no more than the maximum.</string>
     <string name="image_gallery">Image gallery</string>
     <string name="show_real_work">Show your actual work</string>
+    <string name="post_photo_uploader_title">Upload your photos</string>
+    <string name="post_photo_uploader_subtitle">Fast and easy</string>
+    <string name="no_selected_photos">No photos selected</string>
+    <string name="photo_picker_help">Use Camera or Gallery below</string>
+    <string name="attached_photos">Attached photos:</string>
+    <string name="photo_count">%1$d photos</string>
+    <string name="photo_count_singular">%1$d photo</string>
+    <string name="add_more_photos">Add more photos</string>
+    <string name="remove_photo">Remove photo %1$d</string>
+    <string name="photo_position">%1$d / %2$d</string>
+    <string name="no_photos">No photos</string>
+    <string name="post_has_no_photos">This post has no photos</string>
+    <string name="invalid_post_images">Check the selected images. You can add up to 5 valid images.</string>
+    <string name="post_upload_progress">Uploading image %1$d of %2$d (%3$d%%)</string>
+    <string name="retry">Retry</string>
+    <string name="post_location_map_loading">Loading location map…</string>
     <string name="location_and_coverage">Service location</string>
     <string name="location_required">Enter a location.</string>
     <string name="create_post_help">Complete the title, description, price, and location. The post will remain pending until a moderator reviews it.</string>
@@ -321,6 +339,7 @@
     <string name="save_note">Save note</string>
     <string name="review_guidelines">Check that the description is clear, the price does not require advance payment outside the platform, and the content follows community policies. Images and external verifications are not included in this phase.</string>
     <string name="rejection_reason_title">Reason for rejection</string>
+    <string name="rejection_notes_title">Moderator notes</string>
     <string name="select_required_reason">Select a required reason to notify the author</string>
     <string name="close_dialog">Close</string>
     <string name="predefined_options">Predefined options</string>
@@ -403,7 +422,6 @@
     <string name="slide_caption_repairs">Home repairs and electrical code updates in Armenia</string>
     <string name="service_description_title">Service description</string>
     <string name="neighborhoods_coverage">Granada, Los Profesionales, Centro, and Norte neighborhoods in Armenia</string>
-    <string name="quality_satisfaction">99.2%% satisfaction</string>
     <string name="owner_reply_hint">Reply to the comments…</string>
     <string name="visitor_question_hint">Write a question to the author…</string>
     <string name="author">Author</string>
@@ -495,8 +513,8 @@
     <string name="selected_post_location">Selected location</string>
     <string name="selected_coordinates">Point: %1$.5f, %2$.5f</string>
     <string name="confirm_location">Confirm point</string>
-    <string name="open_location_map">Choose point on map</string>
-    <string name="use_current_location">Use my current location</string>
+    <string name="open_location_map">Choose on map</string>
+    <string name="use_current_location">My location</string>
     <string name="post_location_not_selected">Choose a point on the map.</string>
     <string name="location_permission_denied_manual_available">Location permission was denied. You can still choose the point manually on the map.</string>
     <string name="current_location_unavailable">Could not get the current location. You can choose the point manually on the map.</string>

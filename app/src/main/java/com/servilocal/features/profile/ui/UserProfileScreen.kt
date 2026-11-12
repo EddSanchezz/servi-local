@@ -42,6 +42,7 @@ fun UserProfileScreen(
     onOpenNotifications: () -> Unit,
     onLogout: () -> Unit,
     onOpenServiceDetail: (String) -> Unit,
+    onOpenMyPosts: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenMyProfile: () -> Unit,
     modifier: Modifier = Modifier
@@ -52,15 +53,12 @@ fun UserProfileScreen(
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val profileUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val badges by viewModel.badges.collectAsStateWithLifecycle()
-    val coroutineScope = rememberCoroutineScope()
     val stats = profileUiState.stats
     val notificationsEnabled = appUiState.notificationsEnabled
     var activeDialog by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var isDeletingAccount by remember { mutableStateOf(false) }
     var deleteAccountFailed by remember { mutableStateOf(false) }
-    var postPendingDeletion by remember { mutableStateOf<com.servilocal.domain.model.ServicePost?>(null) }
-    var deletePostFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val ownedPosts = myPosts
     val votedPosts = posts.filter { it.userUpvoted }
@@ -74,11 +72,6 @@ fun UserProfileScreen(
     }
     val remainingPoints = stats?.remainingPoints ?: (nextLevelPoints - points).coerceAtLeast(0)
     val levelLabel = stats?.levelLabel ?: currentUser.level
-    val dialogPosts = when (activeDialog) {
-        "Mis Publicaciones" -> ownedPosts
-        "Servicios que me importan / Mis Votos" -> votedPosts
-        else -> emptyList()
-    }
 
     Scaffold(
         topBar = {
@@ -271,7 +264,7 @@ fun UserProfileScreen(
                             icon = Icons.AutoMirrored.Filled.Assignment,
                             title = stringResource(R.string.my_publications),
                             subtitle = stringResource(R.string.manage_my_posts),
-                            onClick = { activeDialog = "Mis Publicaciones" }
+                            onClick = onOpenMyPosts
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
                         ProfileNavRow(
@@ -361,46 +354,23 @@ fun UserProfileScreen(
                         Text(currentUser.workingHours, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                         Text(stringResource(R.string.availability_notice), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    "Mis Publicaciones", "Servicios que me importan / Mis Votos" -> {
-                        if (dialogPosts.isEmpty()) {
-                            Text(stringResource(if (title == "Mis Publicaciones") R.string.no_posts_yet else R.string.no_votes_yet))
+                    "Servicios que me importan / Mis Votos" -> {
+                        if (votedPosts.isEmpty()) {
+                            Text(stringResource(R.string.no_votes_yet))
                         } else {
                             Column(
                                 modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                dialogPosts.forEach { post ->
-                                    val status = when (post.status) {
-                                        com.servilocal.domain.model.PostStatus.PENDING_VERIFICATION -> stringResource(R.string.pending_review_status)
-                                        com.servilocal.domain.model.PostStatus.APPROVED -> stringResource(R.string.published_status)
-                                        com.servilocal.domain.model.PostStatus.REJECTED -> stringResource(R.string.rejected_status)
-                                        com.servilocal.domain.model.PostStatus.FINISHED -> stringResource(R.string.finished_status)
-                                    }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        TextButton(
-                                            onClick = {
-                                                activeDialog = null
-                                                onOpenServiceDetail(post.id)
-                                            },
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Column(modifier = Modifier.fillMaxWidth()) {
-                                                Text(post.title, color = MaterialTheme.colorScheme.onSurface)
-                                                Text(status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                            }
-                                        }
-                                        if (title == "Mis Publicaciones") {
-                                            IconButton(onClick = {
-                                                deletePostFailed = false
-                                                postPendingDeletion = post
-                                            }) {
-                                                Icon(
-                                                    Icons.Default.DeleteOutline,
-                                                    contentDescription = stringResource(R.string.delete_post_accessibility, post.title),
-                                                    tint = MaterialTheme.colorScheme.error
-                                                )
-                                            }
-                                        }
+                                votedPosts.forEach { post ->
+                                    TextButton(
+                                        onClick = {
+                                            activeDialog = null
+                                            onOpenServiceDetail(post.id)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(post.title, color = MaterialTheme.colorScheme.onSurface)
                                     }
                                 }
                             }
@@ -413,39 +383,6 @@ fun UserProfileScreen(
                 TextButton(onClick = { activeDialog = null }) { Text(stringResource(R.string.done)) }
             },
             dismissButton = {
-            }
-        )
-    }
-
-    postPendingDeletion?.let { post ->
-        AlertDialog(
-            onDismissRequest = { postPendingDeletion = null; deletePostFailed = false },
-            title = { Text(stringResource(R.string.delete_post_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.delete_post_confirmation, post.title))
-                    if (deletePostFailed) {
-                        Text(
-                            stringResource(R.string.delete_post_failed),
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    coroutineScope.launch {
-                        if (viewModel.deletePost(post.id)) {
-                            postPendingDeletion = null
-                            deletePostFailed = false
-                        } else {
-                            deletePostFailed = true
-                        }
-                    }
-                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { postPendingDeletion = null; deletePostFailed = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }

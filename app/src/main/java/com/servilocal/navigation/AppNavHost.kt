@@ -5,6 +5,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.BarChart
@@ -36,6 +38,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -85,6 +88,7 @@ import com.servilocal.features.posts.ui.EditPostScreen
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
 import com.servilocal.features.posts.viewmodel.EditPostViewModel
 import com.servilocal.features.profile.ui.UserProfileScreen
+import com.servilocal.features.profile.ui.MyPostsScreen
 import com.servilocal.features.profile.ui.AppSettingsScreen
 import com.servilocal.features.profile.ui.EditProfileScreen
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
@@ -109,6 +113,7 @@ object AppRoute {
     const val NOTIFICATIONS = "notifications"
     const val SERVICE_DETAIL = "service-detail/{postId}"
     const val EDIT_POST = "edit-post/{postId}"
+    const val MY_POSTS = "my-posts"
     const val CHAT_DETAIL = "chat-detail/{chatId}"
     const val MODERATION_DETAIL = "moderation-detail/{postId}"
     const val MODERATION_REPORT_DETAIL = "moderation-report-detail/{reportId}"
@@ -240,6 +245,7 @@ private fun DashboardNavigation(
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+    val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val isModerator = appUiState.activeRole == UserRole.MODERATOR
     val startDestination = if (isModerator) AppRoute.MODERATION_FEED else AppRoute.HOME
     val tabRoutes = if (isModerator) {
@@ -281,7 +287,7 @@ private fun DashboardNavigation(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            if (currentRoute in tabRoutes) {
+            if (currentRoute in tabRoutes && !isImeVisible) {
                 val items = if (isModerator) {
                     listOf(
                         BarItem(AppRoute.MODERATION_FEED, R.string.nav_audit, Icons.Filled.Shield, Icons.Outlined.Shield),
@@ -336,6 +342,7 @@ private fun DashboardNavigation(
                     onOpenNotifications = { navController.navigate(AppRoute.NOTIFICATIONS) },
                     onLogout = onLogout,
                     onOpenServiceDetail = { navController.navigate(AppRoute.serviceDetail(it)) },
+                    onOpenMyPosts = { navController.navigate(AppRoute.MY_POSTS) },
                     onOpenSettings = { navController.navigate(AppRoute.SETTINGS) },
                     onOpenMyProfile = { navController.navigate(AppRoute.EDIT_PROFILE) }
                 )
@@ -345,6 +352,15 @@ private fun DashboardNavigation(
                 EditProfileScreen(
                     viewModel = viewModel,
                     onBack = { navController.navigateUp() }
+                )
+            }
+            composable(AppRoute.MY_POSTS) {
+                val viewModel: ProfileViewModel = hiltViewModel()
+                val myPosts by viewModel.myPosts.collectAsStateWithLifecycle()
+                MyPostsScreen(
+                    posts = myPosts,
+                    onBack = { navController.navigateUp() },
+                    onOpenDetail = { navController.navigate(AppRoute.serviceDetail(it)) }
                 )
             }
             composable(AppRoute.SETTINGS) {
@@ -413,7 +429,16 @@ private fun DashboardNavigation(
                 EditPostScreen(
                     postId = entry.arguments?.getString("postId").orEmpty(),
                     viewModel = viewModel,
-                    onBack = { navController.navigateUp() }
+                    createViewModel = hiltViewModel(),
+                    onBack = { navController.navigateUp() },
+                    onDeleted = {
+                        if (!navController.popBackStack(AppRoute.MY_POSTS, inclusive = false)) {
+                            navController.navigate(AppRoute.MY_POSTS) {
+                                popUpTo(AppRoute.HOME) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
                 )
             }
             composable(AppRoute.CHAT_DETAIL, arguments = listOf(navArgument("chatId") { type = NavType.StringType })) { entry ->

@@ -10,6 +10,7 @@ import com.servilocal.domain.usecase.posts.FilterPostsByQueryUseCase
 import com.servilocal.domain.usecase.posts.ObservePostsUseCase
 import com.servilocal.domain.usecase.posts.ToggleLikeResult
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
+import com.servilocal.features.posts.coordinator.PublishPostCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
@@ -40,7 +42,8 @@ class HomeViewModel @Inject constructor(
     observePosts: ObservePostsUseCase,
     private val filterPostsByCategory: FilterPostsByCategoryUseCase,
     private val filterPostsByQuery: FilterPostsByQueryUseCase,
-    private val filterPostsByLocation: FilterPostsByLocationUseCase
+    private val filterPostsByLocation: FilterPostsByLocationUseCase,
+    private val publishPostCoordinator: PublishPostCoordinator? = null
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -71,6 +74,8 @@ class HomeViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
+    val publicationEvents = publishPostCoordinator?.events ?: emptyFlow()
+    fun retryPublication() = publishPostCoordinator?.retryLast()
 
     fun setSearchQuery(value: String) = _uiState.update { it.copy(searchQuery = value) }
     fun setSelectedCategory(value: String) = _uiState.update { it.copy(selectedCategory = value) }
