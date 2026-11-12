@@ -8,9 +8,7 @@ plugins {
   alias(libs.plugins.google.gms.google.services)
 }
 
-if (file("google-services.json").isFile) {
-  apply(plugin = "com.google.gms.google-services")
-}
+
 
 val localProperties = Properties().apply {
   val propertiesFile = rootProject.file("local.properties")

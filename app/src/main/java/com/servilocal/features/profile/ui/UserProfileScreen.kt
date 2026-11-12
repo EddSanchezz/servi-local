@@ -250,20 +250,6 @@ fun UserProfileScreen(
                 }
             }
 
-            /*
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                ProfileNavRow(
-                    icon = Icons.Default.Schedule,
-                    title = "Horario de atención",
-                    subtitle = currentUser.workingHours,
-                    onClick = { activeDialog = "Horario de atención" }
-                )
-            }
-             */
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(

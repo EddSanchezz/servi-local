@@ -59,7 +59,6 @@
     <string name="post_not_found">Publicación no encontrada</string>
     <string name="post_unavailable">La publicación ya no está disponible.</string>
     <string name="loading">Cargando…</string>
-    <string name="empty_value">—</string>
     <!-- Onboarding and authentication -->
     <string name="onboarding_logo_description">Logo de ServiLocal</string>
     <string name="onboarding_tagline">Lo local resuelve</string>
@@ -136,8 +135,6 @@
     <string name="pending">Pendientes</string>
     <string name="working_hours">Horario de atención</string>
     <string name="my_activity">Mi Actividad</string>
-    <string name="edit_profile">Editar Perfil</string>
-    <string name="personal_contact_info">Datos personales y contacto</string>
     <string name="my_publications">Mis Publicaciones</string>
     <string name="manage_my_posts">Gestionar servicios activos e inactivos</string>
     <string name="my_votes_title">Servicios que me importan / Mis Votos</string>
@@ -207,10 +204,7 @@
     <string name="next_photo">Foto siguiente</string>
     <string name="estimated_price_range">Rango de precio estimado</string>
     <string name="diagnostic_visit">Visita diagnóstica o labor base</string>
-    <string name="coverage_radius_ten">Radio de 10 km</string>
-    <string name="coverage_radius_fifteen">Radio de 15 km</string>
     <string name="verified">Verificado</string>
-    <string name="satisfaction_rate">99.2%% de satisfacción</string>
     <string name="free_or_quote">Servicio gratuito o cotización a convenir</string>
     <string name="city_or_service_area">Ciudad o zona de cobertura</string>
     <string name="finish_post">Finalizar publicación</string>
@@ -227,11 +221,8 @@
     <string name="quote_value_explainer">El valor se mostrará como “A convenir”</string>
     <string name="valid_price_range">Ingresa un rango válido: el mínimo debe ser mayor que cero y no superar el máximo.</string>
     <string name="image_gallery">Galería de imágenes</string>
-    <string name="show_real_work">Muestra tus trabajos reales (máx. 5 fotos)</string>
-    <string name="optional">Opcional</string>
-    <string name="image_upload_unavailable">La carga de imágenes no forma parte de esta fase; puedes publicar el servicio sin fotos.</string>
+    <string name="show_real_work">Muestra tu trabajo real</string>
     <string name="location_and_coverage">Ubicación del servicio</string>
-    <string name="location_manual_only">La ubicación se ingresa manualmente; esta versión no usa GPS ni mapas.</string>
     <string name="location_required">Indica una ubicación.</string>
     <string name="create_post_help">Completa el título, la descripción, el precio y la ubicación. La publicación quedará pendiente hasta que un moderador la revise.</string>
     <string name="post_submitted">Publicación enviada</string>
@@ -358,10 +349,6 @@
     <string name="valid_report_summary">El caso es válido. Puedes aplicar una acción sobre la publicación.</string>
     <string name="moderator_comments">Comentarios del moderador</string>
     <string name="no_changes">Sin cambios</string>
-    <string name="report_resolved_success">Reporte enviado a moderación</string>
-    <string name="report_own_post_error">No puedes reportar tu propia publicación</string>
-    <string name="reporter">Autor</string>
-    <string name="post_description_title">Descripción del servicio</string>
     <string name="coverage_zone">Zona de cobertura</string>
     <string name="professional_profile">Perfil del profesional</string>
     <string name="comments_questions">Comentarios y preguntas</string>
@@ -385,7 +372,6 @@
     <string name="resolution_failed">No se pudo resolver el reporte. Intenta de nuevo.</string>
     <string name="confirm_resolution">Confirmar resolución</string>
     <string name="dismiss_report_action">Descartar reporte</string>
-    <string name="send_review">Guardar y enviar a revisión</string>
     <string name="price_mismatch">Precio no concordante</string>
     <string name="unauthorized_service">Servicio no autorizado</string>
     <string name="irrelevant_images">Imágenes no pertinentes o de baja calidad</string>
@@ -428,7 +414,6 @@
     <string name="own_post_request_error">No puedes solicitar tu propia publicación.</string>
     <string name="create_publication_title">Crear publicación</string>
     <string name="publication_sent_review">Publicación enviada a revisión.</string>
-    <string name="publication_create_failed">No se pudo crear la publicación.</string>
     <string name="complete_required_fields">Completa los campos requeridos y verifica el rango de precios.</string>
     <string name="publication_terms_notice">Al publicar aceptas las políticas comunitarias de ServiLocal</string>
     <string name="quality_trust_review">Revisión de calidad y confianza</string>
@@ -458,7 +443,6 @@
     <string name="review_name">Revisa tu nombre.</string>
     <string name="review_email">Revisa el correo.</string>
     <string name="review_password">Revisa la contraseña.</string>
-    <string name="recovery_code_generated">Código generado. Úsalo para restablecer tu contraseña.</string>
     <string name="recovery_email_sent">Si la cuenta existe, recibirás un enlace para restablecer tu contraseña.</string>
     <string name="account_not_found">No encontramos una cuenta con ese correo.</string>
     <string name="reset_code_digits_required">Ingresa los 5 dígitos del código.</string>
@@ -508,7 +492,6 @@
     <string name="current_location_unavailable">No se pudo obtener la ubicación actual. Puedes elegir el punto manualmente en el mapa.</string>
     <string name="image_required_for_post">Agrega al menos una foto de tu servicio.</string>
     <string name="add_post_image">Agregar foto</string>
-    <string name="remove_post_image">Quitar foto</string>
     <string name="uploading_post_image">Subiendo imagen… %1$d%%</string>
     <string name="post_image_upload_failed">No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.</string>
     <string name="post_create_network_failed">No se pudo guardar la publicación. Inténtalo de nuevo.</string>

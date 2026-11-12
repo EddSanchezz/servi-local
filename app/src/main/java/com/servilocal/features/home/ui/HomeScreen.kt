@@ -5,10 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
-import android.os.Build
-import android.os.Looper
+
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -53,6 +50,7 @@ import com.servilocal.R
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.core.ui.localizedDistance
 import com.servilocal.core.ui.localizedServiceCategory
+import com.servilocal.core.util.requestCurrentLocation
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
@@ -803,37 +801,4 @@ private fun createMapMarkerIcon(context: Context, count: Int): BitmapDrawable {
     }
     canvas.drawPath(pin, paint)
     return BitmapDrawable(context.resources, bitmap)
-}
-
-@SuppressLint("MissingPermission", "DEPRECATION")
-private fun requestCurrentLocation(context: Context, onResult: (Location?) -> Unit) {
-    val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    val provider = when {
-        manager.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
-        manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
-        else -> null
-    }
-    if (provider == null) {
-        onResult(null)
-        return
-    }
-
-    try {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            manager.getCurrentLocation(provider, null, context.mainExecutor) { location -> onResult(location) }
-        } else {
-            val lastKnown = manager.getLastKnownLocation(provider)
-            if (lastKnown != null) {
-                onResult(lastKnown)
-            } else {
-                manager.requestSingleUpdate(provider, object : LocationListener {
-                    override fun onLocationChanged(location: Location) = onResult(location)
-                    override fun onProviderEnabled(provider: String) = Unit
-                    override fun onProviderDisabled(provider: String) = onResult(null)
-                }, Looper.getMainLooper())
-            }
-        }
-    } catch (_: SecurityException) {
-        onResult(null)
-    }
 }

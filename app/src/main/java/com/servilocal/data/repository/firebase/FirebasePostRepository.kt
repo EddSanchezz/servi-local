@@ -3,6 +3,7 @@ package com.servilocal.data.repository.firebase
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.servilocal.domain.model.PostCategory
@@ -116,7 +117,7 @@ class FirebasePostRepository @Inject constructor(
             latitude = latitude ?: error("La latitud es obligatoria."),
             longitude = longitude ?: error("La longitud es obligatoria."),
             distance = distanceFromArmenia(latitude, longitude),
-            rating = 5f,
+            rating = 0f,
             reviewCount = 0,
             upvotesCount = 0,
             userUpvoted = false,
@@ -168,7 +169,7 @@ class FirebasePostRepository @Inject constructor(
                 "maxPrice" to maxPrice,
                 "isPriceToAgree" to isPriceToAgree,
                 "locationDescription" to location.trim(),
-                "locations" to listOf(mapOf("latitude" to updatedLatitude, "longitude" to updatedLongitude, "coverageRadiusKm" to 15.0)),
+                "location" to GeoPoint(updatedLatitude, updatedLongitude),
                 "photos" to (photos ?: current.photos)
             )
         ).await()
@@ -280,7 +281,7 @@ class FirebasePostRepository @Inject constructor(
             latitude = latitude,
             longitude = longitude,
             distance = if (latitude != null && longitude != null) distanceFromArmenia(latitude, longitude) else "Distancia no calculada",
-            rating = getDouble("rating")?.toFloat() ?: 5f,
+            rating = getDouble("rating")?.toFloat() ?: 0f,
             reviewCount = getLong("reviewCount")?.toInt() ?: 0,
             upvotesCount = getLong("upvotesCount")?.toInt() ?: 0,
             userUpvoted = false,
@@ -306,7 +307,7 @@ class FirebasePostRepository @Inject constructor(
         "maxPrice" to maxPrice,
         "isPriceToAgree" to isPriceToAgree,
         "locationDescription" to location,
-        "locations" to listOf(mapOf("latitude" to latitude!!, "longitude" to longitude!!, "coverageRadiusKm" to 15.0)),
+        "location" to GeoPoint(latitude!!, longitude!!),
         "photos" to photos,
         FIELD_STATUS to status.name,
         "upvotesCount" to 0,

@@ -60,7 +60,6 @@ fun EditPostScreen(
         "Educación" to R.string.category_education,
         "Mascotas" to R.string.category_pets,
         "Tecnología" to R.string.category_technology,
-        "Electricidad" to R.string.category_electricity,
         "Transporte" to R.string.category_transport
     )
 

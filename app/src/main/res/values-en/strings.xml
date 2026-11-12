@@ -58,7 +58,6 @@
     <string name="post_not_found">Post not found</string>
     <string name="post_unavailable">This post is no longer available.</string>
     <string name="loading">Loading…</string>
-    <string name="empty_value">—</string>
     <string name="onboarding_logo_description">ServiLocal logo</string>
     <string name="onboarding_tagline">Local solutions</string>
     <string name="onboarding_description">Find professionals in your community in Armenia and Quindío.</string>
@@ -102,7 +101,9 @@
     <string name="send_recovery_code">Send recovery code</string>
     <string name="continue_label">Continue</string>
     <string name="reset_password">Reset password</string>
-    <string name="reset_password_intro">Enter the 5-digit code generated for your account and set a new password.</string>
+    <string name="reset_password_intro">Use the recovery link you received to set a new password.</string>
+    <string name="reset_link_ready">Recovery link valid. Set a new password to continue.</string>
+    <string name="recovery_email_sent">If the account exists, you will receive a link to reset your password.</string>
     <string name="new_password">New password</string>
     <string name="confirm_new_password">Confirm new password</string>
     <string name="min_eight_characters">At least 8 characters.</string>
@@ -132,8 +133,6 @@
     <string name="pending">Pending</string>
     <string name="working_hours">Working hours</string>
     <string name="my_activity">My activity</string>
-    <string name="edit_profile">Edit profile</string>
-    <string name="personal_contact_info">Personal and contact details</string>
     <string name="my_publications">My posts</string>
     <string name="manage_my_posts">Manage active and inactive services</string>
     <string name="my_votes_title">Services I support / My votes</string>
@@ -203,10 +202,7 @@
     <string name="next_photo">Next photo</string>
     <string name="estimated_price_range">Estimated price range</string>
     <string name="diagnostic_visit">Diagnostic visit or base labor</string>
-    <string name="coverage_radius_ten">10 km radius</string>
-    <string name="coverage_radius_fifteen">15 km radius</string>
     <string name="verified">Verified</string>
-    <string name="satisfaction_rate">99.2%% satisfaction</string>
     <string name="free_or_quote">Free service or quote on request</string>
     <string name="city_or_service_area">City or service area</string>
     <string name="finish_post">Finish post</string>
@@ -223,11 +219,8 @@
     <string name="quote_value_explainer">The price will appear as “Quote on request”</string>
     <string name="valid_price_range">Enter a valid range: the minimum must be greater than zero and no more than the maximum.</string>
     <string name="image_gallery">Image gallery</string>
-    <string name="show_real_work">Show your actual work (up to 5 photos)</string>
-    <string name="optional">Optional</string>
-    <string name="image_upload_unavailable">Image uploads are not available in this phase; you can post the service without photos.</string>
+    <string name="show_real_work">Show your actual work</string>
     <string name="location_and_coverage">Service location</string>
-    <string name="location_manual_only">Enter the location manually; this version does not use GPS or maps.</string>
     <string name="location_required">Enter a location.</string>
     <string name="create_post_help">Complete the title, description, price, and location. The post will remain pending until a moderator reviews it.</string>
     <string name="post_submitted">Post submitted</string>
@@ -354,10 +347,6 @@
     <string name="valid_report_summary">The case is valid. You can take action on the post.</string>
     <string name="moderator_comments">Moderator comments</string>
     <string name="no_changes">No changes</string>
-    <string name="report_resolved_success">Report submitted for moderation</string>
-    <string name="report_own_post_error">You cannot report your own post</string>
-    <string name="reporter">Author</string>
-    <string name="post_description_title">Service description</string>
     <string name="coverage_zone">Coverage area</string>
     <string name="professional_profile">Professional profile</string>
     <string name="comments_questions">Comments and questions</string>
@@ -381,7 +370,6 @@
     <string name="resolution_failed">Could not resolve the report. Try again.</string>
     <string name="confirm_resolution">Confirm resolution</string>
     <string name="dismiss_report_action">Dismiss report</string>
-    <string name="send_review">Save and submit for review</string>
     <string name="price_mismatch">Price mismatch</string>
     <string name="unauthorized_service">Unauthorized service</string>
     <string name="irrelevant_images">Irrelevant or low-quality images</string>
@@ -424,7 +412,6 @@
     <string name="own_post_request_error">You cannot request your own post.</string>
     <string name="create_publication_title">Create post</string>
     <string name="publication_sent_review">Post submitted for review.</string>
-    <string name="publication_create_failed">Could not create the post.</string>
     <string name="complete_required_fields">Complete the required fields and check the price range.</string>
     <string name="publication_terms_notice">By posting, you agree to ServiLocal’s community policies</string>
     <string name="quality_trust_review">Quality and trust review</string>
@@ -454,7 +441,6 @@
     <string name="review_name">Check your name.</string>
     <string name="review_email">Check your email.</string>
     <string name="review_password">Check your password.</string>
-    <string name="recovery_code_generated">Code generated. Use it to reset your password.</string>
     <string name="account_not_found">We couldn’t find an account with that email.</string>
     <string name="reset_code_digits_required">Enter all 5 code digits.</string>
     <string name="password_reset_success">Password updated. You can now sign in.</string>
@@ -503,7 +489,6 @@
     <string name="current_location_unavailable">Could not get the current location. You can choose the point manually on the map.</string>
     <string name="image_required_for_post">Add at least one photo of your service.</string>
     <string name="add_post_image">Add photo</string>
-    <string name="remove_post_image">Remove photo</string>
     <string name="uploading_post_image">Uploading image… %1$d%%</string>
     <string name="post_image_upload_failed">Could not upload the photo. Check your connection and try again.</string>
     <string name="post_create_network_failed">Could not save the post. Please try again.</string>

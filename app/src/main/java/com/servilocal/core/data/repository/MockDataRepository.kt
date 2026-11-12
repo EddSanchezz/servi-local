@@ -161,8 +161,6 @@ class MockDataRepository @Inject constructor(
     }
 
     override fun toggleLike(postId: String, userId: String): Boolean {
-        if (_posts.value.none { it.id == postId }) return false
-
         val existing = erdLikes.value.firstOrNull { it.postId == postId && it.userId == userId }
         if (existing == null) {
             erdLikes.update { current ->
@@ -195,7 +193,7 @@ class MockDataRepository @Inject constructor(
 
     override fun addComment(postId: String, userId: String, authorName: String, content: String): Boolean {
         if (content.isBlank()) return false
-        val post = _posts.value.firstOrNull { it.id == postId } ?: return false
+        val post = _posts.value.firstOrNull { it.id == postId }
 
         val newComment = Comment(
             id = "c_${UUID.randomUUID()}",
@@ -210,7 +208,7 @@ class MockDataRepository @Inject constructor(
             authorName = authorName,
             date = "Justo ahora",
             text = content,
-            isAuthorReply = post.providerId == userId,
+            isAuthorReply = post?.providerId == userId,
             isRecommended = true,
             authorId = userId
         )

@@ -95,22 +95,6 @@ data class Post(
     val createdAtMillis: Long = System.currentTimeMillis()
 )
 
-/** Tabla post_images (1 post -> N imágenes) */
-data class PostImage(
-    val id: String,
-    val postId: String,
-    val imageUrl: String
-)
-
-/** Tabla post_locations (1 post -> N zonas de cobertura) */
-data class PostLocation(
-    val id: String,
-    val postId: String,
-    val latitude: Double,
-    val longitude: Double,
-    val coverageRadiusKm: Float
-)
-
 /** Tabla comments */
 data class Comment(
     val id: String,

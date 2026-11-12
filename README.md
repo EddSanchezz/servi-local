@@ -95,3 +95,4 @@ El APK de depuración se genera en `app/build/outputs/apk/debug/app-debug.apk`. 
 ```powershell
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 ```
+
