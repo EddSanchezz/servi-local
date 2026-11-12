@@ -8,6 +8,7 @@ interface ChatRepository {
     val conversations: StateFlow<List<ChatConversation>>
 
     fun sendMessage(conversationId: String, text: String)
+    fun deleteConversationsForUser(userId: String): Boolean = false
     fun startConversation(postId: String): String?
     fun markConversationRead(conversationId: String)
     fun updateConversationStatus(conversationId: String, status: ChatStatus)

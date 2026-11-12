@@ -57,8 +57,11 @@ fun UserProfileScreen(
     val notificationsEnabled = appUiState.notificationsEnabled
     var activeDialog by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var isDeletingAccount by remember { mutableStateOf(false) }
+    var deleteAccountFailed by remember { mutableStateOf(false) }
     var postPendingDeletion by remember { mutableStateOf<com.servilocal.domain.model.ServicePost?>(null) }
     var deletePostFailed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val ownedPosts = myPosts
     val votedPosts = posts.filter { it.userUpvoted }
     val displayBadges = badges
@@ -331,7 +334,10 @@ fun UserProfileScreen(
                     Text(stringResource(R.string.logout), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
                 }
 
-                TextButton(onClick = { showDeleteConfirmation = true }) {
+                TextButton(onClick = {
+                    deleteAccountFailed = false
+                    showDeleteConfirmation = true
+                }) {
                     Text(
                         stringResource(R.string.delete_account_title),
                         style = MaterialTheme.typography.labelSmall,
@@ -446,13 +452,66 @@ fun UserProfileScreen(
 
     if (showDeleteConfirmation) {
         AlertDialog(
-            onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text(stringResource(R.string.delete_account_title)) },
-            text = { Text(stringResource(R.string.demo_account_notice)) },
-            confirmButton = {
-                TextButton(onClick = { showDeleteConfirmation = false; onLogout() }) { Text(stringResource(R.string.logout_lowercase)) }
+            onDismissRequest = {
+                if (!isDeletingAccount) {
+                    showDeleteConfirmation = false
+                    deleteAccountFailed = false
+                }
             },
-            dismissButton = { TextButton(onClick = { showDeleteConfirmation = false }) { Text(stringResource(R.string.cancel)) } }
+            title = { Text(stringResource(R.string.delete_account_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.delete_account_confirmation))
+                    if (isDeletingAccount) {
+                        Text(
+                            stringResource(R.string.deleting_account),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (deleteAccountFailed) {
+                        Text(
+                            stringResource(R.string.delete_account_failed),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                // El botón de cancelar es el principal y sobresale sobre el de eliminar.
+                Button(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        deleteAccountFailed = false
+                    },
+                    enabled = !isDeletingAccount
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            isDeletingAccount = true
+                            deleteAccountFailed = false
+                            val deleted = viewModel.deleteAccount()
+                            isDeletingAccount = false
+                            if (deleted) {
+                                showDeleteConfirmation = false
+                                onLogout()
+                            } else {
+                                deleteAccountFailed = true
+                            }
+                        }
+                    },
+                    enabled = !isDeletingAccount
+                ) {
+                    Text(
+                        stringResource(R.string.delete_account_title),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         )
     }
 }

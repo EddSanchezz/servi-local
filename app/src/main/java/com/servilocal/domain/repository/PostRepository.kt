@@ -33,6 +33,7 @@ interface PostRepository {
         photos: List<String>? = null
     ): Boolean
     suspend fun deletePost(postId: String): Boolean
+    suspend fun deletePostsByUser(userId: String): Boolean
     suspend fun finishPost(postId: String): Boolean
     suspend fun approvePost(postId: String)
     suspend fun rejectPost(postId: String, reason: String, notes: String? = null)

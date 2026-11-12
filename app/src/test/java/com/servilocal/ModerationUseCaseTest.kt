@@ -106,6 +106,7 @@ class ModerationUseCaseTest {
         ): Boolean = false
 
         override suspend fun deletePost(postId: String): Boolean = false
+        override suspend fun deletePostsByUser(userId: String): Boolean = false
 
         override suspend fun finishPost(postId: String): Boolean = false
 

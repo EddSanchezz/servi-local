@@ -184,6 +184,12 @@ class FirebasePostRepository @Inject constructor(
         return true
     }
 
+    override suspend fun deletePostsByUser(userId: String): Boolean {
+        val snapshot = postsCollection.whereEqualTo(FIELD_PROVIDER_ID, userId).get().await()
+        snapshot.documents.forEach { it.reference.delete().await() }
+        return true
+    }
+
     override suspend fun finishPost(postId: String): Boolean {
         val current = posts.value.firstOrNull { it.id == postId } ?: return false
         val uid = sessionRepository.session.value?.userId ?: return false

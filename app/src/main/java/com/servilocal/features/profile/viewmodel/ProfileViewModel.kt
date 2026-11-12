@@ -6,6 +6,8 @@ import com.servilocal.domain.model.BadgeDisplay
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.domain.repository.PostRepository
+import com.servilocal.domain.usecase.auth.DeleteAccountResult
+import com.servilocal.domain.usecase.auth.DeleteAccountUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
 import com.servilocal.domain.usecase.profile.GetProfileStatsUseCase
@@ -39,6 +41,7 @@ class ProfileViewModel @Inject constructor(
     observeUserBadges: ObserveUserBadgesUseCase,
     observeMyPosts: ObserveMyPostsUseCase,
     private val deleteServicePost: DeleteServicePostUseCase,
+    private val deleteAccountUseCase: DeleteAccountUseCase,
     private val getProfileStats: GetProfileStatsUseCase,
     private val checkAndAwardBadges: CheckAndAwardBadgesUseCase
 ) : ViewModel() {
@@ -111,4 +114,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     suspend fun deletePost(postId: String): Boolean = deleteServicePost(postId)
+
+    suspend fun deleteAccount(): Boolean =
+        deleteAccountUseCase() == DeleteAccountResult.Success
 }

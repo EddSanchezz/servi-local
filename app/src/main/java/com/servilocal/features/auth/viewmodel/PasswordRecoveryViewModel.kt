@@ -99,6 +99,13 @@ class PasswordRecoveryViewModel @Inject constructor(
                         )
                     )
                 }
+                RecoverPasswordResult.Failed -> _uiState.update {
+                    it.copy(
+                        requestResult = RequestResult.Failure(
+                            resources.getString(R.string.recovery_email_failed)
+                        )
+                    )
+                }
 
             }
         }

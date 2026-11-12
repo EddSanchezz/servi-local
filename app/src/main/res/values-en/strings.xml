@@ -7,6 +7,9 @@
     <string name="settings_appearance_section">Appearance and language</string>
     <string name="settings_dark_theme">Dark theme</string>
     <string name="settings_dark_theme_summary">Use dark colors in the app</string>
+    <string name="settings_theme_title">App theme</string>
+    <string name="settings_theme_light">Light mode</string>
+    <string name="settings_theme_dark">Dark mode</string>
     <string name="settings_language">Language</string>
     <string name="settings_change">Change</string>
     <string name="language_spanish">Español</string>
@@ -14,6 +17,8 @@
     <string name="settings_notifications_section">Notifications</string>
     <string name="settings_in_app_notifications">App notifications</string>
     <string name="settings_notifications_summary">Show alerts and badges inside ServiLocal</string>
+    <string name="settings_notification_permissions">Notification permissions</string>
+    <string name="settings_notification_permissions_summary">Enable or disable general app notifications</string>
     <string name="settings_permissions_section">App permissions</string>
     <string name="permission_location">Location</string>
     <string name="permission_location_granted">Permission granted. Used when you choose to find nearby services.</string>
@@ -149,6 +154,9 @@
     <string name="delete_post_title">Delete post</string>
     <string name="delete_post_confirmation">Do you want to delete “%1$s”? This action cannot be undone.</string>
     <string name="delete_account_title">Delete account</string>
+    <string name="delete_account_confirmation">Are you sure you want to delete your account? Your profile, posts, and conversations will be deleted. This action cannot be undone.</string>
+    <string name="delete_account_failed">Could not delete the account. Make sure your session is still active and try again.</string>
+    <string name="deleting_account">Deleting account…</string>
     <string name="demo_account_notice">This is a demo account with no persistent storage or session. Sign out to return to the access screen.</string>
     <string name="logout_lowercase">Sign out</string>
     <string name="published_status">Published</string>
@@ -438,12 +446,17 @@
     <string name="google_sign_in_failed">Could not sign in with Google.</string>
     <string name="register_success">Account created successfully.</string>
     <string name="email_already_registered">That email is already registered.</string>
+    <string name="auth_generic_error">Could not complete the operation. Please try again.</string>
+    <string name="firebase_permission_error">You don’t have permission to access the database. Check your Firestore configuration and try again.</string>
     <string name="review_name">Check your name.</string>
     <string name="review_email">Check your email.</string>
     <string name="review_password">Check your password.</string>
     <string name="account_not_found">We couldn’t find an account with that email.</string>
     <string name="reset_code_digits_required">Enter all 5 code digits.</string>
     <string name="password_reset_success">Password updated. You can now sign in.</string>
+    <string name="recovery_email_sent_title">Email sent</string>
+    <string name="recovery_email_instructions">Check your email and open the Firebase link. If it opens this app, you can set your new password.</string>
+    <string name="recovery_email_failed">The recovery email could not be sent. Check your connection and try again.</string>
     <string name="invalid_email">The email is invalid.</string>
     <string name="invalid_or_used_code">The code is incorrect or has already been used.</string>
     <string name="review_new_password">Check your new password.</string>
