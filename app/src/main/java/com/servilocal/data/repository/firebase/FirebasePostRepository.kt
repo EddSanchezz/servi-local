@@ -9,7 +9,6 @@ import com.servilocal.domain.model.PostCategory
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
-import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.repository.SessionRepository
 import jakarta.inject.Inject
@@ -29,9 +28,9 @@ import kotlinx.coroutines.tasks.await
 import java.util.Locale
 
 /**
- * Firestore-backed publication repository. Location coordinates are embedded in
- * each post document as a `locations` array so the feed needs one document read
- * per publication rather than a second lookup for every marker.
+ * Firestore-backed publication repository. Each post stores its precise location
+ * as one native GeoPoint. The editable text label is kept in
+ * `locationDescription`; the point itself does not imply a service radius.
  */
 @Singleton
 class FirebasePostRepository @Inject constructor(
@@ -87,8 +86,6 @@ class FirebasePostRepository @Inject constructor(
             ?: throw IllegalStateException("Inicia sesión antes de crear una publicación.")
         val user = firestore.collection(USERS_COLLECTION).document(session.userId).get().await()
         val providerName = user.getString("name").orEmpty()
-        val updatedPoints = (user.getLong("points")?.toInt() ?: 0) + PUBLICATION_REWARD_POINTS
-        val updatedLevel = UserLevel.fromPoints(updatedPoints).name
         val providerLevel = user.getString("level")
             ?.let { runCatching { com.servilocal.domain.model.UserLevel.valueOf(it).displayName() }.getOrNull() }
             ?: "Nivel 1: Principiante"
@@ -118,7 +115,6 @@ class FirebasePostRepository @Inject constructor(
             location = location.trim(),
             latitude = latitude ?: error("La latitud es obligatoria."),
             longitude = longitude ?: error("La longitud es obligatoria."),
-            coverageRadiusKm = DEFAULT_COVERAGE_RADIUS_KM,
             distance = distanceFromArmenia(latitude, longitude),
             rating = 5f,
             reviewCount = 0,
@@ -130,17 +126,10 @@ class FirebasePostRepository @Inject constructor(
             comments = emptyList(),
             createdAtMillis = createdAt
         )
-        val batch = firestore.batch()
-        batch.set(reference, post.toFirestoreMap())
-        batch.update(
-            user.reference,
-            mapOf(
-                "points" to updatedPoints,
-                "level" to updatedLevel,
-                "lastAwardedPostId" to reference.id
-            )
-        )
-        batch.commit().await()
+        // Keep publication creation scoped to its own document. Reputation rewards
+        // belong to a separate workflow and must not make saving location depend on
+        // a second user-document permission in the same batch.
+        reference.set(post.toFirestoreMap()).await()
         return post
     }
 
@@ -179,7 +168,7 @@ class FirebasePostRepository @Inject constructor(
                 "maxPrice" to maxPrice,
                 "isPriceToAgree" to isPriceToAgree,
                 "locationDescription" to location.trim(),
-                "locations" to listOf(locationMap(updatedLatitude, updatedLongitude)),
+                "locations" to listOf(mapOf("latitude" to updatedLatitude, "longitude" to updatedLongitude, "coverageRadiusKm" to 15.0)),
                 "photos" to (photos ?: current.photos)
             )
         ).await()
@@ -263,11 +252,14 @@ class FirebasePostRepository @Inject constructor(
     private fun DocumentSnapshot.toServicePost(): ServicePost? {
         if (!exists()) return null
         val location = getString("locationDescription") ?: getString("location").orEmpty()
-        val coordinates = (get("locations") as? List<*>)
+        val point = getGeoPoint("location")
+        val legacyCoordinates = (get("locations") as? List<*>)
             ?.firstOrNull() as? Map<*, *>
-        val latitude = (coordinates?.get("latitude") as? Number)?.toDouble()
+        val latitude = point?.latitude
+            ?: (legacyCoordinates?.get("latitude") as? Number)?.toDouble()
             ?: (get("latitude") as? Number)?.toDouble()
-        val longitude = (coordinates?.get("longitude") as? Number)?.toDouble()
+        val longitude = point?.longitude
+            ?: (legacyCoordinates?.get("longitude") as? Number)?.toDouble()
             ?: (get("longitude") as? Number)?.toDouble()
         val categoryValue = getString("category").orEmpty()
         val status = runCatching { PostStatus.valueOf(getString(FIELD_STATUS).orEmpty()) }
@@ -287,7 +279,6 @@ class FirebasePostRepository @Inject constructor(
             location = location,
             latitude = latitude,
             longitude = longitude,
-            coverageRadiusKm = (coordinates?.get("coverageRadiusKm") as? Number)?.toFloat() ?: DEFAULT_COVERAGE_RADIUS_KM,
             distance = if (latitude != null && longitude != null) distanceFromArmenia(latitude, longitude) else "Distancia no calculada",
             rating = getDouble("rating")?.toFloat() ?: 5f,
             reviewCount = getLong("reviewCount")?.toInt() ?: 0,
@@ -315,7 +306,7 @@ class FirebasePostRepository @Inject constructor(
         "maxPrice" to maxPrice,
         "isPriceToAgree" to isPriceToAgree,
         "locationDescription" to location,
-        "locations" to listOf(locationMap(latitude!!, longitude!!)),
+        "locations" to listOf(mapOf("latitude" to latitude!!, "longitude" to longitude!!, "coverageRadiusKm" to 15.0)),
         "photos" to photos,
         FIELD_STATUS to status.name,
         "upvotesCount" to 0,
@@ -325,12 +316,6 @@ class FirebasePostRepository @Inject constructor(
         "responseTime" to responseTime,
         "createdAtMillis" to createdAtMillis,
         "createdAt" to FieldValue.serverTimestamp()
-    )
-
-    private fun locationMap(latitude: Double, longitude: Double): Map<String, Any> = mapOf(
-        "latitude" to latitude,
-        "longitude" to longitude,
-        "coverageRadiusKm" to DEFAULT_COVERAGE_RADIUS_KM.toDouble()
     )
 
     private fun parseCategory(value: String): PostCategory? = when (
@@ -374,7 +359,5 @@ class FirebasePostRepository @Inject constructor(
         const val USERS_COLLECTION = "users"
         const val FIELD_STATUS = "status"
         const val FIELD_PROVIDER_ID = "providerId"
-        const val DEFAULT_COVERAGE_RADIUS_KM = 15f
-        const val PUBLICATION_REWARD_POINTS = 50
     }
 }

@@ -2,6 +2,7 @@ package com.servilocal.features.posts.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.servilocal.R
 import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.exception.ImageUploadException
@@ -104,6 +105,18 @@ class CreatePostViewModel @Inject constructor(
                         isSubmitting = false,
                         uploadProgress = null,
                         submissionError = resources.getString(R.string.post_image_upload_failed)
+                    )
+                }
+            } catch (error: FirebaseFirestoreException) {
+                _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        uploadProgress = null,
+                        submissionError = if (error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            resources.getString(R.string.firestore_write_denied)
+                        } else {
+                            resources.getString(R.string.post_create_network_failed)
+                        }
                     )
                 }
             } catch (error: IllegalArgumentException) {

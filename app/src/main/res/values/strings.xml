@@ -230,7 +230,7 @@
     <string name="show_real_work">Muestra tus trabajos reales (máx. 5 fotos)</string>
     <string name="optional">Opcional</string>
     <string name="image_upload_unavailable">La carga de imágenes no forma parte de esta fase; puedes publicar el servicio sin fotos.</string>
-    <string name="location_and_coverage">Ubicación y cobertura</string>
+    <string name="location_and_coverage">Ubicación del servicio</string>
     <string name="location_manual_only">La ubicación se ingresa manualmente; esta versión no usa GPS ni mapas.</string>
     <string name="location_required">Indica una ubicación.</string>
     <string name="create_post_help">Completa el título, la descripción, el precio y la ubicación. La publicación quedará pendiente hasta que un moderador la revise.</string>
@@ -512,6 +512,7 @@
     <string name="uploading_post_image">Subiendo imagen… %1$d%%</string>
     <string name="post_image_upload_failed">No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.</string>
     <string name="post_create_network_failed">No se pudo guardar la publicación. Inténtalo de nuevo.</string>
+    <string name="firestore_write_denied">Firestore rechazó el guardado por sus reglas de acceso. No reenvíes la publicación y contacta al equipo.</string>
     <string name="required_field">Obligatorio</string>
     <string name="post_image_selected">Foto seleccionada</string>
 </resources>

@@ -89,8 +89,8 @@ class PostUseCaseTest {
     fun `new publications receive unique ids and start pending moderation`() = runTest {
         val repository = MockDataRepository()
 
-        val first = repository.createPost("Servicio uno", "Hogar", "Descripción", 10000, 20000, false, "Armenia")
-        val second = repository.createPost("Servicio dos", "Hogar", "Descripción", 10000, 20000, false, "Armenia")
+        val first = repository.createPost("Servicio uno", "Hogar", "Descripción", 10000, 20000, false, "Armenia", 4.5339, -75.6811)
+        val second = repository.createPost("Servicio dos", "Hogar", "Descripción", 10000, 20000, false, "Armenia", 4.5339, -75.6811)
 
         assertNotEquals(first.id, second.id)
         assertEquals(PostStatus.PENDING_VERIFICATION, first.status)
@@ -104,10 +104,10 @@ class PostUseCaseTest {
         val repository = MockDataRepository()
 
         val educationPost = repository.createPost(
-            "Tutorías", "Educación", "Tutorías de matemáticas", 10000, 20000, false, "Armenia"
+            "Tutorías", "Educación", "Tutorías de matemáticas", 10000, 20000, false, "Armenia", 4.5339, -75.6811
         )
         val invalidCategory = runCatching {
-            repository.createPost("Otro servicio", "Categoría inválida", "Descripción", 10000, 20000, false, "Armenia")
+            repository.createPost("Otro servicio", "Categoría inválida", "Descripción", 10000, 20000, false, "Armenia", 4.5339, -75.6811)
         }
 
         assertEquals("Educación", educationPost.category)

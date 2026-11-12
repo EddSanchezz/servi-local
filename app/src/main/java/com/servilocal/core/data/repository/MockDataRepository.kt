@@ -243,7 +243,7 @@ class MockDataRepository @Inject constructor(
         val coordinates = if (latitude != null && longitude != null) {
             latitude to longitude
         } else {
-            coordinatesForLocation(location)
+            null
         }
 
         val newErdPost = Post(
@@ -310,7 +310,7 @@ class MockDataRepository @Inject constructor(
         } else {
             post.latitude?.let { currentLatitude ->
                 post.longitude?.let { currentLongitude -> currentLatitude to currentLongitude }
-            } ?: coordinatesForLocation(location)
+            }
         }
 
         _posts.update { list ->

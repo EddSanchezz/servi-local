@@ -226,7 +226,7 @@
     <string name="show_real_work">Show your actual work (up to 5 photos)</string>
     <string name="optional">Optional</string>
     <string name="image_upload_unavailable">Image uploads are not available in this phase; you can post the service without photos.</string>
-    <string name="location_and_coverage">Location and coverage</string>
+    <string name="location_and_coverage">Service location</string>
     <string name="location_manual_only">Enter the location manually; this version does not use GPS or maps.</string>
     <string name="location_required">Enter a location.</string>
     <string name="create_post_help">Complete the title, description, price, and location. The post will remain pending until a moderator reviews it.</string>
@@ -507,6 +507,7 @@
     <string name="uploading_post_image">Uploading image… %1$d%%</string>
     <string name="post_image_upload_failed">Could not upload the photo. Check your connection and try again.</string>
     <string name="post_create_network_failed">Could not save the post. Please try again.</string>
+    <string name="firestore_write_denied">Firestore rejected this save because of its access rules. Do not resubmit; contact the app team.</string>
     <string name="required_field">Required</string>
     <string name="post_image_selected">Photo selected</string>
 </resources>
