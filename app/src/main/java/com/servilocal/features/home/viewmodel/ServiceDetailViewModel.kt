@@ -106,7 +106,7 @@ class ServiceDetailViewModel @Inject constructor(
         _uiState.update { ServiceDetailUiState() }
     }
 
-    fun reportPost(postId: String, reason: String, description: String): Boolean {
+    suspend fun reportPost(postId: String, reason: String, description: String): Boolean {
         return reportPostUseCase(postId, reason, description)
     }
 }

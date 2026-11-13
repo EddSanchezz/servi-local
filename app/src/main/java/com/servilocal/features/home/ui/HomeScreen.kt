@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.rounded.NearMe
 import androidx.compose.material3.*
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -60,9 +61,9 @@ import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.core.ui.localizedDistance
 import com.servilocal.core.ui.localizedServiceCategory
 import com.servilocal.core.ui.components.ProfilePhotoAvatar
-import com.servilocal.core.ui.components.ServicePostCard
+import com.servilocal.core.ui.components.PostCardHeaderSlot
+import com.servilocal.core.ui.components.UnifiedPostCard
 import coil.compose.AsyncImage
-import com.servilocal.core.util.requestCurrentLocation
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
 import com.servilocal.features.posts.coordinator.PublishPostEvent
@@ -149,25 +150,9 @@ fun HomeScreen(
         }.getOrDefault(false)
     }
 
-    fun loadDeviceLocation(activateMap: Boolean = false, recenterMap: Boolean = false) {
-        requestCurrentLocation(context) { location ->
-            if (location == null) {
-                if (activateMap) locationDialogVisible = true
-                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_not_found)) }
-            } else {
-                viewModel.setOriginLocation(location.latitude, location.longitude)
-                if (recenterMap) mapRecenterRequest++
-                if (activateMap) {
-                    viewModel.setDisplayMode(ViewDisplayMode.MAP)
-                    pendingMapActivation = false
-                    locationDialogVisible = false
-                }
-                if (pendingDistanceSelection) {
-                    distanceMenuExpanded = true
-                    pendingDistanceSelection = false
-                }
-            }
-        }
+    fun refreshLocationInBackground(recenterMap: Boolean = false) {
+        if (recenterMap) mapRecenterRequest++
+        viewModel.refreshLocationInBackground()
     }
 
     fun activateMapIfReady() {
@@ -175,22 +160,36 @@ fun HomeScreen(
             pendingMapActivation = true
             locationDialogVisible = true
         } else {
-            loadDeviceLocation(activateMap = true)
+            viewModel.setDisplayMode(ViewDisplayMode.MAP)
+            pendingMapActivation = false
+            locationDialogVisible = false
+            refreshLocationInBackground()
         }
+    }
+
+    fun openDistanceFilter() {
+        if (!hasLocationPermission() || !isLocationEnabled()) {
+            pendingDistanceSelection = true
+            locationDialogVisible = true
+            return
+        }
+        distanceMenuExpanded = true
+        pendingDistanceSelection = false
+        refreshLocationInBackground()
     }
 
     val locationSettingsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
         if (pendingMapActivation && hasLocationPermission() && isLocationEnabled()) activateMapIfReady()
-        else if (pendingDistanceSelection && hasLocationPermission() && isLocationEnabled()) loadDeviceLocation()
+        else if (pendingDistanceSelection && hasLocationPermission() && isLocationEnabled()) openDistanceFilter()
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         if (permissions.values.any { it } && isLocationEnabled()) {
-            if (pendingMapActivation) activateMapIfReady() else loadDeviceLocation()
+            if (pendingMapActivation) activateMapIfReady() else openDistanceFilter()
         } else {
             locationDialogVisible = true
         }
@@ -271,7 +270,14 @@ fun HomeScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text(stringResource(R.string.search_services_hint), style = MaterialTheme.typography.bodyMedium) },
+                placeholder = {
+                    Text(
+                        stringResource(R.string.search_services_short),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 },
@@ -292,25 +298,21 @@ fun HomeScreen(
                 ),
                 modifier = Modifier
                     .weight(1f)
+                    .height(48.dp)
                     .testTag("search_services_input")
             )
             Box {
-                FilterChip(
-                    selected = maxDistanceKm != null,
-                    onClick = {
-                        if (originLatitude != null && originLongitude != null) distanceMenuExpanded = true
-                        else {
-                            pendingDistanceSelection = true
-                            if (hasLocationPermission() && isLocationEnabled()) loadDeviceLocation()
-                            else locationDialogVisible = true
-                        }
-                    },
-                    label = {
-                        Text(maxDistanceKm?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.distance), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
-                    },
-                    leadingIcon = { Icon(Icons.Default.NearMe, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                    modifier = Modifier.height(48.dp)
-                )
+                FilledTonalIconButton(
+                    onClick = ::openDistanceFilter,
+                    modifier = Modifier.size(48.dp),
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = if (maxDistanceKm != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = if (maxDistanceKm != null) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(Icons.Rounded.NearMe, contentDescription = stringResource(R.string.distance))
+                }
                 DropdownMenu(expanded = distanceMenuExpanded, onDismissRequest = { distanceMenuExpanded = false }) {
                     listOf(null, 1.0, 5.0, 10.0).forEach { distance ->
                         DropdownMenuItem(
@@ -431,7 +433,7 @@ fun HomeScreen(
                             post = post,
                             onDetailClick = { onOpenServiceDetail(post.id) },
                             onUpvoteClick = { viewModel.toggleUpvote(post.id) },
-                            showUpvote = post.providerId != currentUser.id
+                            isOwner = post.providerId == currentUser.id
                         )
                     }
                 }
@@ -445,7 +447,7 @@ fun HomeScreen(
                 onPostSelected = { onOpenServiceDetail(it.id) },
                 recenterRequest = mapRecenterRequest,
                 onRecenter = {
-                    if (hasLocationPermission() && isLocationEnabled()) loadDeviceLocation(recenterMap = true)
+                    if (hasLocationPermission() && isLocationEnabled()) refreshLocationInBackground(recenterMap = true)
                     else { pendingMapActivation = true; locationDialogVisible = true }
                 }
             )
@@ -491,185 +493,21 @@ fun ServiceCardItem(
     post: ServicePost,
     onDetailClick: () -> Unit,
     onUpvoteClick: () -> Unit,
-    showUpvote: Boolean = true
+    isOwner: Boolean
 ) {
-    ServicePostCard(
+    UnifiedPostCard(
         post = post,
         onClick = onDetailClick,
-        onUpvote = onUpvoteClick,
-        showUpvote = showUpvote
-    )
-    return
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onDetailClick)
-            .testTag("service_card_${post.id}"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Provider Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Provider Avatar
-                    ProfilePhotoAvatar(post.providerName, post.providerAvatar, Modifier.size(44.dp))
-
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                text = post.providerName,
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Surface(
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                shape = RoundedCornerShape(6.dp)
-                            ) {
-                                Text(
-                                    text = post.providerLevel,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Icon(
-                                Icons.Default.Navigation,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Text(
-                                text = "${localizedDistance(post.distance)} · ${post.location}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                // Favorite / Upvote Heart Icon (hidden on the user's own posts)
-                if (showUpvote) {
-                    IconButton(onClick = onUpvoteClick) {
-                        Icon(
-                            imageVector = if (post.userUpvoted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = stringResource(R.string.like_post),
-                            tint = if (post.userUpvoted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Service Image Banner Box
-            if (post.photos.firstOrNull().isNullOrBlank()) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.ImageNotSupported, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
-                        Text(stringResource(R.string.no_photos), color = MaterialTheme.colorScheme.outline)
-                    }
-                }
-            } else {
-                AsyncImage(
-                    model = post.photos.first(),
-                    contentDescription = stringResource(R.string.image_gallery),
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(12.dp))
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Title and Price
-            Text(
-                text = post.title,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+        headerSlot = if (isOwner) {
+            PostCardHeaderSlot.HomeOwner(post.upvotesCount)
+        } else {
+            PostCardHeaderSlot.HomeOtherUser(
+                likesCount = post.upvotesCount,
+                isLiked = post.userUpvoted,
+                onLikeClick = onUpvoteClick
             )
-
-            Text(
-                text = stringResource(R.string.starting_price, post.minPrice),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Rating and Upvotes
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
-                Text(
-                    text = "${post.rating}",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = stringResource(R.string.review_count, post.reviewCount),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Text("•", color = MaterialTheme.colorScheme.outline)
-                Icon(Icons.Default.ThumbUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
-                Text(
-                    text = stringResource(R.string.interest_count, post.upvotesCount),
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Attribute Chips
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text(
-                        text = localizedServiceCategory(post.category),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-                if (post.warrantyMonths > 0) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.warranty_months, post.warrantyMonths),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-            }
         }
-    }
+    )
 }
 
 @Composable

@@ -8,5 +8,6 @@ sealed interface GoogleSignInResult {
     data object NetworkError : GoogleSignInResult
     data object AccountConflict : GoogleSignInResult
     data object ProviderError : GoogleSignInResult
+    data object UserBlocked : GoogleSignInResult
     data object Unavailable : GoogleSignInResult
 }

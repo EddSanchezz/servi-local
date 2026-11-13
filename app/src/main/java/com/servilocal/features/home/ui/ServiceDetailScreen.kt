@@ -12,12 +12,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -27,8 +31,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.alpha
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import com.servilocal.core.util.RequestResult
 import com.servilocal.domain.model.PostStatus
+import com.servilocal.domain.exception.DuplicateReportException
 import com.servilocal.domain.usecase.chat.CreateServiceRequestResult
 import com.servilocal.features.home.viewmodel.ServiceDetailViewModel
 import com.servilocal.core.ui.localizedDistance
@@ -229,7 +242,28 @@ fun ServiceDetailScreen(
                 }
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+            ) { data ->
+                key(data.visuals.message) {
+                val successful = data.visuals.message == context.getString(R.string.report_success_message)
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn() + slideInVertically { it / 2 },
+                    exit = fadeOut() + slideOutVertically { it / 2 }
+                ) {
+                    CustomFeedbackBanner(
+                        message = data.visuals.message,
+                        icon = if (successful) Icons.Rounded.CheckCircle else Icons.Rounded.WarningAmber,
+                        isSuccess = successful,
+                        onDismiss = data::dismiss
+                    )
+                }
+                }
+            }
+        }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -720,13 +754,16 @@ fun ServiceDetailScreen(
             title = stringResource(R.string.report_post),
             onDismiss = { showReportDialog = false },
             onSubmit = { reason, details ->
-                val success = viewModel.reportPost(post.id, reason, details)
-                showReportDialog = false
                 coroutineScope.launch {
-                    if (success) {
-                        snackbarHostState.showSnackbar(context.getString(R.string.report_sent_to_moderation))
-                    } else {
-                        snackbarHostState.showSnackbar(context.getString(R.string.cannot_report_own_post))
+                    val outcome = runCatching { viewModel.reportPost(post.id, reason, details) }
+                    showReportDialog = false
+                    when {
+                        outcome.getOrNull() == true -> snackbarHostState.showSnackbar(context.getString(R.string.report_success_message))
+                        outcome.exceptionOrNull() is DuplicateReportException -> snackbarHostState.showSnackbar(context.getString(R.string.report_duplicate_message))
+                        outcome.exceptionOrNull() != null -> snackbarHostState.showSnackbar(context.getString(R.string.report_failure_message))
+                        else -> snackbarHostState.showSnackbar(
+                            context.getString(R.string.cannot_report_own_post)
+                        )
                     }
                 }
             }
@@ -769,6 +806,46 @@ fun ServiceDetailScreen(
             initialIndex = index,
             onDismiss = { viewerIndex = null }
         )
+    }
+}
+
+@Composable
+private fun CustomFeedbackBanner(
+    message: String,
+    icon: ImageVector,
+    isSuccess: Boolean,
+    onDismiss: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val container = if (isSuccess) colors.primaryContainer else colors.errorContainer
+    val content = if (isSuccess) colors.onPrimaryContainer else colors.onErrorContainer
+    val border = if (isSuccess) colors.primary.copy(alpha = 0.3f) else colors.error.copy(alpha = 0.3f)
+    Surface(
+        modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        color = container,
+        border = BorderStroke(1.dp, border)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(32.dp).clip(CircleShape).background(content.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) { Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp)) }
+            Text(
+                message,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = content,
+                maxLines = 3
+            )
+            IconButton(onClick = onDismiss, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.close_dialog), tint = content, modifier = Modifier.size(18.dp))
+            }
+        }
     }
 }
 

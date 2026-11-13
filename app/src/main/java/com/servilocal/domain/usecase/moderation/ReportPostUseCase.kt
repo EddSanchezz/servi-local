@@ -10,7 +10,7 @@ class ReportPostUseCase @Inject constructor(
     private val authRepository: AuthRepository,
     private val moderationRepository: ModerationRepository
 ) {
-    operator fun invoke(postId: String, reason: String, description: String): Boolean {
+    suspend operator fun invoke(postId: String, reason: String, description: String): Boolean {
         val post = postRepository.posts.value.firstOrNull { it.id == postId } ?: return false
         val currentUser = authRepository.currentUser.value
 

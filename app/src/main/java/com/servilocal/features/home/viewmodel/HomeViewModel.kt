@@ -2,6 +2,7 @@ package com.servilocal.features.home.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.servilocal.core.location.LocationProvider
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
@@ -19,8 +20,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 data class HomeUiState(
     val searchQuery: String = "",
@@ -43,6 +47,7 @@ class HomeViewModel @Inject constructor(
     private val filterPostsByCategory: FilterPostsByCategoryUseCase,
     private val filterPostsByQuery: FilterPostsByQueryUseCase,
     private val filterPostsByLocation: FilterPostsByLocationUseCase,
+    private val locationProvider: LocationProvider,
     private val publishPostCoordinator: PublishPostCoordinator? = null
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -62,7 +67,7 @@ class HomeViewModel @Inject constructor(
             state.originLatitude ?: FilterPostsByLocationUseCase.TEST_ORIGIN_LATITUDE,
             state.originLongitude ?: FilterPostsByLocationUseCase.TEST_ORIGIN_LONGITUDE
         )
-    }.stateIn(
+    }.flowOn(Dispatchers.Default).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
@@ -86,5 +91,12 @@ class HomeViewModel @Inject constructor(
     }
     fun clearOriginLocation() = _uiState.update { it.copy(originLatitude = null, originLongitude = null) }
     fun setDisplayMode(value: ViewDisplayMode) = _uiState.update { it.copy(displayMode = value) }
+    fun refreshLocationInBackground() {
+        viewModelScope.launch {
+            locationProvider.getBestAvailableLocation()?.let { location ->
+                setOriginLocation(location.latitude, location.longitude)
+            }
+        }
+    }
     fun toggleUpvote(postId: String): Boolean = togglePostLikeUseCase(postId) is ToggleLikeResult.Success
 }

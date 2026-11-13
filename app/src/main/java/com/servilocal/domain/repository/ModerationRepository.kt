@@ -6,18 +6,20 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface ModerationRepository {
     val reports: StateFlow<List<ModerationReportItem>>
+    val reportHistory: StateFlow<List<ModerationReportItem>>
 
-    fun createReport(
-
+    suspend fun createReport(
         reason: String,
         description: String,
         targetTitle: String,
         targetPostId: String
     )
-    fun resolveReport(
+    suspend fun resolveReport(
         reportId: String,
         resolution: ReportResolution,
-        moderatorComment: String
+        moderatorComment: String,
+        newPostStatus: com.servilocal.domain.model.PostStatus? = null,
+        blockUser: Boolean = false
     ): Boolean
-    fun resolveReportsForPost(postId: String)
+    suspend fun resolveReportsForPost(postId: String): Boolean
 }

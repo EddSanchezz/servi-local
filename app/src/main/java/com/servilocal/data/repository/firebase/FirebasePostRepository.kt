@@ -10,6 +10,7 @@ import com.servilocal.domain.model.PostCategory
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
+import com.servilocal.domain.model.UserStatus
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.repository.SessionRepository
 import jakarta.inject.Inject
@@ -42,6 +43,7 @@ class FirebasePostRepository @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val providerAvatarCache = mutableMapOf<String, String?>()
+    private val providerStatusCache = mutableMapOf<String, UserStatus>()
     private val postsCollection get() = firestore.collection(POSTS_COLLECTION)
 
     override val posts = sessionRepository.session
@@ -70,6 +72,9 @@ class FirebasePostRepository @Inject constructor(
                     }
                 }
             }
+        }
+        .combine(observeBlockedUserIds()) { currentPosts, blockedUsers ->
+            currentPosts.filter { it.providerId !in blockedUsers }
         }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
@@ -254,7 +259,7 @@ class FirebasePostRepository @Inject constructor(
     private fun observePosts(query: Query): Flow<List<ServicePost>> = callbackFlow {
         val registration: ListenerRegistration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                trySend(emptyList())
             } else {
                 trySend(snapshot?.documents.orEmpty().mapNotNull { it.toServicePost() })
             }
@@ -262,12 +267,13 @@ class FirebasePostRepository @Inject constructor(
         awaitClose { registration.remove() }
     }.mapLatest { posts ->
         posts.map { post ->
-            if (post.providerAvatar != null || post.providerId.isNullOrBlank()) {
-                post
-            } else {
-                post.copy(providerAvatar = providerAvatarFor(post.providerId))
-            }
-        }
+            val providerId = post.providerId
+            if (providerId.isNullOrBlank()) post
+            else post.copy(
+                providerAvatar = post.providerAvatar ?: runCatching { providerAvatarFor(providerId) }.getOrNull(),
+                providerStatus = runCatching { providerStatusFor(providerId) }.getOrDefault(UserStatus.ACTIVE)
+            )
+        }.filter { it.providerStatus != UserStatus.BLOCKED }
     }
 
     private suspend fun providerAvatarFor(providerId: String): String? {
@@ -281,6 +287,35 @@ class FirebasePostRepository @Inject constructor(
             .getString("photoUrl")
         providerAvatarCache[providerId] = avatar
         return avatar
+    }
+
+    private fun observeBlockedUserIds(): Flow<Set<String>> = sessionRepository.session
+        .flatMapLatest { session ->
+            if (session == null) {
+                flowOf(emptySet())
+            } else {
+                callbackFlow {
+                    val registration = firestore.collection(USERS_COLLECTION)
+                        .whereEqualTo("status", UserStatus.BLOCKED.name)
+                        .addSnapshotListener { snapshot, error ->
+                            // Permission/network failures must never terminate the shared posts flow.
+                            if (error != null) trySend(emptySet())
+                            else trySend(snapshot?.documents.orEmpty().map { it.id }.toSet())
+                        }
+                    awaitClose { registration.remove() }
+                }
+            }
+        }
+
+    private suspend fun providerStatusFor(providerId: String): UserStatus {
+        providerStatusCache[providerId]?.let { return it }
+        val status = runCatching {
+            firestore.collection(USERS_COLLECTION).document(providerId).get().await()
+                .getString("status")
+                ?.let { UserStatus.valueOf(it) }
+        }.getOrNull() ?: UserStatus.ACTIVE
+        providerStatusCache[providerId] = status
+        return status
     }
 
     private fun DocumentSnapshot.toServicePost(): ServicePost? {
@@ -325,6 +360,7 @@ class FirebasePostRepository @Inject constructor(
             comments = emptyList(),
             rejectionReason = getString("rejectionReason"),
             rejectionNotes = getString("rejectionNotes"),
+            reportCount = getLong("reportCount")?.toInt() ?: 0,
             createdAtMillis = getLong("createdAtMillis") ?: 0L
         )
     }

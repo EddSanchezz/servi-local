@@ -17,14 +17,18 @@ import androidx.compose.ui.unit.dp
 import com.servilocal.R
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
-import com.servilocal.core.ui.components.ServicePostCard
+import com.servilocal.domain.model.ModerationReportItem
+import com.servilocal.core.ui.components.PostCardHeaderSlot
+import com.servilocal.core.ui.components.UnifiedPostCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyPostsScreen(
     posts: List<ServicePost>,
+    reportHistory: List<ModerationReportItem> = emptyList(),
     onBack: () -> Unit,
-    onOpenDetail: (String) -> Unit
+    onOpenDetail: (String) -> Unit,
+    onOpenReportCase: (String) -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -48,17 +52,37 @@ fun MyPostsScreen(
             ) {
                 items(posts, key = ServicePost::id) { post ->
                     androidx.compose.foundation.layout.Column {
-                        val statusLabel = when (post.status) {
-                            PostStatus.APPROVED -> R.string.published_status
-                            PostStatus.PENDING_VERIFICATION -> R.string.pending_review_status
-                            PostStatus.REJECTED -> R.string.rejected_status
-                            PostStatus.FINISHED -> R.string.finished_status
-                        }
-                        ServicePostCard(
+                        UnifiedPostCard(
                             post = post,
                             onClick = { onOpenDetail(post.id) },
-                            statusBadge = androidx.compose.ui.res.stringResource(statusLabel)
+                            headerSlot = PostCardHeaderSlot.MyPostsStatus(post.status)
                         )
+                        if (post.status == PostStatus.REJECTED) {
+                            val caseReports = reportHistory.filter { it.targetPostId == post.id }
+                            val wasReported = post.reportCount > 0 || caseReports.isNotEmpty() || post.rejectionReason.orEmpty().startsWith("Reporte:", true)
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            ) {
+                                androidx.compose.foundation.layout.Column(Modifier.padding(12.dp)) {
+                                    Text(
+                                        if (wasReported) stringResource(R.string.my_post_reported_reason, maxOf(post.reportCount, caseReports.size))
+                                        else stringResource(R.string.my_post_rejection_reason, post.rejectionReason ?: stringResource(R.string.rejected_status)),
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    post.rejectionNotes?.takeIf(String::isNotBlank)?.let {
+                                        Text(it, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    caseReports.firstOrNull()?.let { report ->
+                                        TextButton(onClick = { onOpenReportCase(report.id) }) {
+                                            Text(stringResource(R.string.my_post_view_report_case))
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

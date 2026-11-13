@@ -33,6 +33,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
@@ -63,6 +64,7 @@ import com.servilocal.features.auth.ui.LoginScreen
 import com.servilocal.features.auth.ui.PasswordRecoveryScreen
 import com.servilocal.features.auth.ui.PasswordResetScreen
 import com.servilocal.features.auth.ui.RegisterScreen
+import com.servilocal.features.auth.ui.UserBlockedDialog
 import com.servilocal.features.auth.viewmodel.AuthViewModel
 import com.servilocal.features.auth.viewmodel.PasswordRecoveryViewModel
 import com.servilocal.features.chat.ui.ChatDetailScreen
@@ -136,6 +138,15 @@ fun AppNavHost(
 ) {
     val rootNavController = rememberNavController()
     val appUiState by appViewModel.uiState.collectAsStateWithLifecycle()
+    val rootBackStack by rootNavController.currentBackStackEntryAsState()
+    LaunchedEffect(appUiState.session, rootBackStack?.destination?.route) {
+        if (appUiState.sessionWasEstablished && appUiState.session == null && rootBackStack?.destination?.route == AppRoute.DASHBOARD) {
+            rootNavController.navigate(AppRoute.LOGIN) {
+                popUpTo(AppRoute.DASHBOARD) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     NavHost(
         navController = rootNavController,
@@ -228,6 +239,10 @@ fun AppNavHost(
                 )
             }
         }
+    }
+
+    if (appUiState.blockedAccountNotice != null) {
+        UserBlockedDialog(onAccept = appViewModel::acknowledgeBlockedAccount)
     }
 }
 
@@ -357,10 +372,13 @@ private fun DashboardNavigation(
             composable(AppRoute.MY_POSTS) {
                 val viewModel: ProfileViewModel = hiltViewModel()
                 val myPosts by viewModel.myPosts.collectAsStateWithLifecycle()
+                val reportHistory by viewModel.reportHistory.collectAsStateWithLifecycle()
                 MyPostsScreen(
                     posts = myPosts,
+                    reportHistory = reportHistory,
                     onBack = { navController.navigateUp() },
-                    onOpenDetail = { navController.navigate(AppRoute.serviceDetail(it)) }
+                    onOpenDetail = { navController.navigate(AppRoute.serviceDetail(it)) },
+                    onOpenReportCase = { navController.navigate(AppRoute.moderationReportDetail(it)) }
                 )
             }
             composable(AppRoute.SETTINGS) {

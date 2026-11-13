@@ -2,27 +2,91 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Desarrollo: solo usuarios autenticados. Sin validacion de campos.
-    // Reemplazar por reglas con validacion antes de produccion.
+    function isModerator() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'MODERATOR';
+    }
+
+    function isPostOwner(postId) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == request.auth.uid;
+    }
+
     match /users/{uid} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.auth.uid == uid
+        && request.resource.data.role == 'USER'
         && request.resource.data.status == 'ACTIVE';
       allow update: if request.auth != null
-        && request.auth.uid == uid
-        && request.resource.data.status == resource.data.status;
+        && ((request.auth.uid == uid
+              && request.resource.data.status == resource.data.status
+              && request.resource.data.role == resource.data.role)
+          || (isModerator()
+              && request.resource.data.status == 'BLOCKED'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])));
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     match /posts/{postId} {
-      allow read, create: if request.auth != null;
-      allow update, delete: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.providerId == request.auth.uid
+        && request.resource.data.status == 'PENDING_VERIFICATION';
+      allow update: if request.auth != null && (
+        (isModerator()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'moderatorId', 'rejectionReason', 'rejectionNotes', 'reportCount', 'moderatedAtMillis', 'moderatedAt']))
+        || (request.auth.uid == resource.data.providerId
+          && request.resource.data.providerId == resource.data.providerId
+          && (request.resource.data.status == resource.data.status
+            || request.resource.data.status == 'PENDING_VERIFICATION'
+            || (resource.data.status == 'APPROVED' && request.resource.data.status == 'FINISHED')))
+      );
+      allow delete: if request.auth != null
+        && (isModerator() || request.auth.uid == resource.data.providerId);
     }
 
     match /moderators/{moderatorId} {
       allow read: if request.auth != null;
       allow update: if request.auth != null && request.auth.uid == moderatorId;
+    }
+
+    match /reports/{reportId} {
+      // Un usuario puede consultar su propio reporte; los moderadores pueden
+      // consultar la cola de reportes pendientes.
+      allow get: if request.auth != null
+        && (!exists(/databases/$(database)/documents/reports/$(reportId))
+          || resource.data.reporterId == request.auth.uid
+          || isPostOwner(resource.data.targetPostId)
+          || isModerator());
+      allow list: if isModerator()
+        || (request.auth != null && isPostOwner(resource.data.targetPostId));
+
+      // Crear reportes únicamente para la cuenta autenticada y posts existentes.
+      // La transacción del cliente lee el mismo ID determinista para impedir duplicados.
+      allow create: if request.auth != null
+        && request.resource.data.reporterId == request.auth.uid
+        && reportId == request.resource.data.targetPostId + '_' + request.auth.uid
+        && request.resource.data.targetType == 'POST'
+        && request.resource.data.targetPostId is string
+        && request.resource.data.targetPostId.size() > 0
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.targetPostId))
+        && get(/databases/$(database)/documents/posts/$(request.resource.data.targetPostId)).data.providerId != request.auth.uid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() > 0
+        && request.resource.data.status == 'PENDING'
+        && request.resource.data.resolution == null
+        && request.resource.data.resolvedAtMillis == null;
+
+      // La resolución de reportes queda reservada a moderadores.
+      allow update: if isModerator()
+        && request.resource.data.reporterId == resource.data.reporterId
+        && request.resource.data.targetPostId == resource.data.targetPostId
+        && request.resource.data.status == 'REVIEWED'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'resolution', 'moderatorComment', 'moderatorId', 'resolvedAtMillis']);
+      allow delete: if false;
     }
 
     // Resto de colecciones sigue cerrado.

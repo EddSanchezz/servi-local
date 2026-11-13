@@ -49,7 +49,8 @@ import com.servilocal.domain.model.UserRole
 import com.servilocal.core.ui.localizedServiceCategory
 import com.servilocal.core.ui.components.ProfileNavRow
 import com.servilocal.core.ui.components.ProfilePhotoAvatar
-import com.servilocal.core.ui.components.ServicePostCard
+import com.servilocal.core.ui.components.PostCardHeaderSlot
+import com.servilocal.core.ui.components.UnifiedPostCard
 import com.servilocal.core.ui.components.PostPhotoViewer
 import com.servilocal.core.ui.components.PostLocationMap
 import coil.compose.AsyncImage
@@ -219,9 +220,10 @@ fun ModerationFeedScreen(
                 contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)
             ) {
                 items(pendingPosts, key = { it.id }) { post ->
-                    ModerationAuditCard(
+                    UnifiedPostCard(
                         post = post,
-                        onAuditDetail = { onOpenDetail(post.id) }
+                        onClick = { onOpenDetail(post.id) },
+                        headerSlot = PostCardHeaderSlot.ModeratorAuditDate(formatReportDate(post.createdAtMillis))
                     )
                 }
             }
@@ -231,100 +233,6 @@ fun ModerationFeedScreen(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
         )
-    }
-}
-
-@Composable
-fun ModerationAuditCard(
-    post: ServicePost,
-    onAuditDetail: () -> Unit
-) {
-    ServicePostCard(
-        post = post,
-        onClick = onAuditDetail,
-        statusBadge = stringResource(R.string.to_verify)
-    )
-    return
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onAuditDetail)
-            .testTag("moderation_card_${post.id}"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(Icons.Default.HourglassTop, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text(stringResource(R.string.to_verify), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSecondaryContainer)
-                        }
-                    }
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(localizedServiceCategory(post.category), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                    }
-                }
-                Text(stringResource(R.string.queued_time, 15), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (post.photos.firstOrNull().isNullOrBlank()) {
-                    Box(
-                        modifier = Modifier.size(64.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.ImageNotSupported, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
-                    }
-                } else {
-                    AsyncImage(
-                        model = post.photos.first(),
-                        contentDescription = stringResource(R.string.image_gallery),
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(64.dp).clip(RoundedCornerShape(10.dp))
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(post.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), maxLines = 2)
-                    Text("$ ${post.minPrice} - $ ${post.maxPrice} COP", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                    Text(stringResource(R.string.by_provider_at_location, post.providerName, post.location), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                }
-            }
-
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
-                    Text(stringResource(R.string.identity_verified), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-        }
     }
 }
 
@@ -445,7 +353,7 @@ fun ModerationDetailScreen(
                 ) {
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(
-                            onClick = { if (viewModel.resolveReportsForPost(post.id)) onBack() },
+                            onClick = { viewModel.resolveReportsForPost(post.id) { if (it) onBack() } },
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
                         ) { Text(stringResource(R.string.keep_active)) }
@@ -456,8 +364,7 @@ fun ModerationDetailScreen(
                                     "Incumplimiento confirmado",
                                     "Publicación retirada tras revisar las denuncias."
                                 ) { rejected ->
-                                    val reportsResolved = viewModel.resolveReportsForPost(post.id)
-                                    if (rejected && reportsResolved) onBack()
+                                    if (rejected) viewModel.resolveReportsForPost(post.id) { if (it) onBack() }
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
@@ -472,7 +379,7 @@ fun ModerationDetailScreen(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding()
                 ) {
                     Button(
-                        onClick = { if (viewModel.resolveReportsForPost(post.id)) onBack() },
+                        onClick = { viewModel.resolveReportsForPost(post.id) { if (it) onBack() } },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(48.dp),
                         shape = RoundedCornerShape(24.dp)
                     ) { Text(stringResource(R.string.close_report)) }
@@ -743,9 +650,9 @@ fun RejectionReasonBottomSheet(
 ) {
     var selectedReason by remember { mutableStateOf("Precio no concordante") }
     var notes by rememberSaveable { mutableStateOf("") }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val reasons = listOf(
         "Precio no concordante" to R.string.price_mismatch,
@@ -858,6 +765,7 @@ fun ModerationReportsScreen(
     modifier: Modifier = Modifier
 ) {
     val reports by viewModel.reports.collectAsStateWithLifecycle()
+    val posts by viewModel.posts.collectAsStateWithLifecycle()
     var selectedFilter by remember { mutableStateOf("Todos") }
     val filterOptions = listOf(
         "Todos" to R.string.category_all,
@@ -873,6 +781,11 @@ fun ModerationReportsScreen(
     }
     val filteredReports = remember(reports, selectedFilter) {
         reports.filter { matchesReportFilter(it, selectedFilter) }
+    }
+    val cases = remember(filteredReports) {
+        filteredReports.groupBy { it.targetPostId }.values
+            .map { caseReports -> caseReports.sortedByDescending { it.createdAtMillis } }
+            .sortedByDescending { it.first().createdAtMillis }
     }
 
     Column(
@@ -912,7 +825,7 @@ fun ModerationReportsScreen(
             }
         }
 
-        if (filteredReports.isEmpty()) {
+        if (cases.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
@@ -928,63 +841,14 @@ fun ModerationReportsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
             ) {
-                items(filteredReports, key = { it.id }) { r ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenReport(r.id) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                    Text(
-                                        r.reasonTitle,
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                        maxLines = 1
-                                    )
-                                }
-                                Surface(
-                                    color = MaterialTheme.colorScheme.errorContainer,
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        "Pendiente",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer),
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-
-                            Text("${r.targetType}: ${r.targetTitle}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
-
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(r.description, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(stringResource(R.string.reported_by_short, r.reporterName), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                Text(formatReportDate(r.createdAtMillis), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                            }
-                        }
+                items(cases, key = { it.first().targetPostId }) { caseReports ->
+                    val r = caseReports.first()
+                    posts.find { it.id == r.targetPostId }?.let { post ->
+                        UnifiedPostCard(
+                            post = post,
+                            onClick = { onOpenReport(r.id) },
+                            headerSlot = PostCardHeaderSlot.ModeratorReportReason(r.reasonTitle)
+                        )
                     }
                 }
             }

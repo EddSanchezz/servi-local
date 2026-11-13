@@ -37,6 +37,7 @@ data class ServicePost(
     val providerId: String? = null,
     val providerAvatar: String? = null,
     val providerLevel: String = "Principiante",
+    val providerStatus: UserStatus = UserStatus.ACTIVE,
     val minPrice: Int = 25000,
     val maxPrice: Int = 45000,
     val priceUnit: String = "COP",
@@ -56,6 +57,7 @@ data class ServicePost(
     val comments: List<ServiceComment> = emptyList(),
     val rejectionReason: String? = null,
     val rejectionNotes: String? = null,
+    val reportCount: Int = 0,
     val createdAtMillis: Long = System.currentTimeMillis()
 )
 

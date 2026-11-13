@@ -84,7 +84,8 @@ class FeatureViewModelTest {
         val sessions = SessionRepositoryImpl()
         val viewModel = AppViewModel(
             ObserveSessionUseCase(sessions),
-            LogoutUseCase(sessions)
+            LogoutUseCase(sessions),
+            MockDataRepository()
         )
 
         viewModel.login(UserRole.MODERATOR)
@@ -276,6 +277,7 @@ class FeatureViewModelTest {
         val repository = MockDataRepository()
         val notifications = CreateNotificationUseCase(repository)
         val moderationViewModel = ModerationViewModel(
+            authRepository = repository,
             observeNotifications = ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
             observePendingPostsUseCase = ObservePendingPostsUseCase(repository),
             filterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
@@ -285,6 +287,7 @@ class FeatureViewModelTest {
             resolveReportUseCase = ResolveReportUseCase(repository, repository, repository, notifications),
             observeModerationPosts = ObserveModerationPostsUseCase(repository),
             observeReports = ObserveReportsUseCase(repository),
+            observeReportHistory = com.servilocal.domain.usecase.moderation.ObserveReportHistoryUseCase(repository),
             observeModeratorProfile = ObserveModeratorProfileUseCase(repository),
             resolveReportsForPostUseCase = ResolveReportsForPostUseCase(repository, repository),
             toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(repository),

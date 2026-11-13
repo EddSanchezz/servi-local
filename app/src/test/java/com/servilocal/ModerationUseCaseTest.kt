@@ -16,6 +16,7 @@ import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
 import com.servilocal.domain.usecase.moderation.ObserveModerationPostsUseCase
 import com.servilocal.domain.usecase.moderation.ObserveModeratorProfileUseCase
 import com.servilocal.domain.usecase.moderation.ObserveReportsUseCase
+import com.servilocal.domain.usecase.moderation.ObserveReportHistoryUseCase
 import com.servilocal.domain.usecase.moderation.RejectPendingPostUseCase
 import com.servilocal.domain.usecase.moderation.ReportPostUseCase
 import com.servilocal.domain.usecase.moderation.ResolveReportUseCase
@@ -170,6 +171,7 @@ class ModerationUseCaseTest {
         authRepository: AuthRepository,
         notifications: MockDataRepository = MockDataRepository()
     ) = ModerationViewModel(
+        authRepository = authRepository,
         observeNotifications = ObserveNotificationsUseCase(SessionRepositoryImpl(), notifications),
         observePendingPostsUseCase = ObservePendingPostsUseCase(postRepository),
         filterPendingPostsByCategoryUseCase = FilterPendingPostsByCategoryUseCase(),
@@ -185,6 +187,7 @@ class ModerationUseCaseTest {
         ),
         observeModerationPosts = ObserveModerationPostsUseCase(postRepository),
         observeReports = ObserveReportsUseCase(moderationRepository),
+        observeReportHistory = ObserveReportHistoryUseCase(moderationRepository),
         observeModeratorProfile = ObserveModeratorProfileUseCase(authRepository),
         resolveReportsForPostUseCase = ResolveReportsForPostUseCase(moderationRepository, authRepository),
         toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(authRepository),
@@ -193,9 +196,11 @@ class ModerationUseCaseTest {
 
     private class FakeModerationRepository : ModerationRepository {
         private val _reports = MutableStateFlow(emptyList<com.servilocal.domain.model.ModerationReportItem>())
+        var lastPostStatus: PostStatus? = null
         override val reports: StateFlow<List<com.servilocal.domain.model.ModerationReportItem>> = _reports
+        override val reportHistory: StateFlow<List<com.servilocal.domain.model.ModerationReportItem>> = _reports
 
-        override fun createReport(
+        override suspend fun createReport(
             reason: String,
             description: String,
             targetTitle: String,
@@ -211,18 +216,22 @@ class ModerationUseCaseTest {
             _reports.value = listOf(report) + _reports.value
         }
 
-        override fun resolveReport(
+        override suspend fun resolveReport(
             reportId: String,
             resolution: ReportResolution,
-            moderatorComment: String
+            moderatorComment: String,
+            newPostStatus: PostStatus?,
+            blockUser: Boolean
         ): Boolean {
             val exists = _reports.value.any { it.id == reportId }
+            lastPostStatus = newPostStatus
             _reports.value = _reports.value.filter { it.id != reportId }
             return exists
         }
 
-        override fun resolveReportsForPost(postId: String) {
+        override suspend fun resolveReportsForPost(postId: String): Boolean {
             _reports.value = _reports.value.filter { it.targetPostId != postId }
+            return true
         }
     }
 
@@ -330,7 +339,7 @@ class ModerationUseCaseTest {
     }
 
     @Test
-    fun `ReportPostUseCase allows reporting other users post and prevents reporting own post`() {
+    fun `ReportPostUseCase allows reporting other users post and prevents reporting own post`() = runTest {
         val postOther = ServicePost(id = "post_1", title = "P1", category = "Hogar", description = "Desc", providerName = "Other User", providerId = "2")
         val postOwn = ServicePost(id = "post_2", title = "P2", category = "Hogar", description = "Desc", providerName = "Test User", providerId = "1")
 
@@ -391,7 +400,7 @@ class ModerationUseCaseTest {
             )
         )
         assertEquals(0, modRepo.reports.value.size)
-        assertEquals(PostStatus.REJECTED, postRepo.posts.value.first { it.id == "post_1" }.status)
+        assertTrue(modRepo.lastPostStatus == PostStatus.REJECTED)
     }
 
     @Test
