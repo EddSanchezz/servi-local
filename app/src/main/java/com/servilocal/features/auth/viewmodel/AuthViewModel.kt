@@ -8,6 +8,7 @@ import com.servilocal.core.util.ResourceProvider
 import com.servilocal.R
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.servilocal.domain.model.UserRole
+import com.servilocal.domain.exception.UserBlockedException
 import com.servilocal.domain.usecase.auth.LoginUserUseCase
 import com.servilocal.domain.usecase.auth.RegisterResult
 import com.servilocal.domain.usecase.auth.RegisterUserUseCase
@@ -61,8 +62,12 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(loginResult = RequestResult.Loading) }
             val user = runCatching { loginUser(email, password) }.getOrElse { error ->
+                val blocked = error is UserBlockedException
                 _uiState.update {
-                    it.copy(loginResult = RequestResult.Failure(authFailureMessage(error)))
+                    it.copy(
+                        loginResult = if (blocked) null else RequestResult.Failure(authFailureMessage(error)),
+                        authenticatedRole = null,
+                    )
                 }
                 return@launch
             }
@@ -172,6 +177,10 @@ class AuthViewModel @Inject constructor(
                     )
                     GoogleSignInResult.AccountConflict -> it.copy(
                         loginResult = RequestResult.Failure(resources.getString(R.string.google_account_conflict))
+                    )
+                    GoogleSignInResult.UserBlocked -> it.copy(
+                        loginResult = null,
+                        authenticatedRole = null
                     )
                     GoogleSignInResult.ProviderError, GoogleSignInResult.Unavailable -> it.copy(
                         loginResult = RequestResult.Failure(resources.getString(R.string.google_sign_in_failed))

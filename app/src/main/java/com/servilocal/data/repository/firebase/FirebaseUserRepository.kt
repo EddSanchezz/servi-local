@@ -16,6 +16,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.servilocal.domain.model.User
+import com.servilocal.domain.exception.UserBlockedException
 import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.model.UserProfile
@@ -43,6 +44,8 @@ class FirebaseUserRepository @Inject constructor(
     override val currentUser: StateFlow<UserProfile> = _currentUser.asStateFlow()
     private val _moderatorUser = MutableStateFlow(signedOutModeratorProfile())
     override val moderatorUser: StateFlow<UserProfile> = _moderatorUser.asStateFlow()
+    private val _blockedAccountNotice = MutableStateFlow<String?>(null)
+    override val blockedAccountNotice: StateFlow<String?> = _blockedAccountNotice.asStateFlow()
     private var profileRegistration: ListenerRegistration? = null
     private var moderatorRegistration: ListenerRegistration? = null
 
@@ -60,6 +63,11 @@ class FirebaseUserRepository @Inject constructor(
                 .addSnapshotListener { snapshot, error ->
                     if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
                     val user = snapshot.toUser(firebaseUser.uid) ?: return@addSnapshotListener
+                    if (user.status == UserStatus.BLOCKED) {
+                        _blockedAccountNotice.value = user.name.ifBlank { user.email }
+                        auth.signOut()
+                        return@addSnapshotListener
+                    }
                     publish(user)
                     val profile = user.toUserProfile()
                     _currentUser.value = profile
@@ -120,13 +128,26 @@ class FirebaseUserRepository @Inject constructor(
     }
 
     override suspend fun login(email: String, password: String): User? {
-        try {
-            auth.signInWithEmailAndPassword(email.trim(), password).await()
+        val firebaseUser = try {
+            auth.signInWithEmailAndPassword(email.trim(), password).await().user
         } catch (error: FirebaseAuthException) {
             if (error.errorCode in INVALID_LOGIN_CODES) return null
             throw error
         }
-        return auth.currentUser?.uid?.let { findById(it) }
+        // Keep the credential UID: a concurrent auth-state callback may sign out
+        // a blocked account before the profile read below completes.
+        val user = firebaseUser?.uid?.let { findById(it) }
+        if (user?.status == UserStatus.BLOCKED) {
+            _blockedAccountNotice.value = user.name.ifBlank { user.email }
+            auth.signOut()
+            throw UserBlockedException()
+        }
+        if (user == null && _blockedAccountNotice.value != null) throw UserBlockedException()
+        return user
+    }
+
+    override suspend fun clearBlockedAccountNotice() {
+        _blockedAccountNotice.value = null
     }
 
     override suspend fun createAccount(name: String, email: String, password: String): User? {
@@ -238,6 +259,11 @@ class FirebaseUserRepository @Inject constructor(
         return try {
             val existing = usersCollection.document(firebaseUser.uid).get().await().toUser(firebaseUser.uid)
             if (existing != null) {
+                if (existing.status == UserStatus.BLOCKED) {
+                    _blockedAccountNotice.value = existing.name.ifBlank { existing.email }
+                    auth.signOut()
+                    return GoogleSignInResult.UserBlocked
+                }
                 publish(existing)
                 GoogleSignInResult.Success(existing)
             } else {

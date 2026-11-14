@@ -80,7 +80,7 @@ class PublishPostCoordinator @Inject constructor(
                     photos = urls
                 )
                 _events.send(PublishPostEvent.Success(request.title))
-            } catch (_: com.servilocal.domain.exception.ImageUploadException) {
+            } catch (_: ImageUploadException) {
                 _events.send(PublishPostEvent.Failure(resources.getString(R.string.post_image_upload_failed)))
             } catch (error: IllegalArgumentException) {
                 _events.send(

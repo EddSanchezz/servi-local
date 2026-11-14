@@ -7,12 +7,14 @@ import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ReportResolution
 import com.servilocal.domain.model.ServicePost
+import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.usecase.moderation.ApprovePostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
 import com.servilocal.domain.usecase.moderation.ObserveModerationPostsUseCase
 import com.servilocal.domain.usecase.moderation.ObserveModeratorProfileUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
 import com.servilocal.domain.usecase.moderation.ObserveReportsUseCase
+import com.servilocal.domain.usecase.moderation.ObserveReportHistoryUseCase
 import com.servilocal.domain.usecase.moderation.RejectPostUseCase
 import com.servilocal.domain.usecase.moderation.ResolveReportUseCase
 import com.servilocal.domain.usecase.moderation.ResolveReportsForPostUseCase
@@ -41,6 +43,7 @@ data class ModerationUiState(
 
 @HiltViewModel
 class ModerationViewModel @Inject constructor(
+    authRepository: AuthRepository,
     observeNotifications: ObserveNotificationsUseCase,
     private val observePendingPostsUseCase: ObservePendingPostsUseCase,
     private val filterPendingPostsByCategoryUseCase: FilterPendingPostsByCategoryUseCase,
@@ -50,11 +53,13 @@ class ModerationViewModel @Inject constructor(
     private val resolveReportUseCase: ResolveReportUseCase,
     observeModerationPosts: ObserveModerationPostsUseCase,
     observeReports: ObserveReportsUseCase,
+    observeReportHistory: ObserveReportHistoryUseCase,
     observeModeratorProfile: ObserveModeratorProfileUseCase,
     private val resolveReportsForPostUseCase: ResolveReportsForPostUseCase,
     private val toggleModeratorShiftUseCase: ToggleModeratorShiftUseCase,
     private val resources: ResourceProvider
 ) : ViewModel() {
+    val currentUser = authRepository.currentUser
 
     private val _uiState = MutableStateFlow(ModerationUiState())
     val uiState: StateFlow<ModerationUiState> = _uiState.asStateFlow()
@@ -72,6 +77,7 @@ class ModerationViewModel @Inject constructor(
 
     val posts = observeModerationPosts()
     val reports = observeReports()
+    val reportHistory = observeReportHistory()
     val notifications = observeNotifications()
         .stateIn(
             scope = viewModelScope,
@@ -144,11 +150,12 @@ class ModerationViewModel @Inject constructor(
         resolution: ReportResolution,
         moderatorComment: String,
         newPostStatus: PostStatus? = null,
+        blockUser: Boolean = false,
         onComplete: (Boolean) -> Unit = {}
     ) {
         viewModelScope.launch {
             val success = runCatching {
-                resolveReportUseCase(reportId, resolution, moderatorComment, newPostStatus)
+                resolveReportUseCase(reportId, resolution, moderatorComment, newPostStatus, blockUser)
             }.getOrDefault(false)
             _uiState.update {
                 it.copy(
@@ -160,7 +167,11 @@ class ModerationViewModel @Inject constructor(
         }
     }
 
-    fun resolveReportsForPost(id: String): Boolean = resolveReportsForPostUseCase(id)
+    fun resolveReportsForPost(id: String, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            onComplete(runCatching { resolveReportsForPostUseCase(id) }.getOrDefault(false))
+        }
+    }
     fun toggleModeratorShift() {
         viewModelScope.launch { runCatching { toggleModeratorShiftUseCase() } }
     }

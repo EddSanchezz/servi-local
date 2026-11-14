@@ -3,8 +3,13 @@ package com.servilocal.features.home.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationManager
+import android.net.Uri
+import android.provider.Settings
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -20,23 +25,28 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.rounded.NearMe
 import androidx.compose.material3.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -50,9 +60,13 @@ import com.servilocal.R
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.core.ui.localizedDistance
 import com.servilocal.core.ui.localizedServiceCategory
-import com.servilocal.core.util.requestCurrentLocation
+import com.servilocal.core.ui.components.ProfilePhotoAvatar
+import com.servilocal.core.ui.components.PostCardHeaderSlot
+import com.servilocal.core.ui.components.UnifiedPostCard
+import coil.compose.AsyncImage
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
+import com.servilocal.features.posts.coordinator.PublishPostEvent
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
@@ -76,7 +90,6 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery = uiState.searchQuery
     val selectedCategory = uiState.selectedCategory
-    val locationQuery = uiState.locationQuery
     val maxDistanceKm = uiState.maxDistanceKm
     val originLatitude = uiState.originLatitude
     val originLongitude = uiState.originLongitude
@@ -96,26 +109,90 @@ fun HomeScreen(
     )
 
     var distanceMenuExpanded by remember { mutableStateOf(false) }
+    var locationDialogVisible by remember { mutableStateOf(false) }
+    var permissionRequested by remember { mutableStateOf(false) }
+    var pendingMapActivation by remember { mutableStateOf(false) }
+    var pendingDistanceSelection by remember { mutableStateOf(false) }
+    var mapRecenterRequest by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    fun loadDeviceLocation() {
-        requestCurrentLocation(context) { location ->
-            if (location == null) {
-                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_not_found)) }
-            } else {
-                viewModel.setOriginLocation(location.latitude, location.longitude)
-                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_updated)) }
+    LaunchedEffect(Unit) { viewModel.setLocationQuery("") }
+
+    LaunchedEffect(Unit) {
+        viewModel.publicationEvents.collect { event ->
+            when (event) {
+                is PublishPostEvent.Success -> snackbarHostState.showSnackbar(context.getString(R.string.publication_sent_review))
+                is PublishPostEvent.Failure -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = event.message,
+                        actionLabel = context.getString(R.string.retry)
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.retryPublication()
+                    }
+                }
+                is PublishPostEvent.Progress -> Unit
             }
         }
+    }
+
+    fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    fun isLocationEnabled(): Boolean {
+        val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return runCatching {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) manager.isLocationEnabled
+            else manager.isProviderEnabled(LocationManager.GPS_PROVIDER) || manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }.getOrDefault(false)
+    }
+
+    fun refreshLocationInBackground(recenterMap: Boolean = false) {
+        if (recenterMap) mapRecenterRequest++
+        viewModel.refreshLocationInBackground()
+    }
+
+    fun activateMapIfReady() {
+        if (!hasLocationPermission() || !isLocationEnabled()) {
+            pendingMapActivation = true
+            locationDialogVisible = true
+        } else {
+            viewModel.setDisplayMode(ViewDisplayMode.MAP)
+            pendingMapActivation = false
+            locationDialogVisible = false
+            refreshLocationInBackground()
+        }
+    }
+
+    fun openDistanceFilter() {
+        if (!hasLocationPermission() || !isLocationEnabled()) {
+            pendingDistanceSelection = true
+            locationDialogVisible = true
+            return
+        }
+        distanceMenuExpanded = true
+        pendingDistanceSelection = false
+        refreshLocationInBackground()
+    }
+
+    val locationSettingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (pendingMapActivation && hasLocationPermission() && isLocationEnabled()) activateMapIfReady()
+        else if (pendingDistanceSelection && hasLocationPermission() && isLocationEnabled()) openDistanceFilter()
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        if (permissions.values.any { it }) loadDeviceLocation()
-        else coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.location_permission_prompt)) }
+        if (permissions.values.any { it } && isLocationEnabled()) {
+            if (pendingMapActivation) activateMapIfReady() else openDistanceFilter()
+        } else {
+            locationDialogVisible = true
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -182,16 +259,25 @@ fun HomeScreen(
             }
         }
 
-        // Search Bar
-        Box(
+        // Search bar and distance control
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text(stringResource(R.string.search_services_hint), style = MaterialTheme.typography.bodyMedium) },
+                placeholder = {
+                    Text(
+                        stringResource(R.string.search_services_short),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 },
@@ -211,67 +297,27 @@ fun HomeScreen(
                     focusedBorderColor = MaterialTheme.colorScheme.primary
                 ),
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .weight(1f)
+                    .height(48.dp)
                     .testTag("search_services_input")
             )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = locationQuery,
-                onValueChange = viewModel::setLocationQuery,
-                placeholder = { Text(stringResource(R.string.neighborhood_or_area)) },
-                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-                trailingIcon = {
-                    if (locationQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setLocationQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear_location))
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.weight(1f).testTag("search_location_input")
-            )
-            IconButton(
-                onClick = {
-                    val fineGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                    val coarseGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                    if (fineGranted || coarseGranted) loadDeviceLocation()
-                    else locationPermissionLauncher.launch(
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                    )
-                },
-                modifier = Modifier.testTag("use_device_location_button")
-            ) {
-                Icon(
-                    imageVector = if (originLatitude != null) Icons.Default.MyLocation else Icons.Default.GpsFixed,
-                    contentDescription = stringResource(R.string.use_gps_location),
-                    tint = if (originLatitude != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
             Box {
-                FilterChip(
-                    selected = maxDistanceKm != null,
-                    onClick = { distanceMenuExpanded = true },
-                    label = { Text(maxDistanceKm?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.distance)) },
-                    leadingIcon = { Icon(Icons.Default.NearMe, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                )
-                DropdownMenu(
-                    expanded = distanceMenuExpanded,
-                    onDismissRequest = { distanceMenuExpanded = false }
+                FilledTonalIconButton(
+                    onClick = ::openDistanceFilter,
+                    modifier = Modifier.size(48.dp),
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = if (maxDistanceKm != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = if (maxDistanceKm != null) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 ) {
-                    listOf(null, 1.0, 3.0, 5.0, 10.0).forEach { distance ->
+                    Icon(Icons.Rounded.NearMe, contentDescription = stringResource(R.string.distance))
+                }
+                DropdownMenu(expanded = distanceMenuExpanded, onDismissRequest = { distanceMenuExpanded = false }) {
+                    listOf(null, 1.0, 5.0, 10.0).forEach { distance ->
                         DropdownMenuItem(
-                            text = { Text(distance?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.any_distance)) },
-                            onClick = {
-                                viewModel.setMaxDistanceKm(distance)
-                                distanceMenuExpanded = false
-                            }
+                            text = { Text(distance?.let { stringResource(R.string.distance_up_to, it.toInt()) } ?: stringResource(R.string.any_distance), maxLines = 1) },
+                            onClick = { viewModel.setMaxDistanceKm(distance); distanceMenuExpanded = false }
                         )
                     }
                 }
@@ -279,14 +325,14 @@ fun HomeScreen(
         }
 
         // Category Filter Chips (Horizontal Scroll)
-        Row(
+        LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            categories.forEach { cat ->
+            items(categories, key = { it.key }) { cat ->
                 val isSelected = selectedCategory == cat.key
                 FilterChip(
                     selected = isSelected,
@@ -308,69 +354,43 @@ fun HomeScreen(
             }
         }
 
-        // Segmented View Toggle: Lista vs Mapa
+        // Main view selector
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .padding(3.dp)
-            ) {
-                // List Mode
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (viewDisplayMode == ViewDisplayMode.LIST) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent)
-                        .clickable { viewModel.setDisplayMode(ViewDisplayMode.LIST) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(
-                            Icons.Default.FormatListBulleted,
-                            contentDescription = null,
-                            tint = if (viewDisplayMode == ViewDisplayMode.LIST) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.list_view),
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (viewDisplayMode == ViewDisplayMode.LIST) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Map Mode
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (viewDisplayMode == ViewDisplayMode.MAP) MaterialTheme.colorScheme.surfaceContainerLowest else Color.Transparent)
-                        .clickable { viewModel.setDisplayMode(ViewDisplayMode.MAP) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(
-                            Icons.Default.Map,
-                            contentDescription = null,
-                            tint = if (viewDisplayMode == ViewDisplayMode.MAP) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.map_view),
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (viewDisplayMode == ViewDisplayMode.MAP) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = viewDisplayMode == ViewDisplayMode.LIST,
+                    onClick = { viewModel.setDisplayMode(ViewDisplayMode.LIST) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    icon = { Icon(Icons.Default.FormatListBulleted, contentDescription = null) }
+                ) { Text(stringResource(R.string.list_view), maxLines = 1) }
+                SegmentedButton(
+                    selected = viewDisplayMode == ViewDisplayMode.MAP,
+                    onClick = ::activateMapIfReady,
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    icon = { Icon(Icons.Default.Map, contentDescription = null) }
+                ) { Text(stringResource(R.string.map_view), maxLines = 1) }
             }
+        }
+
+        AnimatedContent(
+            targetState = viewDisplayMode,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "home_contextual_filters"
+        ) { mode ->
+            if (mode == ViewDisplayMode.MAP) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.NearMe, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Mostrando servicios cercanos", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            } else Spacer(Modifier.height(0.dp))
         }
 
         // Main Content: List or Map View
@@ -413,7 +433,7 @@ fun HomeScreen(
                             post = post,
                             onDetailClick = { onOpenServiceDetail(post.id) },
                             onUpvoteClick = { viewModel.toggleUpvote(post.id) },
-                            showUpvote = post.providerId != currentUser.id
+                            isOwner = post.providerId == currentUser.id
                         )
                     }
                 }
@@ -424,7 +444,12 @@ fun HomeScreen(
                 posts = filteredPosts,
                 originLatitude = originLatitude,
                 originLongitude = originLongitude,
-                onPostSelected = { onOpenServiceDetail(it.id) }
+                onPostSelected = { onOpenServiceDetail(it.id) },
+                recenterRequest = mapRecenterRequest,
+                onRecenter = {
+                    if (hasLocationPermission() && isLocationEnabled()) refreshLocationInBackground(recenterMap = true)
+                    else { pendingMapActivation = true; locationDialogVisible = true }
+                }
             )
         }
       }
@@ -432,6 +457,34 @@ fun HomeScreen(
           hostState = snackbarHostState,
           modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
       )
+      if (locationDialogVisible) {
+          AlertDialog(
+              onDismissRequest = { locationDialogVisible = false; pendingMapActivation = false; pendingDistanceSelection = false },
+              title = { Text("Ubicación necesaria") },
+              text = { Text("Esta funcionalidad no está disponible sin ubicación. Activa la ubicación de tu dispositivo para explorar servicios cercanos en el mapa.") },
+              confirmButton = {
+                  TextButton(onClick = {
+                      if (!hasLocationPermission()) {
+                          val activity = context.findActivity()
+                          val fineRationale = activity?.let { androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.ACCESS_FINE_LOCATION) } ?: true
+                          val coarseRationale = activity?.let { androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.ACCESS_COARSE_LOCATION) } ?: true
+                          if (permissionRequested && !fineRationale && !coarseRationale) {
+                              val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                              locationSettingsLauncher.launch(intent)
+                          } else {
+                              permissionRequested = true
+                              locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                          }
+                      } else {
+                          locationSettingsLauncher.launch(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                      }
+                  }) { Text("Reintentar") }
+              },
+              dismissButton = {
+                  TextButton(onClick = { locationDialogVisible = false; pendingMapActivation = false; pendingDistanceSelection = false }) { Text("Cancelar") }
+              }
+          )
+      }
     }
 }
 
@@ -440,230 +493,21 @@ fun ServiceCardItem(
     post: ServicePost,
     onDetailClick: () -> Unit,
     onUpvoteClick: () -> Unit,
-    showUpvote: Boolean = true
+    isOwner: Boolean
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onDetailClick)
-            .testTag("service_card_${post.id}"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Provider Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Provider Avatar
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.secondaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = post.providerName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""),
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                text = post.providerName,
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Surface(
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                shape = RoundedCornerShape(6.dp)
-                            ) {
-                                Text(
-                                    text = post.providerLevel,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Icon(
-                                Icons.Default.Navigation,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Text(
-                                text = "${localizedDistance(post.distance)} · ${post.location}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                // Favorite / Upvote Heart Icon (hidden on the user's own posts)
-                if (showUpvote) {
-                    IconButton(onClick = onUpvoteClick) {
-                        Icon(
-                            imageVector = if (post.userUpvoted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = stringResource(R.string.like_post),
-                            tint = if (post.userUpvoted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Service Image Banner Box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                                MaterialTheme.colorScheme.secondary
-                            )
-                        )
-                    )
-            ) {
-                // Background icon aesthetic
-                Icon(
-                    imageVector = when (post.category) {
-                        "Hogar" -> Icons.Default.Roofing
-                        "Educación" -> Icons.Default.School
-                        "Mascotas" -> Icons.Default.Pets
-                        "Electricidad" -> Icons.Default.Bolt
-                        else -> Icons.Default.Handyman
-                    },
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.15f),
-                    modifier = Modifier
-                        .size(120.dp)
-                        .align(Alignment.CenterEnd)
-                        .offset(x = 20.dp)
-                )
-
-                // Overlay details
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF4ADE80), modifier = Modifier.size(14.dp))
-                            Text(stringResource(R.string.available_now), style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.SemiBold))
-                        }
-                    }
-
-                    Text(
-                        text = post.description,
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.95f)),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Title and Price
-            Text(
-                text = post.title,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+    UnifiedPostCard(
+        post = post,
+        onClick = onDetailClick,
+        headerSlot = if (isOwner) {
+            PostCardHeaderSlot.HomeOwner(post.upvotesCount)
+        } else {
+            PostCardHeaderSlot.HomeOtherUser(
+                likesCount = post.upvotesCount,
+                isLiked = post.userUpvoted,
+                onLikeClick = onUpvoteClick
             )
-
-            Text(
-                text = stringResource(R.string.starting_price, post.minPrice),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Rating and Upvotes
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
-                Text(
-                    text = "${post.rating}",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = stringResource(R.string.review_count, post.reviewCount),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Text("•", color = MaterialTheme.colorScheme.outline)
-                Icon(Icons.Default.ThumbUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
-                Text(
-                    text = stringResource(R.string.interest_count, post.upvotesCount),
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Attribute Chips
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text(
-                        text = localizedServiceCategory(post.category),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-                if (post.warrantyMonths > 0) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.warranty_months, post.warrantyMonths),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-            }
         }
-    }
+    )
 }
 
 @Composable
@@ -671,7 +515,9 @@ fun InteractiveMapPreview(
     posts: List<ServicePost>,
     originLatitude: Double?,
     originLongitude: Double?,
-    onPostSelected: (ServicePost) -> Unit
+    onPostSelected: (ServicePost) -> Unit,
+    recenterRequest: Int,
+    onRecenter: () -> Unit
 ) {
     val context = LocalContext.current
     val center = GeoPoint(
@@ -746,7 +592,7 @@ fun InteractiveMapPreview(
                             }
                         })
                     }
-                map.controller.setCenter(center)
+                if (recenterRequest > 0) map.controller.animateTo(center) else map.controller.setCenter(center)
                 map.invalidate()
             }
         )
@@ -773,7 +619,20 @@ fun InteractiveMapPreview(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
         }
+        SmallFloatingActionButton(
+            onClick = onRecenter,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Icon(Icons.Default.MyLocation, contentDescription = "Centrar en mi ubicación")
+        }
     }
+}
+
+private tailrec fun Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 private fun createMapMarkerIcon(context: Context, count: Int): BitmapDrawable {

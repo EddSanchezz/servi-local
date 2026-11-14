@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.model.UserSession
+import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.usecase.auth.LogoutUseCase
 import com.servilocal.domain.usecase.auth.ObserveSessionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +18,8 @@ import kotlinx.coroutines.launch
 data class AppUiState(
     val activeRole: UserRole = UserRole.USER,
     val session: UserSession? = null,
+    val sessionWasEstablished: Boolean = false,
+    val blockedAccountNotice: String? = null,
     val darkTheme: Boolean = false,
     val notificationsEnabled: Boolean = true
 )
@@ -25,7 +28,8 @@ data class AppUiState(
 @HiltViewModel
 class AppViewModel @Inject constructor(
     observeSession: ObserveSessionUseCase,
-    private val logoutUseCase: LogoutUseCase
+    private val logoutUseCase: LogoutUseCase,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AppUiState())
     val uiState: StateFlow<AppUiState> = _uiState.asStateFlow()
@@ -36,8 +40,16 @@ class AppViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         session = session,
-                        activeRole = session?.role ?: UserRole.USER
+                        activeRole = session?.role ?: UserRole.USER,
+                        sessionWasEstablished = it.sessionWasEstablished || session != null
                     )
+                }
+            }
+        }
+        viewModelScope.launch {
+            authRepository.blockedAccountNotice.collect { notice ->
+                if (!notice.isNullOrBlank()) {
+                    _uiState.update { it.copy(blockedAccountNotice = notice) }
                 }
             }
         }
@@ -49,6 +61,11 @@ class AppViewModel @Inject constructor(
         // La UI vuelve al login de inmediato; la sesión en memoria se limpia en segundo plano.
         _uiState.update { it.copy(activeRole = UserRole.USER, session = null) }
         viewModelScope.launch { logoutUseCase() }
+    }
+
+    fun acknowledgeBlockedAccount() {
+        _uiState.update { it.copy(blockedAccountNotice = null) }
+        viewModelScope.launch { authRepository.clearBlockedAccountNotice() }
     }
 
     fun setDarkTheme(enabled: Boolean) = _uiState.update { it.copy(darkTheme = enabled) }

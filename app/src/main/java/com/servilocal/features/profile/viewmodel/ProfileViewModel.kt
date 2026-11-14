@@ -15,6 +15,7 @@ import com.servilocal.domain.usecase.profile.ObserveUserBadgesUseCase
 import com.servilocal.domain.usecase.profile.ProfileStats
 import com.servilocal.domain.usecase.posts.DeleteServicePostUseCase
 import com.servilocal.domain.usecase.posts.ObserveMyPostsUseCase
+import com.servilocal.domain.usecase.moderation.ObserveReportHistoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,7 @@ class ProfileViewModel @Inject constructor(
     observeNotifications: ObserveNotificationsUseCase,
     observeUserBadges: ObserveUserBadgesUseCase,
     observeMyPosts: ObserveMyPostsUseCase,
+    observeReportHistory: ObserveReportHistoryUseCase,
     private val deleteServicePost: DeleteServicePostUseCase,
     private val deleteAccountUseCase: DeleteAccountUseCase,
     private val getProfileStats: GetProfileStatsUseCase,
@@ -49,6 +51,8 @@ class ProfileViewModel @Inject constructor(
     val currentUser = authRepository.currentUser
     val posts = postRepository.posts
     val myPosts = observeMyPosts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val reportHistory = observeReportHistory()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val notifications = observeNotifications()
         .stateIn(

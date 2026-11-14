@@ -125,7 +125,7 @@ fun EditProfileScreen(
                     photoUrl = it.toString()
                     scope.launch { snackbarHostState.showSnackbar(selectedPhotoMessage) }
                 },
-                trigger = { openPicker ->
+                trigger = { _, openPicker ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(contentAlignment = Alignment.BottomEnd) {
                             ProfilePhotoAvatar(

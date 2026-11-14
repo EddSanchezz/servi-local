@@ -10,6 +10,7 @@ import com.servilocal.domain.model.PostCategory
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
+import com.servilocal.domain.model.UserStatus
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.repository.SessionRepository
 import jakarta.inject.Inject
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.tasks.await
 import java.util.Locale
@@ -40,6 +42,8 @@ class FirebasePostRepository @Inject constructor(
 ) : PostRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val providerAvatarCache = mutableMapOf<String, String?>()
+    private val providerStatusCache = mutableMapOf<String, UserStatus>()
     private val postsCollection get() = firestore.collection(POSTS_COLLECTION)
 
     override val posts = sessionRepository.session
@@ -69,6 +73,9 @@ class FirebasePostRepository @Inject constructor(
                 }
             }
         }
+        .combine(observeBlockedUserIds()) { currentPosts, blockedUsers ->
+            currentPosts.filter { it.providerId !in blockedUsers }
+        }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     override suspend fun createPost(
@@ -87,6 +94,7 @@ class FirebasePostRepository @Inject constructor(
             ?: throw IllegalStateException("Inicia sesión antes de crear una publicación.")
         val user = firestore.collection(USERS_COLLECTION).document(session.userId).get().await()
         val providerName = user.getString("name").orEmpty()
+        val providerAvatar = user.getString("photoUrl")
         val providerLevel = user.getString("level")
             ?.let { runCatching { com.servilocal.domain.model.UserLevel.valueOf(it).displayName() }.getOrNull() }
             ?: "Nivel 1: Principiante"
@@ -96,6 +104,7 @@ class FirebasePostRepository @Inject constructor(
         require(location.isNotBlank()) { "La descripción de ubicación es obligatoria." }
         require(latitude.isValidLatitude() && longitude.isValidLongitude()) { "Selecciona un punto válido en el mapa." }
         require(photos.isNotEmpty() && photos.all { it.isSecureUrl() }) { "Agrega al menos una imagen válida." }
+        require(photos.size <= 5) { "Una publicación puede tener máximo 5 imágenes." }
         require(isPriceToAgree || (minPrice > 0 && maxPrice >= minPrice)) { "El rango de precios no es válido." }
         val categoryEnum = parseCategory(category)
             ?: throw IllegalArgumentException("Selecciona una categoría válida.")
@@ -109,6 +118,7 @@ class FirebasePostRepository @Inject constructor(
             description = description.trim(),
             providerName = providerName,
             providerId = session.userId,
+            providerAvatar = providerAvatar,
             providerLevel = providerLevel,
             minPrice = minPrice,
             maxPrice = maxPrice,
@@ -149,13 +159,13 @@ class FirebasePostRepository @Inject constructor(
     ): Boolean {
         val current = posts.value.firstOrNull { it.id == postId } ?: return false
         val uid = sessionRepository.session.value?.userId ?: return false
-        if (current.providerId != uid || current.status != PostStatus.APPROVED) return false
+        if (current.providerId != uid || current.status !in setOf(PostStatus.APPROVED, PostStatus.PENDING_VERIFICATION)) return false
         if (title.isBlank() || description.isBlank() || location.isBlank()) return false
         if (!isPriceToAgree && (minPrice <= 0 || maxPrice < minPrice)) return false
         if (latitude != null && !latitude.isValidLatitude()) return false
         if (longitude != null && !longitude.isValidLongitude()) return false
         if ((latitude == null) != (longitude == null)) return false
-        if (photos != null && (photos.isEmpty() || photos.any { !it.isSecureUrl() })) return false
+        if (photos != null && (photos.isEmpty() || photos.size > 5 || photos.any { !it.isSecureUrl() })) return false
         val categoryEnum = parseCategory(category) ?: return false
         val updatedLatitude = latitude ?: current.latitude ?: return false
         val updatedLongitude = longitude ?: current.longitude ?: return false
@@ -170,7 +180,8 @@ class FirebasePostRepository @Inject constructor(
                 "isPriceToAgree" to isPriceToAgree,
                 "locationDescription" to location.trim(),
                 "location" to GeoPoint(updatedLatitude, updatedLongitude),
-                "photos" to (photos ?: current.photos)
+                "photos" to (photos ?: current.photos),
+                FIELD_STATUS to PostStatus.PENDING_VERIFICATION.name
             )
         ).await()
         return true
@@ -248,12 +259,63 @@ class FirebasePostRepository @Inject constructor(
     private fun observePosts(query: Query): Flow<List<ServicePost>> = callbackFlow {
         val registration: ListenerRegistration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                trySend(emptyList())
             } else {
                 trySend(snapshot?.documents.orEmpty().mapNotNull { it.toServicePost() })
             }
         }
         awaitClose { registration.remove() }
+    }.mapLatest { posts ->
+        posts.map { post ->
+            val providerId = post.providerId
+            if (providerId.isNullOrBlank()) post
+            else post.copy(
+                providerAvatar = post.providerAvatar ?: runCatching { providerAvatarFor(providerId) }.getOrNull(),
+                providerStatus = runCatching { providerStatusFor(providerId) }.getOrDefault(UserStatus.ACTIVE)
+            )
+        }.filter { it.providerStatus != UserStatus.BLOCKED }
+    }
+
+    private suspend fun providerAvatarFor(providerId: String): String? {
+        if (providerAvatarCache.containsKey(providerId)) {
+            return providerAvatarCache[providerId]
+        }
+        val avatar = firestore.collection(USERS_COLLECTION)
+            .document(providerId)
+            .get()
+            .await()
+            .getString("photoUrl")
+        providerAvatarCache[providerId] = avatar
+        return avatar
+    }
+
+    private fun observeBlockedUserIds(): Flow<Set<String>> = sessionRepository.session
+        .flatMapLatest { session ->
+            if (session == null) {
+                flowOf(emptySet())
+            } else {
+                callbackFlow {
+                    val registration = firestore.collection(USERS_COLLECTION)
+                        .whereEqualTo("status", UserStatus.BLOCKED.name)
+                        .addSnapshotListener { snapshot, error ->
+                            // Permission/network failures must never terminate the shared posts flow.
+                            if (error != null) trySend(emptySet())
+                            else trySend(snapshot?.documents.orEmpty().map { it.id }.toSet())
+                        }
+                    awaitClose { registration.remove() }
+                }
+            }
+        }
+
+    private suspend fun providerStatusFor(providerId: String): UserStatus {
+        providerStatusCache[providerId]?.let { return it }
+        val status = runCatching {
+            firestore.collection(USERS_COLLECTION).document(providerId).get().await()
+                .getString("status")
+                ?.let { UserStatus.valueOf(it) }
+        }.getOrNull() ?: UserStatus.ACTIVE
+        providerStatusCache[providerId] = status
+        return status
     }
 
     private fun DocumentSnapshot.toServicePost(): ServicePost? {
@@ -298,6 +360,7 @@ class FirebasePostRepository @Inject constructor(
             comments = emptyList(),
             rejectionReason = getString("rejectionReason"),
             rejectionNotes = getString("rejectionNotes"),
+            reportCount = getLong("reportCount")?.toInt() ?: 0,
             createdAtMillis = getLong("createdAtMillis") ?: 0L
         )
     }
@@ -305,6 +368,7 @@ class FirebasePostRepository @Inject constructor(
     private fun ServicePost.toFirestoreMap(): Map<String, Any?> = mapOf(
         FIELD_PROVIDER_ID to providerId,
         "providerName" to providerName,
+        "providerAvatar" to providerAvatar,
         "providerLevel" to providerLevel,
         "title" to title,
         "category" to parseCategory(category)?.name,

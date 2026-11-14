@@ -3,7 +3,6 @@ package com.servilocal.features.home.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.core.location.LocationProvider
-import com.servilocal.features.posts.coordinator.PublishPostCoordinator
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
@@ -12,6 +11,7 @@ import com.servilocal.domain.usecase.posts.FilterPostsByQueryUseCase
 import com.servilocal.domain.usecase.posts.ObservePostsUseCase
 import com.servilocal.domain.usecase.posts.ToggleLikeResult
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
+import com.servilocal.features.posts.coordinator.PublishPostCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,8 +19,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 data class HomeUiState(
@@ -46,7 +49,6 @@ class HomeViewModel @Inject constructor(
     private val filterPostsByLocation: FilterPostsByLocationUseCase,
     private val locationProvider: LocationProvider? = null,
     private val publishPostCoordinator: PublishPostCoordinator? = null
-
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -65,7 +67,7 @@ class HomeViewModel @Inject constructor(
             state.originLatitude ?: FilterPostsByLocationUseCase.TEST_ORIGIN_LATITUDE,
             state.originLongitude ?: FilterPostsByLocationUseCase.TEST_ORIGIN_LONGITUDE
         )
-    }.stateIn(
+    }.flowOn(Dispatchers.Default).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
@@ -77,6 +79,8 @@ class HomeViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
+    val publicationEvents = publishPostCoordinator?.events ?: emptyFlow()
+    fun retryPublication() = publishPostCoordinator?.retryLast()
 
     fun setSearchQuery(value: String) = _uiState.update { it.copy(searchQuery = value) }
     fun setSelectedCategory(value: String) = _uiState.update { it.copy(selectedCategory = value) }
@@ -99,6 +103,4 @@ class HomeViewModel @Inject constructor(
             togglePostLikeUseCase(postId)
         }
     }
-
 }
-

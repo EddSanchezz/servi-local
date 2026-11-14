@@ -1,13 +1,15 @@
 package com.servilocal.features.posts.viewmodel
 
 import androidx.lifecycle.ViewModel
+import android.net.Uri
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.firestore.FirebaseFirestoreException
 import com.servilocal.R
 import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.exception.ImageUploadException
 import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.domain.usecase.posts.CreateServicePostUseCase
+import com.servilocal.features.posts.coordinator.PublishPostCoordinator
+import com.servilocal.features.posts.coordinator.PublishPostRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +20,7 @@ import kotlinx.coroutines.launch
 
 data class CreatePostUiState(
     val selectedImageUri: String? = null,
+    val selectedImageUris: List<String> = emptyList(),
     val uploadedImageUrl: String? = null,
     val uploadedImageSourceUri: String? = null,
     val uploadProgress: Float? = null,
@@ -28,21 +31,71 @@ data class CreatePostUiState(
 
 @HiltViewModel
 class CreatePostViewModel @Inject constructor(
-    private val createServicePost: CreateServicePostUseCase,
-    private val imageStorageRepository: ImageStorageRepository,
+    private val publishPostCoordinator: PublishPostCoordinator,
     private val resources: ResourceProvider
 ) : ViewModel() {
+    private var legacyCreateServicePost: CreateServicePostUseCase? = null
+    private var legacyImageStorageRepository: ImageStorageRepository? = null
+
+    constructor(
+        createServicePost: CreateServicePostUseCase,
+        imageStorageRepository: ImageStorageRepository,
+        resources: ResourceProvider
+    ) : this(
+        PublishPostCoordinator(createServicePost, imageStorageRepository, resources),
+        resources
+    ) {
+        legacyCreateServicePost = createServicePost
+        legacyImageStorageRepository = imageStorageRepository
+    }
     private val _uiState = MutableStateFlow(CreatePostUiState())
     val uiState: StateFlow<CreatePostUiState> = _uiState.asStateFlow()
 
     fun onImageSelected(uri: String) {
+        onImagesSelected(listOf(uri))
+    }
+
+    fun onImagesSelected(uris: List<String>) {
         _uiState.update {
+            val combined = (it.selectedImageUris + uris)
+                .filter { uri -> uri.isNotBlank() }
+                .distinct()
+                .take(MAX_POST_PHOTOS)
             it.copy(
-                selectedImageUri = uri,
+                selectedImageUri = combined.lastOrNull(),
+                selectedImageUris = combined,
                 uploadedImageUrl = null,
                 uploadedImageSourceUri = null,
                 submissionError = null,
                 isCreated = false
+            )
+        }
+
+    }
+
+    fun clearImage() {
+        _uiState.update {
+            it.copy(
+                selectedImageUri = null,
+                selectedImageUris = emptyList(),
+                uploadedImageUrl = null,
+                uploadedImageSourceUri = null,
+                submissionError = null
+            )
+        }
+
+    }
+
+    fun removeImageAt(index: Int) {
+        _uiState.update {
+            val remaining = it.selectedImageUris.toMutableList().apply {
+                if (index in indices) removeAt(index)
+            }
+            it.copy(
+                selectedImageUri = remaining.lastOrNull(),
+                selectedImageUris = remaining,
+                uploadedImageUrl = null,
+                uploadedImageSourceUri = null
             )
         }
     }
@@ -64,78 +117,85 @@ class CreatePostViewModel @Inject constructor(
             _uiState.update { it.copy(submissionError = resources.getString(R.string.post_location_not_selected)) }
             return
         }
-        val localImageUri = state.selectedImageUri
-        if (localImageUri.isNullOrBlank()) {
+        val localImageUris = state.selectedImageUris.ifEmpty { listOfNotNull(state.selectedImageUri) }
+        if (localImageUris.isEmpty()) {
             _uiState.update { it.copy(submissionError = resources.getString(R.string.image_required_for_post)) }
             return
         }
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, isCreated = false, submissionError = null) }
-            try {
-                val uploadedUrl = localImageUri.takeIf { it.startsWith("https://", ignoreCase = true) }
-                    ?: state.uploadedImageUrl?.takeIf { state.uploadedImageSourceUri == localImageUri }
-                    ?: imageStorageRepository.uploadImage(
-                        localUri = localImageUri,
-                        folder = "servilocal/posts",
-                        onProgress = { progress -> _uiState.update { it.copy(uploadProgress = progress) } }
-                    ).also { url ->
-                        // Retain the uploaded URL so a Firestore retry does not upload the same file again.
-                        _uiState.update {
-                            it.copy(uploadedImageUrl = url, uploadedImageSourceUri = localImageUri)
-                        }
-                    }
+        if (localImageUris.size > MAX_POST_PHOTOS || localImageUris.any(::isInvalidPhotoUri)) {
+            _uiState.update {
+                it.copy(submissionError = resources.getString(R.string.invalid_post_images))
+            }
+            return
+        }
 
-                val post = createServicePost(
-                    title = title,
-                    category = category,
-                    description = description,
-                    minPrice = minPrice,
-                    maxPrice = maxPrice,
-                    isPriceToAgree = isPriceToAgree,
-                    location = location,
-                    latitude = latitude,
-                    longitude = longitude,
-                    photos = listOf(uploadedUrl)
-                )
-                _uiState.update { it.copy(isSubmitting = false, isCreated = true, uploadProgress = null) }
-            } catch (_: ImageUploadException) {
-                _uiState.update {
-                    it.copy(
-                        isSubmitting = false,
-                        uploadProgress = null,
-                        submissionError = resources.getString(R.string.post_image_upload_failed)
+        val legacyCreate = legacyCreateServicePost
+        val legacyStorage = legacyImageStorageRepository
+        if (legacyCreate != null && legacyStorage != null) {
+            viewModelScope.launch {
+                _uiState.update { it.copy(isSubmitting = true, isCreated = false, submissionError = null) }
+                try {
+                    val uploadedUrls = localImageUris.mapIndexed { index, uri ->
+                        legacyStorage.uploadImage(
+                            localUri = uri,
+                            folder = "servilocal/posts",
+                            onProgress = { progress ->
+                                _uiState.update {
+                                    it.copy(uploadProgress = (index + progress) / localImageUris.size)
+                                }
+                            }
+                        )
+                    }
+                    legacyCreate(
+                        title, category, description, minPrice, maxPrice, isPriceToAgree,
+                        location, latitude, longitude, uploadedUrls
                     )
-                }
-            } catch (error: FirebaseFirestoreException) {
-                _uiState.update {
-                    it.copy(
-                        isSubmitting = false,
-                        uploadProgress = null,
-                        submissionError = if (error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                            resources.getString(R.string.firestore_write_denied)
-                        } else {
-                            resources.getString(R.string.post_create_network_failed)
-                        }
-                    )
-                }
-            } catch (error: IllegalArgumentException) {
-                _uiState.update {
-                    it.copy(
-                        isSubmitting = false,
-                        uploadProgress = null,
-                        submissionError = error.message ?: resources.getString(R.string.create_post_invalid_data)
-                    )
-                }
-            } catch (_: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isSubmitting = false,
-                        uploadProgress = null,
-                        submissionError = resources.getString(R.string.post_create_network_failed)
-                    )
+                    _uiState.update { it.copy(isSubmitting = false, isCreated = true, uploadProgress = null) }
+                } catch (_: ImageUploadException) {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            uploadProgress = null,
+                            submissionError = resources.getString(R.string.post_image_upload_failed)
+                        )
+                    }
+                } catch (error: Exception) {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            uploadProgress = null,
+                            submissionError = error.message ?: resources.getString(R.string.post_create_network_failed)
+                        )
+                    }
                 }
             }
+            return
         }
+
+        publishPostCoordinator.submit(
+            PublishPostRequest(
+                title = title,
+                category = category,
+                description = description,
+                minPrice = minPrice,
+                maxPrice = maxPrice,
+                isPriceToAgree = isPriceToAgree,
+                location = location,
+                latitude = latitude,
+                longitude = longitude,
+                localPhotoUris = localImageUris
+            )
+        )
+        _uiState.update { it.copy(isSubmitting = false, isCreated = true, submissionError = null) }
+    }
+
+    private fun isInvalidPhotoUri(uri: String): Boolean {
+        val parsed = Uri.parse(uri)
+        return uri.isBlank() || parsed.scheme.isNullOrBlank()
+    }
+
+    companion object {
+        const val MAX_POST_PHOTOS = 5
     }
 }

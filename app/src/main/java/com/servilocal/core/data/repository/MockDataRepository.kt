@@ -117,6 +117,7 @@ class MockDataRepository @Inject constructor(
 
     private val _reports = MutableStateFlow<List<ModerationReportItem>>(getInitialReports())
     override val reports: StateFlow<List<ModerationReportItem>> = _reports.asStateFlow()
+    override val reportHistory: StateFlow<List<ModerationReportItem>> = _reports.asStateFlow()
 
     init {
         val users = userRepository
@@ -657,7 +658,7 @@ class MockDataRepository @Inject constructor(
         }
     }
 
-    override fun createReport(
+    override suspend fun createReport(
         reason: String,
         description: String,
         targetTitle: String,
@@ -748,10 +749,12 @@ class MockDataRepository @Inject constructor(
         return convId
     }
 
-    override fun resolveReport(
+    override suspend fun resolveReport(
         reportId: String,
         resolution: ReportResolution,
-        moderatorComment: String
+        moderatorComment: String,
+        newPostStatus: PostStatus?,
+        blockUser: Boolean
     ): Boolean {
         if (_currentUser.value.role != UserRole.MODERATOR) return false
         val report = _reports.value.firstOrNull { it.id == reportId } ?: return false
@@ -776,8 +779,9 @@ class MockDataRepository @Inject constructor(
         return true
     }
 
-    override fun resolveReportsForPost(postId: String) {
+    override suspend fun resolveReportsForPost(postId: String): Boolean {
         _reports.update { list -> list.filterNot { it.targetPostId == postId } }
+        return true
     }
 
     override fun create(notification: AppNotification) {

@@ -6,9 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.servilocal.R
 import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.model.ServicePost
-import com.servilocal.domain.usecase.posts.FinishServicePostUseCase
+import com.servilocal.domain.usecase.posts.DeleteServicePostUseCase
 import com.servilocal.domain.usecase.posts.GetPostDetailUseCase
 import com.servilocal.domain.usecase.posts.UpdateServicePostUseCase
+import com.servilocal.domain.repository.ImageStorageRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,7 @@ data class EditPostUiState(
     val submissionError: String? = null,
     val isSubmitting: Boolean = false,
     val isUpdated: Boolean = false,
-    val isFinished: Boolean = false
+    val isDeleted: Boolean = false
 )
 
 @HiltViewModel
@@ -31,7 +32,8 @@ class EditPostViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     getPostDetail: GetPostDetailUseCase,
     private val updateServicePost: UpdateServicePostUseCase,
-    private val finishServicePost: FinishServicePostUseCase,
+    private val deleteServicePost: DeleteServicePostUseCase,
+    private val imageStorageRepository: ImageStorageRepository,
     private val resources: ResourceProvider
 ) : ViewModel() {
     private val postId: String = savedStateHandle.get<String>("postId").orEmpty()
@@ -50,12 +52,17 @@ class EditPostViewModel @Inject constructor(
         isPriceToAgree: Boolean,
         location: String,
         latitude: Double?,
-        longitude: Double?
+        longitude: Double?,
+        photos: List<String>? = null
     ) {
         if (_uiState.value.isSubmitting) return
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, submissionError = null, isUpdated = false) }
             val updated = runCatching {
+                val uploadedPhotos = photos?.map { uri ->
+                    if (uri.startsWith("https://")) uri
+                    else imageStorageRepository.uploadImage(uri, "servilocal/posts")
+                }
                 updateServicePost(
                     postId,
                     title,
@@ -67,7 +74,7 @@ class EditPostViewModel @Inject constructor(
                     location,
                     latitude,
                     longitude,
-                    null
+                    uploadedPhotos
                 )
             }.getOrDefault(false)
             _uiState.update {
@@ -80,16 +87,16 @@ class EditPostViewModel @Inject constructor(
         }
     }
 
-    fun finishPost(postId: String) {
+    fun deletePostPermanently(postId: String) {
         if (_uiState.value.isSubmitting) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, submissionError = null, isFinished = false) }
-            val finished = runCatching { finishServicePost(postId) }.getOrDefault(false)
+            _uiState.update { it.copy(isSubmitting = true, submissionError = null, isDeleted = false) }
+            val deleted = runCatching { deleteServicePost(postId) }.getOrDefault(false)
             _uiState.update {
                 it.copy(
                     isSubmitting = false,
-                    isFinished = finished,
-                    submissionError = if (finished) null else resources.getString(R.string.finish_post_failed)
+                    isDeleted = deleted,
+                    submissionError = if (deleted) null else resources.getString(R.string.delete_post_failed)
                 )
             }
         }

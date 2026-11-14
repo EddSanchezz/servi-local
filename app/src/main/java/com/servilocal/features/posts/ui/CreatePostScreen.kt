@@ -31,8 +31,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
+import com.servilocal.features.posts.viewmodel.EditPostViewModel
+import com.servilocal.domain.model.ServicePost
+import com.servilocal.domain.model.PostStatus
 import com.servilocal.R
 import com.servilocal.core.ui.components.ImagePicker
+import com.servilocal.core.ui.components.PostPhotoUploader
+import com.servilocal.core.ui.components.PostLocationMap
 import com.servilocal.core.util.requestCurrentLocation
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,23 +47,33 @@ fun CreatePostScreen(
     onBack: () -> Unit,
     onOpenHome: () -> Unit,
     onOpenProfile: () -> Unit,
+    editPost: ServicePost? = null,
+    editViewModel: EditPostViewModel? = null,
+    onEditSaved: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var title by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("Hogar") }
-    var description by remember { mutableStateOf("") }
-    var isPriceToAgree by remember { mutableStateOf(false) }
-    var minPrice by remember { mutableStateOf("") }
-    var maxPrice by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("Armenia, Quindío") }
-    var locationLatitude by rememberSaveable { mutableStateOf<Double?>(null) }
-    var locationLongitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var title by remember(editPost?.id) { mutableStateOf(editPost?.title.orEmpty()) }
+    var selectedCategory by remember(editPost?.id) { mutableStateOf(editPost?.category ?: "Hogar") }
+    var description by remember(editPost?.id) { mutableStateOf(editPost?.description.orEmpty()) }
+    var isPriceToAgree by remember(editPost?.id) { mutableStateOf(editPost?.isPriceToAgree ?: false) }
+    var minPrice by remember(editPost?.id) { mutableStateOf(if (editPost == null || editPost.isPriceToAgree) "" else editPost.minPrice.toString()) }
+    var maxPrice by remember(editPost?.id) { mutableStateOf(if (editPost == null || editPost.isPriceToAgree) "" else editPost.maxPrice.toString()) }
+    var location by remember(editPost?.id) { mutableStateOf(editPost?.location ?: "Armenia, Quindío") }
+    var locationLatitude by rememberSaveable(editPost?.id) { mutableStateOf(editPost?.latitude) }
+    var locationLongitude by rememberSaveable(editPost?.id) { mutableStateOf(editPost?.longitude) }
+    val existingPhotos = remember(editPost?.id) { mutableStateListOf<String>().apply { addAll(editPost?.photos.orEmpty()) } }
+    val newPhotoUris = remember(editPost?.id) { mutableStateListOf<String>() }
     var showLocationPicker by remember { mutableStateOf(false) }
     var isCategoryDropdownExpanded by remember { mutableStateOf(false) }
     var attemptedSubmit by remember { mutableStateOf(false) }
+    var activePhotoIndex by rememberSaveable { mutableIntStateOf(0) }
     var showHelpDialog by remember { mutableStateOf(false) }
-    var showCreatedDialog by remember { mutableStateOf(false) }
     val formUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val editUiState = editViewModel?.uiState?.collectAsStateWithLifecycle()
+    val attachedPhotos = if (editPost == null) formUiState.selectedImageUris else existingPhotos + newPhotoUris
+    var showEditSavedConfirmation by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    val canEditPost = editPost?.status in setOf(PostStatus.APPROVED, PostStatus.PENDING_VERIFICATION)
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -97,14 +112,20 @@ fun CreatePostScreen(
     }
 
     LaunchedEffect(formUiState.isCreated) {
-        if (formUiState.isCreated) {
-            snackbarHostState.showSnackbar(context.getString(R.string.publication_sent_review))
-            showCreatedDialog = true
+        if (formUiState.isCreated && editPost == null) {
+            onOpenHome()
         }
     }
 
+    LaunchedEffect(editUiState?.value?.isUpdated) {
+        if (editUiState?.value?.isUpdated == true) showEditSavedConfirmation = true
+    }
     LaunchedEffect(formUiState.submissionError) {
         formUiState.submissionError?.let { snackbarHostState.showSnackbar(it) }
+    }
+
+    LaunchedEffect(editUiState?.value?.submissionError) {
+        editUiState?.value?.submissionError?.let { snackbarHostState.showSnackbar(it) }
     }
 
     Scaffold(
@@ -115,7 +136,7 @@ fun CreatePostScreen(
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Text(
-                        stringResource(R.string.create_publication_title),
+                        stringResource(if (editPost == null) R.string.create_publication_title else R.string.edit_post_title),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
@@ -134,73 +155,97 @@ fun CreatePostScreen(
         },
         bottomBar = {
             Surface(
-                color = MaterialTheme.colorScheme.surface,
+                color = MaterialTheme.colorScheme.background,
                 shadowElevation = 8.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding()
                     .imePadding()
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            attemptedSubmit = true
-                            val parsedMin = minPrice.toIntOrNull() ?: 0
-                            val parsedMax = maxPrice.toIntOrNull() ?: 0
-                            val pricesAreValid = isPriceToAgree || (parsedMin > 0 && parsedMax >= parsedMin)
-                            if (title.isNotBlank() && description.isNotBlank() && location.isNotBlank() && pricesAreValid && locationLatitude != null && locationLongitude != null) {
-                                viewModel.createPost(
-                                    title = title.trim(),
-                                    category = selectedCategory,
-                                    description = description.trim(),
-                                    minPrice = parsedMin,
-                                    maxPrice = parsedMax,
-                                    isPriceToAgree = isPriceToAgree,
-                                    location = location.trim(),
-                                    latitude = locationLatitude,
-                                    longitude = locationLongitude
-                                )
-                            } else {
-                                val message = when {
-                                    locationLatitude == null || locationLongitude == null -> context.getString(R.string.post_location_not_selected)
-                                    formUiState.selectedImageUri.isNullOrBlank() -> context.getString(R.string.image_required_for_post)
-                                    else -> context.getString(R.string.complete_required_fields)
-                                }
-                                coroutineScope.launch { snackbarHostState.showSnackbar(message) }
-                            }
-                        },
-                        enabled = !formUiState.isSubmitting,
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp)
-                            .testTag("submit_publish_button"),
-                        shape = RoundedCornerShape(26.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
                     ) {
-                        if (formUiState.isSubmitting) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                formUiState.uploadProgress?.let { progress ->
-                                    stringResource(R.string.uploading_post_image, (progress * 100).toInt())
-                                } ?: stringResource(R.string.loading)
-                            )
-                        } else {
-                            Icon(Icons.Default.Save, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.send_for_review), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                        Button(
+                            onClick = {
+                                attemptedSubmit = true
+                                val parsedMin = minPrice.toIntOrNull() ?: 0
+                                val parsedMax = maxPrice.toIntOrNull() ?: 0
+                                val pricesAreValid = isPriceToAgree || (parsedMin > 0 && parsedMax >= parsedMin)
+                                val hasPhotos = attachedPhotos.isNotEmpty()
+                                if (title.isNotBlank() && description.isNotBlank() && location.isNotBlank() && pricesAreValid && locationLatitude != null && locationLongitude != null && hasPhotos) {
+                                    if (editPost != null && editViewModel != null) {
+                                        editViewModel.updatePost(
+                                            postId = editPost.id,
+                                            title = title.trim(), category = selectedCategory, description = description.trim(),
+                                            minPrice = parsedMin, maxPrice = parsedMax, isPriceToAgree = isPriceToAgree,
+                                            location = location.trim(), latitude = locationLatitude, longitude = locationLongitude,
+                                            photos = attachedPhotos
+                                        )
+                                    } else {
+                                    viewModel.createPost(
+                                        title = title.trim(),
+                                        category = selectedCategory,
+                                        description = description.trim(),
+                                        minPrice = parsedMin,
+                                        maxPrice = parsedMax,
+                                        isPriceToAgree = isPriceToAgree,
+                                        location = location.trim(),
+                                        latitude = locationLatitude,
+                                        longitude = locationLongitude
+                                    )
+                                    }
+                                } else {
+                                    val message = when {
+                                        locationLatitude == null || locationLongitude == null -> context.getString(R.string.post_location_not_selected)
+                                        !hasPhotos -> context.getString(R.string.image_required_for_post)
+                                        else -> context.getString(R.string.complete_required_fields)
+                                    }
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+                                }
+                            },
+                            enabled = !(editUiState?.value?.isSubmitting ?: formUiState.isSubmitting) && attachedPhotos.isNotEmpty() && (editPost == null || canEditPost),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .testTag("submit_publish_button"),
+                            shape = RoundedCornerShape(26.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            if (formUiState.isSubmitting) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    formUiState.uploadProgress?.let { progress ->
+                                        stringResource(R.string.uploading_post_image, (progress * 100).toInt())
+                                    } ?: stringResource(R.string.loading)
+                                )
+                            } else {
+                            BadgedBox(badge = {
+                                Badge { Text(attachedPhotos.size.toString()) }
+                                }) {
+                                    Icon(Icons.Default.Save, contentDescription = null)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(if (editPost == null) R.string.send_for_review else R.string.save_changes), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
                         }
+                        }
+                        if (editPost?.status == PostStatus.APPROVED && editViewModel != null) {
+                            OutlinedButton(
+                                onClick = { showDeleteConfirmation = true },
+                                modifier = Modifier.fillMaxWidth().height(44.dp),
+                                enabled = editUiState?.value?.isSubmitting != true
+                            ) { Text(stringResource(R.string.finish_post), maxLines = 1) }
+                        }
+                        Text(
+                            text = stringResource(R.string.publication_terms_notice),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)
+                        )
                     }
-                    Text(
-                        text = stringResource(R.string.publication_terms_notice),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp)
-                    )
                 }
             }
         }
@@ -215,6 +260,17 @@ fun CreatePostScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Spacer(modifier = Modifier.height(4.dp))
+
+            if (editPost != null) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer), modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Al guardar los cambios, tu publicación pasará nuevamente a estado Pendiente de revisión para ser verificada por un moderador.",
+                        modifier = Modifier.padding(14.dp),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
 
             // Notice Banner: Quality and Trust Review
             Card(
@@ -254,6 +310,35 @@ fun CreatePostScreen(
                         )
                     }
                 }
+            }
+
+            ImagePicker(
+                onImageSelected = {
+                    if (editPost == null) viewModel.onImageSelected(it.toString())
+                    else if (existingPhotos.size + newPhotoUris.size < 5) newPhotoUris.add(it.toString())
+                    activePhotoIndex = (attachedPhotos.size).coerceAtMost(4)
+                },
+                onImagesSelected = { uris ->
+                    val additions = uris.map(Uri::toString)
+                    if (editPost == null) viewModel.onImagesSelected(additions)
+                    else newPhotoUris.addAll(additions.take((5 - existingPhotos.size - newPhotoUris.size).coerceAtLeast(0)))
+                    activePhotoIndex = (attachedPhotos.size + uris.size - 1).coerceAtMost(4)
+                }
+            ) { openCamera, openGallery ->
+                PostPhotoUploader(
+                    photos = attachedPhotos,
+                    activeIndex = activePhotoIndex,
+                    isUploading = editUiState?.value?.isSubmitting ?: formUiState.isSubmitting,
+                    onActiveIndexChange = { activePhotoIndex = it },
+                    onAddFromGallery = openGallery,
+                    onTakePhoto = openCamera,
+                    onRemovePhoto = {
+                        if (editPost == null) viewModel.removeImageAt(it)
+                        else if (it < existingPhotos.size) existingPhotos.removeAt(it)
+                        else newPhotoUris.removeAt(it - existingPhotos.size)
+                        activePhotoIndex = (it - 1).coerceAtLeast(0)
+                    }
+                )
             }
 
             // Title Field
@@ -418,50 +503,6 @@ fun CreatePostScreen(
                 }
             }
 
-            // Gallery Section
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(stringResource(R.string.image_gallery), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                        Text(stringResource(R.string.show_real_work), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Text(stringResource(R.string.required_field), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                }
-
-                ImagePicker(
-                    onImageSelected = { viewModel.onImageSelected(it.toString()) }
-                ) { openPicker ->
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            formUiState.selectedImageUri?.let { imageUri ->
-                                AsyncImage(
-                                    model = Uri.parse(imageUri),
-                                    contentDescription = stringResource(R.string.image_gallery),
-                                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp))
-                                )
-                            } ?: Icon(Icons.Default.Image, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (formUiState.selectedImageUri == null) stringResource(R.string.image_required_for_post) else stringResource(R.string.post_image_selected),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            OutlinedButton(onClick = openPicker, enabled = !formUiState.isSubmitting) {
-                                Text(stringResource(R.string.add_post_image))
-                            }
-                        }
-                    }
-                }
-            }
-
             // Location & Coverage
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -489,11 +530,12 @@ fun CreatePostScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = { showLocationPicker = true },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                         ) {
                             Icon(Icons.Default.Map, contentDescription = null)
                             Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.open_location_map))
+                            Text(stringResource(R.string.open_location_map), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                         OutlinedButton(
                             onClick = {
@@ -504,11 +546,12 @@ fun CreatePostScreen(
                                     arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
                                 )
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                         ) {
                             Icon(Icons.Default.MyLocation, contentDescription = null)
                             Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.use_current_location))
+                            Text(stringResource(R.string.use_current_location), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
                     if (locationLatitude != null && locationLongitude != null) {
@@ -517,13 +560,19 @@ fun CreatePostScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
+                        PostLocationMap(
+                            latitude = locationLatitude,
+                            longitude = locationLongitude,
+                            locationLabel = location,
+                            modifier = Modifier.fillMaxWidth().height(160.dp)
+                        )
                     } else if (attemptedSubmit) {
                         Text(stringResource(R.string.post_location_not_selected), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 
@@ -536,16 +585,6 @@ fun CreatePostScreen(
         )
     }
 
-    if (showCreatedDialog) {
-        AlertDialog(
-            onDismissRequest = { showCreatedDialog = false; onOpenHome() },
-            title = { Text(stringResource(R.string.post_submitted)) },
-            text = { Text(stringResource(R.string.post_submitted_message)) },
-            confirmButton = { TextButton(onClick = { showCreatedDialog = false; onOpenProfile() }) { Text(stringResource(R.string.view_my_posts)) } },
-            dismissButton = { TextButton(onClick = { showCreatedDialog = false; onOpenHome() }) { Text(stringResource(R.string.explore)) } }
-        )
-    }
-
     if (showLocationPicker) {
         LocationPickerDialog(
             initialLatitude = locationLatitude,
@@ -555,6 +594,54 @@ fun CreatePostScreen(
                 locationLatitude = latitude
                 locationLongitude = longitude
                 showLocationPicker = false
+            }
+        )
+    }
+
+    if (showEditSavedConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showEditSavedConfirmation = false; onEditSaved() },
+            title = { Text("Cambios enviados a revisión") },
+            text = { Text("Tu publicación pasó a Pendiente de revisión y será verificada por un moderador.") },
+            confirmButton = {
+                TextButton(onClick = { showEditSavedConfirmation = false; onEditSaved() }) {
+                    Text(stringResource(R.string.done))
+                }
+            }
+        )
+    }
+
+    if (showDeleteConfirmation && editPost != null && editViewModel != null) {
+        AlertDialog(
+            onDismissRequest = {
+                if (editUiState?.value?.isSubmitting != true) showDeleteConfirmation = false
+            },
+            title = { Text(stringResource(R.string.delete_post_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.delete_publication_irreversible_message, editPost.title))
+                    if (editUiState?.value?.submissionError != null) {
+                        Text(editUiState.value!!.submissionError!!, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { editViewModel.deletePostPermanently(editPost.id) },
+                    enabled = editUiState?.value?.isSubmitting != true
+                ) {
+                    if (editUiState?.value?.isSubmitting == true) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(R.string.delete_permanently), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmation = false },
+                    enabled = editUiState?.value?.isSubmitting != true
+                ) { Text(stringResource(R.string.cancel)) }
             }
         )
     }

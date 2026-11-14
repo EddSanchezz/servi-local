@@ -4,6 +4,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,26 +12,44 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.alpha
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import com.servilocal.core.util.RequestResult
 import com.servilocal.domain.model.PostStatus
+import com.servilocal.domain.exception.DuplicateReportException
 import com.servilocal.domain.usecase.chat.CreateServiceRequestResult
 import com.servilocal.features.home.viewmodel.ServiceDetailViewModel
 import com.servilocal.core.ui.localizedDistance
 import com.servilocal.core.ui.localizedServiceCategory
+import com.servilocal.core.ui.components.ProfilePhotoAvatar
+import com.servilocal.core.ui.components.PostPhotoViewer
+import com.servilocal.core.ui.components.PostLocationMap
+import coil.compose.AsyncImage
 import com.servilocal.R
 import kotlinx.coroutines.launch
 
@@ -58,6 +77,7 @@ fun ServiceDetailScreen(
     var showReportDialog by remember { mutableStateOf(false) }
     var showServiceRequestDialog by remember { mutableStateOf(false) }
     var serviceRequestError by remember { mutableStateOf<String?>(null) }
+    var viewerIndex by remember { mutableStateOf<Int?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -79,6 +99,11 @@ fun ServiceDetailScreen(
     }
 
     val isOwner = post.providerId == currentUser.id
+    val photoCount = post.photos.size
+    LaunchedEffect(photoCount) {
+        if (photoCount == 0) activeSlideIndex = 0
+        else activeSlideIndex = activeSlideIndex.coerceIn(0, photoCount - 1)
+    }
     val statusLabel = when (post.status) {
         PostStatus.PENDING_VERIFICATION -> stringResource(R.string.pending_review_status)
         PostStatus.APPROVED -> stringResource(R.string.published_status)
@@ -140,7 +165,7 @@ fun ServiceDetailScreen(
         },
         bottomBar = {
             when {
-                post.status == PostStatus.APPROVED -> Surface(
+                post.status in setOf(PostStatus.APPROVED, PostStatus.PENDING_VERIFICATION) -> Surface(
                     color = MaterialTheme.colorScheme.surface,
                     shadowElevation = 12.dp,
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding()
@@ -217,7 +242,28 @@ fun ServiceDetailScreen(
                 }
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+            ) { data ->
+                key(data.visuals.message) {
+                val successful = data.visuals.message == context.getString(R.string.report_success_message)
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn() + slideInVertically { it / 2 },
+                    exit = fadeOut() + slideOutVertically { it / 2 }
+                ) {
+                    CustomFeedbackBanner(
+                        message = data.visuals.message,
+                        icon = if (successful) Icons.Rounded.CheckCircle else Icons.Rounded.WarningAmber,
+                        isSuccess = successful,
+                        onDismiss = data::dismiss
+                    )
+                }
+                }
+            }
+        }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -226,6 +272,40 @@ fun ServiceDetailScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
+            if (isOwner && post.status == PostStatus.REJECTED) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                Text(
+                                    stringResource(R.string.rejection_reason_title),
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                            Text(
+                                post.rejectionReason.orEmpty(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            post.rejectionNotes?.takeIf { it.isNotBlank() }?.let { notes ->
+                                Text(
+                                    stringResource(R.string.rejection_notes_title),
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Text(notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                        }
+                    }
+                }
+            }
+
             // Photo Carousel
             item {
                 Box(
@@ -234,6 +314,7 @@ fun ServiceDetailScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .height(220.dp)
                         .clip(RoundedCornerShape(20.dp))
+                        .clickable(enabled = post.photos.isNotEmpty()) { viewerIndex = activeSlideIndex }
                         .background(
                             Brush.linearGradient(
                                 listOf(
@@ -243,6 +324,14 @@ fun ServiceDetailScreen(
                             )
                         )
                 ) {
+                    if (post.photos.isNotEmpty()) {
+                        AsyncImage(
+                            model = post.photos[activeSlideIndex.coerceIn(post.photos.indices)],
+                            contentDescription = stringResource(R.string.photo_position, activeSlideIndex + 1, photoCount),
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                     // Visual slide content
                     Column(
                         modifier = Modifier
@@ -273,7 +362,7 @@ fun ServiceDetailScreen(
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text(
-                                    text = "${activeSlideIndex + 1} / 3",
+                                    text = "${activeSlideIndex + 1} / ${photoCount.coerceAtLeast(1)}",
                                     style = MaterialTheme.typography.labelSmall.copy(color = Color.White),
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
@@ -300,7 +389,7 @@ fun ServiceDetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         IconButton(
-                            onClick = { activeSlideIndex = (activeSlideIndex - 1 + 3) % 3 },
+                            onClick = { if (photoCount > 0) activeSlideIndex = (activeSlideIndex - 1 + photoCount) % photoCount },
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
@@ -310,7 +399,7 @@ fun ServiceDetailScreen(
                         }
 
                         IconButton(
-                            onClick = { activeSlideIndex = (activeSlideIndex + 1) % 3 },
+                            onClick = { if (photoCount > 0) activeSlideIndex = (activeSlideIndex + 1) % photoCount },
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
@@ -327,7 +416,7 @@ fun ServiceDetailScreen(
                             .padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        repeat(3) { i ->
+                        repeat(photoCount.coerceAtLeast(1)) { i ->
                             Box(
                                 modifier = Modifier
                                     .size(if (i == activeSlideIndex) 8.dp else 6.dp)
@@ -466,6 +555,12 @@ fun ServiceDetailScreen(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
+                                PostLocationMap(
+                                    latitude = post.latitude,
+                                    longitude = post.longitude,
+                                    locationLabel = post.location,
+                                    modifier = Modifier.fillMaxWidth().height(180.dp)
+                                )
                             }
                         }
                     }
@@ -497,19 +592,7 @@ fun ServiceDetailScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(50.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.secondaryContainer),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = post.providerName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.joinToString(""),
-                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
+                                    ProfilePhotoAvatar(post.providerName, post.providerAvatar, Modifier.size(50.dp))
                                     Column {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Text(post.providerName, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
@@ -536,20 +619,13 @@ fun ServiceDetailScreen(
                             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Icon(Icons.Default.ThumbUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                    Text(
-                                        text = stringResource(R.string.confidence_votes, likes.count),
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                Text(stringResource(R.string.quality_satisfaction), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Default.ThumbUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = stringResource(R.string.confidence_votes, likes.count),
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
                     }
@@ -680,13 +756,16 @@ fun ServiceDetailScreen(
             title = stringResource(R.string.report_post),
             onDismiss = { showReportDialog = false },
             onSubmit = { reason, details ->
-                val success = viewModel.reportPost(post.id, reason, details)
-                showReportDialog = false
                 coroutineScope.launch {
-                    if (success) {
-                        snackbarHostState.showSnackbar(context.getString(R.string.report_sent_to_moderation))
-                    } else {
-                        snackbarHostState.showSnackbar(context.getString(R.string.cannot_report_own_post))
+                    val outcome = runCatching { viewModel.reportPost(post.id, reason, details) }
+                    showReportDialog = false
+                    when {
+                        outcome.getOrNull() == true -> snackbarHostState.showSnackbar(context.getString(R.string.report_success_message))
+                        outcome.exceptionOrNull() is DuplicateReportException -> snackbarHostState.showSnackbar(context.getString(R.string.report_duplicate_message))
+                        outcome.exceptionOrNull() != null -> snackbarHostState.showSnackbar(context.getString(R.string.report_failure_message))
+                        else -> snackbarHostState.showSnackbar(
+                            context.getString(R.string.cannot_report_own_post)
+                        )
                     }
                 }
             }
@@ -721,6 +800,54 @@ fun ServiceDetailScreen(
                 }
             }
         )
+    }
+
+    viewerIndex?.let { index ->
+        PostPhotoViewer(
+            photos = post.photos,
+            initialIndex = index,
+            onDismiss = { viewerIndex = null }
+        )
+    }
+}
+
+@Composable
+private fun CustomFeedbackBanner(
+    message: String,
+    icon: ImageVector,
+    isSuccess: Boolean,
+    onDismiss: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val container = if (isSuccess) colors.primaryContainer else colors.errorContainer
+    val content = if (isSuccess) colors.onPrimaryContainer else colors.onErrorContainer
+    val border = if (isSuccess) colors.primary.copy(alpha = 0.3f) else colors.error.copy(alpha = 0.3f)
+    Surface(
+        modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        color = container,
+        border = BorderStroke(1.dp, border)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(32.dp).clip(CircleShape).background(content.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) { Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp)) }
+            Text(
+                message,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = content,
+                maxLines = 3
+            )
+            IconButton(onClick = onDismiss, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.close_dialog), tint = content, modifier = Modifier.size(18.dp))
+            }
+        }
     }
 }
 

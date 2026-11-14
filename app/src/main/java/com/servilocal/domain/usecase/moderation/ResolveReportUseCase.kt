@@ -28,16 +28,15 @@ class ResolveReportUseCase @Inject constructor(
         reportId: String,
         resolution: ReportResolution,
         moderatorComment: String,
-        newPostStatus: PostStatus? = null
+        newPostStatus: PostStatus? = null,
+        blockUser: Boolean = false
     ): Boolean {
         if (authRepository.currentUser.value.role != UserRole.MODERATOR) return false
-        if (resolution == ReportResolution.UPHELD && moderatorComment.isBlank()) return false
-
         val report = moderationRepository.reports.value.firstOrNull { it.id == reportId } ?: return false
         if (report.status != ReportStatus.PENDING) return false
 
         val statusChange = if (resolution == ReportResolution.UPHELD) newPostStatus else null
-        if (statusChange != null && statusChange != PostStatus.REJECTED && statusChange != PostStatus.FINISHED) {
+        if (statusChange != null && statusChange != PostStatus.REJECTED) {
             return false
         }
         val post = postRepository.posts.value.firstOrNull { it.id == report.targetPostId }
@@ -45,28 +44,19 @@ class ResolveReportUseCase @Inject constructor(
             return false
         }
 
-        if (!moderationRepository.resolveReport(reportId, resolution, moderatorComment.trim())) {
+        if (!moderationRepository.resolveReport(reportId, resolution, moderatorComment.trim(), newPostStatus, blockUser)) {
             return false
         }
 
         if (statusChange != null && post != null) {
-            postRepository.moderatePost(
-                postId = report.targetPostId,
-                status = statusChange,
-                reason = if (statusChange == PostStatus.REJECTED) "Reporte: ${report.reasonTitle}" else null,
-                notes = moderatorComment.trim()
-            )
-
             val statusLabel = if (statusChange == PostStatus.REJECTED) "rechazada" else "finalizada"
-            post.providerId?.let { authorId ->
-                createNotification(
-                    userId = authorId,
-                    title = "Publicación $statusLabel por reporte",
-                    body = "Tu publicación '${post.title}' fue $statusLabel tras la revisión de un reporte. Comentario del moderador: ${moderatorComment.trim()}",
-                    type = NotificationType.SYSTEM,
-                    relatedPostId = post.id
-                )
-            }
+            post.providerId?.let { authorId -> createNotification(
+                userId = authorId,
+                title = "Publicación $statusLabel por reporte",
+                body = "Tu publicación '${post.title}' fue $statusLabel tras la revisión de las denuncias.",
+                type = NotificationType.SYSTEM,
+                relatedPostId = post.id
+            ) }
         }
 
         // Notificar al denunciante

@@ -9,9 +9,8 @@ class ResolveReportsForPostUseCase @Inject constructor(
     private val moderationRepository: ModerationRepository,
     private val authRepository: AuthRepository
 ) {
-    operator fun invoke(postId: String): Boolean {
+    suspend operator fun invoke(postId: String): Boolean {
         if (authRepository.currentUser.value.role != UserRole.MODERATOR) return false
-        moderationRepository.resolveReportsForPost(postId)
-        return true
+        return moderationRepository.resolveReportsForPost(postId)
     }
 }
