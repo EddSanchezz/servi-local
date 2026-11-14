@@ -22,7 +22,7 @@ class TogglePostLikeUseCase @Inject constructor(
     private val authRepository: AuthRepository,
     private val createNotification: CreateNotificationUseCase
 ) {
-    operator fun invoke(postId: String): ToggleLikeResult {
+    suspend operator fun invoke(postId: String): ToggleLikeResult {
         val post = postRepository.posts.value.firstOrNull { it.id == postId }
             ?: return ToggleLikeResult.PostNotFound
         val currentUser = authRepository.currentUser.value

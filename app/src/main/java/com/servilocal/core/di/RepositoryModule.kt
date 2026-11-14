@@ -2,6 +2,8 @@ package com.servilocal.core.di
 
 import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.data.repository.cloudinary.CloudinaryImageStorageRepository
+import com.servilocal.data.repository.firebase.FirebaseCommentRepository
+import com.servilocal.data.repository.firebase.FirebaseLikeRepository
 import com.servilocal.data.repository.firebase.FirebasePostRepository
 import com.servilocal.data.repository.memory.BadgeRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
@@ -40,11 +42,11 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindCommentRepository(repository: MockDataRepository): CommentRepository
+    abstract fun bindCommentRepository(repository: FirebaseCommentRepository): CommentRepository
 
     @Binds
     @Singleton
-    abstract fun bindLikeRepository(repository: MockDataRepository): LikeRepository
+    abstract fun bindLikeRepository(repository: FirebaseLikeRepository): LikeRepository
 
     @Binds
     @Singleton

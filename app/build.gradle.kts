@@ -88,6 +88,7 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.kotlinx.coroutines.play.services)
   implementation(libs.osmdroid.android)
+  implementation(libs.play.services.location)
 
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

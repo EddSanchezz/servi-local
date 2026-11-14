@@ -608,8 +608,10 @@ fun ServiceDetailScreen(
                             )
                             IconButton(
                                 onClick = {
-                                    if (viewModel.addComment(post.id, newCommentText)) {
-                                        newCommentText = ""
+                                    coroutineScope.launch {
+                                        if (viewModel.addComment(post.id, newCommentText)) {
+                                            newCommentText = ""
+                                        }
                                     }
                                 }
                             ) {

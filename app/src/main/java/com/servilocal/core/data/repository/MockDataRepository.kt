@@ -160,7 +160,7 @@ class MockDataRepository @Inject constructor(
         }
     }
 
-    override fun toggleLike(postId: String, userId: String): Boolean {
+    override suspend fun toggleLike(postId: String, userId: String): Boolean {
         val existing = erdLikes.value.firstOrNull { it.postId == postId && it.userId == userId }
         if (existing == null) {
             erdLikes.update { current ->
@@ -191,7 +191,7 @@ class MockDataRepository @Inject constructor(
     override fun hasLiked(postId: String, userId: String): Boolean =
         erdLikes.value.any { it.postId == postId && it.userId == userId }
 
-    override fun addComment(postId: String, userId: String, authorName: String, content: String): Boolean {
+    override suspend fun addComment(postId: String, userId: String, authorName: String, content: String): Boolean {
         if (content.isBlank()) return false
         val post = _posts.value.firstOrNull { it.id == postId }
 
@@ -199,6 +199,7 @@ class MockDataRepository @Inject constructor(
             id = "c_${UUID.randomUUID()}",
             postId = postId,
             userId = userId,
+            authorName = authorName,
             content = content
         )
         erdComments.update { listOf(newComment) + it }

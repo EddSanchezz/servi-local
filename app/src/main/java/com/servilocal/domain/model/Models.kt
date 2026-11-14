@@ -109,6 +109,7 @@ data class Comment(
     val id: String,
     val postId: String,
     val userId: String,
+    val authorName: String = "",
     val content: String,
     val createdAtMillis: Long = System.currentTimeMillis()
 )

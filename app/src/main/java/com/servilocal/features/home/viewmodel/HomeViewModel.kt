@@ -2,6 +2,8 @@ package com.servilocal.features.home.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.servilocal.core.location.LocationProvider
+import com.servilocal.features.posts.coordinator.PublishPostCoordinator
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class HomeUiState(
     val searchQuery: String = "",
@@ -40,7 +43,10 @@ class HomeViewModel @Inject constructor(
     observePosts: ObservePostsUseCase,
     private val filterPostsByCategory: FilterPostsByCategoryUseCase,
     private val filterPostsByQuery: FilterPostsByQueryUseCase,
-    private val filterPostsByLocation: FilterPostsByLocationUseCase
+    private val filterPostsByLocation: FilterPostsByLocationUseCase,
+    private val locationProvider: LocationProvider? = null,
+    private val publishPostCoordinator: PublishPostCoordinator? = null
+
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -81,5 +87,18 @@ class HomeViewModel @Inject constructor(
     }
     fun clearOriginLocation() = _uiState.update { it.copy(originLatitude = null, originLongitude = null) }
     fun setDisplayMode(value: ViewDisplayMode) = _uiState.update { it.copy(displayMode = value) }
-    fun toggleUpvote(postId: String): Boolean = togglePostLikeUseCase(postId) is ToggleLikeResult.Success
+    fun refreshLocationInBackground() {
+        viewModelScope.launch {
+            locationProvider?.getBestAvailableLocation()?.let { location ->
+                setOriginLocation(location.latitude, location.longitude)
+            }
+        }
+    }
+    fun toggleUpvote(postId: String) {
+        viewModelScope.launch {
+            togglePostLikeUseCase(postId)
+        }
+    }
+
 }
+

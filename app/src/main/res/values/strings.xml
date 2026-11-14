@@ -504,6 +504,7 @@
     <string name="location_permission_denied_manual_available">No se concedió el permiso. Puedes elegir el punto manualmente en el mapa.</string>
     <string name="current_location_unavailable">No se pudo obtener la ubicación actual. Puedes elegir el punto manualmente en el mapa.</string>
     <string name="image_required_for_post">Agrega al menos una foto de tu servicio.</string>
+    <string name="post_upload_progress">Subiendo imagen %1$d de %2$d (%3$d%%)</string>
     <string name="add_post_image">Agregar foto</string>
     <string name="uploading_post_image">Subiendo imagen… %1$d%%</string>
     <string name="post_image_upload_failed">No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.</string>

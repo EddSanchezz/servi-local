@@ -501,6 +501,7 @@
     <string name="location_permission_denied_manual_available">Location permission was denied. You can still choose the point manually on the map.</string>
     <string name="current_location_unavailable">Could not get the current location. You can choose the point manually on the map.</string>
     <string name="image_required_for_post">Add at least one photo of your service.</string>
+    <string name="post_upload_progress">Uploading image %1$d of %2$d (%3$d%%)</string>
     <string name="add_post_image">Add photo</string>
     <string name="uploading_post_image">Uploading image… %1$d%%</string>
     <string name="post_image_upload_failed">Could not upload the photo. Check your connection and try again.</string>
