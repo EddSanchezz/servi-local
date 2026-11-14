@@ -9,6 +9,7 @@ import com.servilocal.domain.usecase.chat.MarkConversationReadUseCase
 import com.servilocal.domain.usecase.chat.ObserveChatMessagesUseCase
 import com.servilocal.domain.usecase.chat.ObserveChatConversationsUseCase
 import com.servilocal.domain.usecase.chat.SendMessageUseCase
+import com.servilocal.domain.usecase.chat.SoftDeleteChatUseCase
 import com.servilocal.domain.usecase.chat.UpdateRequestStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
@@ -23,6 +24,7 @@ class ChatDetailViewModel @Inject constructor(
     observeChatMessages: ObserveChatMessagesUseCase,
     private val markConversationReadUseCase: MarkConversationReadUseCase,
     private val sendMessageUseCase: SendMessageUseCase,
+    private val softDeleteChatUseCase: SoftDeleteChatUseCase,
     private val updateRequestStatusUseCase: UpdateRequestStatusUseCase
 ) : ViewModel() {
     private val chatId: String = savedStateHandle.get<String>("chatId").orEmpty()
@@ -31,5 +33,6 @@ class ChatDetailViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     fun markConversationRead(id: String) = markConversationReadUseCase(id)
     fun sendMessage(id: String, text: String) = sendMessageUseCase(id, text)
+    fun softDeleteChat(id: String) = softDeleteChatUseCase(id)
     fun updateConversationStatus(id: String, status: ChatStatus) = updateRequestStatusUseCase(id, status)
 }

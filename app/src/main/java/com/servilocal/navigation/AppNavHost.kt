@@ -116,13 +116,15 @@ object AppRoute {
     const val SERVICE_DETAIL = "service-detail/{postId}"
     const val EDIT_POST = "edit-post/{postId}"
     const val MY_POSTS = "my-posts"
-    const val CHAT_DETAIL = "chat-detail/{chatId}"
+    const val CHAT_DETAIL = "chat-detail/{chatId}?initialText={initialText}"
     const val MODERATION_DETAIL = "moderation-detail/{postId}"
     const val MODERATION_REPORT_DETAIL = "moderation-report-detail/{reportId}"
 
     fun serviceDetail(postId: String) = "service-detail/$postId"
     fun editPost(postId: String) = "edit-post/$postId"
-    fun chatDetail(chatId: String) = "chat-detail/$chatId"
+    fun chatDetail(chatId: String, initialText: String? = null) =
+        if (initialText.isNullOrBlank()) "chat-detail/$chatId"
+        else "chat-detail/$chatId?initialText=${Uri.encode(initialText)}"
     fun moderationDetail(postId: String) = "moderation-detail/$postId"
     fun moderationReportDetail(reportId: String) = "moderation-report-detail/$reportId"
     fun passwordReset(code: String) = "password-reset?code=${Uri.encode(code)}"
@@ -438,7 +440,7 @@ private fun DashboardNavigation(
                     postId = entry.arguments?.getString("postId").orEmpty(),
                     viewModel = viewModel,
                     onBack = { navController.navigateUp() },
-                    onOpenChat = { navController.navigate(AppRoute.chatDetail(it)) },
+                    onOpenChat = { chatId, initialText -> navController.navigate(AppRoute.chatDetail(chatId, initialText)) },
                     onEditPost = { navController.navigate(AppRoute.editPost(it)) }
                 )
             }
@@ -459,9 +461,21 @@ private fun DashboardNavigation(
                     }
                 )
             }
-            composable(AppRoute.CHAT_DETAIL, arguments = listOf(navArgument("chatId") { type = NavType.StringType })) { entry ->
+            composable(
+                route = AppRoute.CHAT_DETAIL,
+                arguments = listOf(
+                    navArgument("chatId") { type = NavType.StringType },
+                    navArgument("initialText") { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
+            ) { entry ->
                 val viewModel: ChatDetailViewModel = hiltViewModel()
-                ChatDetailScreen(entry.arguments?.getString("chatId").orEmpty(), viewModel, appUiState, onBack = { navController.navigateUp() })
+                ChatDetailScreen(
+                    chatId = entry.arguments?.getString("chatId").orEmpty(),
+                    initialText = entry.arguments?.getString("initialText"),
+                    viewModel = viewModel,
+                    appUiState = appUiState,
+                    onBack = { navController.navigateUp() }
+                )
             }
             composable(AppRoute.MODERATION_DETAIL, arguments = listOf(navArgument("postId") { type = NavType.StringType })) { entry ->
                 val viewModel: ModerationViewModel = hiltViewModel()

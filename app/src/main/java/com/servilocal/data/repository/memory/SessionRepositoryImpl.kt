@@ -2,6 +2,7 @@ package com.servilocal.data.repository.memory
 
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.model.UserSession
+import com.servilocal.domain.model.UserStatus
 import com.servilocal.domain.repository.SessionRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -32,14 +33,24 @@ class SessionRepositoryImpl @Inject constructor(
         if (firebaseUser == null) {
             _session.value = null
         } else {
-            _session.value = UserSession(firebaseUser.uid, UserRole.USER)
+            _session.value = null
             scope.launch {
-                val role = runCatching {
+                val profile = runCatching {
                     firestore?.collection("users")?.document(firebaseUser.uid)?.get()?.await()
-                        ?.getString("role")
-                        ?.let { UserRole.valueOf(it) }
-                }.getOrNull() ?: UserRole.USER
-                _session.value = UserSession(firebaseUser.uid, role)
+                }.getOrNull()
+                // A blocked account can trigger sign-out while this Firestore read is in
+                // flight. Never restore its session from a stale read or permission error.
+                if (auth?.currentUser?.uid != firebaseUser.uid || profile == null || !profile.exists()) {
+                    return@launch
+                }
+                if (profile.getString("status") == UserStatus.BLOCKED.name) return@launch
+
+                val role = profile.getString("role")
+                    ?.let { runCatching { UserRole.valueOf(it) }.getOrNull() }
+                    ?: UserRole.USER
+                if (auth.currentUser?.uid == firebaseUser.uid) {
+                    _session.value = UserSession(firebaseUser.uid, role)
+                }
             }
         }
     }

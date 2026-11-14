@@ -113,6 +113,7 @@ fun CreatePostScreen(
 
     LaunchedEffect(formUiState.isCreated) {
         if (formUiState.isCreated && editPost == null) {
+            viewModel.acknowledgeCreation()
             onOpenHome()
         }
     }

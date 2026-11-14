@@ -2,6 +2,7 @@ package com.servilocal.core.di
 
 import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.data.repository.cloudinary.CloudinaryImageStorageRepository
+import com.servilocal.data.repository.firebase.FirebaseChatRepository
 import com.servilocal.data.repository.firebase.FirebasePostRepository
 import com.servilocal.data.repository.firebase.FirebaseModerationRepository
 import com.servilocal.data.repository.memory.BadgeRepositoryImpl
@@ -49,7 +50,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindChatRepository(repository: MockDataRepository): ChatRepository
+    abstract fun bindChatRepository(repository: FirebaseChatRepository): ChatRepository
 
     @Binds
     @Singleton

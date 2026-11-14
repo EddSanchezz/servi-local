@@ -7,11 +7,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +32,7 @@ import com.servilocal.domain.model.ChatConversation
 import com.servilocal.domain.model.ChatStatus
 import com.servilocal.features.chat.viewmodel.MessagesViewModel
 import com.servilocal.R
+import coil.compose.AsyncImage
 
 @Composable
 fun MessagesScreen(
@@ -41,28 +41,20 @@ fun MessagesScreen(
     modifier: Modifier = Modifier
 ) {
     val conversations by viewModel.conversations.collectAsStateWithLifecycle()
-    val myRequests by viewModel.myRequests.collectAsStateWithLifecycle(initialValue = emptyList())
-    val receivedRequests by viewModel.receivedRequests.collectAsStateWithLifecycle(initialValue = emptyList())
     var searchChatQuery by remember { mutableStateOf("") }
-    var requestFilter by remember { mutableStateOf("Todos") }
-
-    val requestsToShow = when (requestFilter) {
-        "Enviadas" -> myRequests
-        "Recibidas" -> receivedRequests
-        else -> conversations
-    }
-
-    val filteredConversations = remember(conversations, myRequests, receivedRequests, requestFilter, searchChatQuery) {
-        requestsToShow.filter { conv ->
-            searchChatQuery.isBlank() ||
+    val filteredConversations = remember(conversations, searchChatQuery) {
+        conversations.filter { conv ->
+            conv.isPostAvailable && (
+                searchChatQuery.isBlank() ||
                     conv.recipientName.contains(searchChatQuery, ignoreCase = true) ||
                     conv.serviceTitle.contains(searchChatQuery, ignoreCase = true) ||
                     conv.lastMessage.contains(searchChatQuery, ignoreCase = true)
+                )
         }
     }
 
     val totalUnread = remember(conversations) {
-        conversations.sumOf { it.unreadCount }
+        conversations.filter { it.isPostAvailable }.sumOf { it.unreadCount }
     }
 
     Column(
@@ -146,61 +138,6 @@ fun MessagesScreen(
             )
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf("Todos", "Enviadas", "Recibidas").forEach { filter ->
-                val selected = requestFilter == filter
-                FilterChip(
-                    selected = selected,
-                    onClick = { requestFilter = filter },
-                    label = {
-                        Text(when (filter) {
-                            "Enviadas" -> stringResource(R.string.requests_i_made)
-                            "Recibidas" -> stringResource(R.string.requests_received)
-                            else -> stringResource(R.string.all_requests)
-                        })
-                    }
-                )
-            }
-        }
-
-        // Trust Notification Strip
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    Icons.Default.VerifiedUser,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Column {
-                    Text(
-                        text = stringResource(R.string.direct_and_safe),
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.direct_payment_notice),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
         // Conversation List
         if (filteredConversations.isEmpty()) {
             Box(
@@ -216,11 +153,7 @@ fun MessagesScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        when (requestFilter) {
-                            "Enviadas" -> stringResource(R.string.sent_requests_empty)
-                            "Recibidas" -> stringResource(R.string.received_requests_empty)
-                            else -> stringResource(R.string.conversations_empty)
-                        },
+                        stringResource(R.string.conversations_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -271,7 +204,7 @@ fun ConversationItemCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Avatar with online status
+                // Avatar
                 Box(modifier = Modifier.size(48.dp)) {
                     Box(
                         modifier = Modifier
@@ -280,20 +213,21 @@ fun ConversationItemCard(
                             .background(MaterialTheme.colorScheme.secondaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = conversation.recipientName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        if (!conversation.recipientAvatar.isNullOrBlank()) {
+                            AsyncImage(
+                                model = conversation.recipientAvatar,
+                                contentDescription = conversation.recipientName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = conversation.recipientName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .size(12.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF10B981))
-                            .border(2.dp, Color.White, CircleShape)
-                    )
                 }
 
                 // Details
@@ -316,14 +250,15 @@ fun ConversationItemCard(
                     }
 
                     // Service title (higher hierarchy than the contact name)
+                    if (conversation.isClientRole) {
                     Text(
                         text = conversation.serviceTitle,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(vertical = 2.dp)
+                        overflow = TextOverflow.Ellipsis
                     )
+                    }
 
                     Text(
                         text = conversation.lastMessage,
@@ -337,57 +272,19 @@ fun ConversationItemCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Bottom metadata row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Status badge
-                val (statusBg, statusFg, statusText) = when (conversation.status) {
-                    ChatStatus.IN_PROGRESS -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, stringResource(R.string.status_in_progress_title))
-                    ChatStatus.PENDING -> Triple(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.status_pending))
-                    ChatStatus.COMPLETED -> Triple(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, stringResource(R.string.status_completed_title))
-                    ChatStatus.NEW_REQUEST -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, stringResource(R.string.status_new_request))
-                    ChatStatus.DECLINED -> Triple(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant, stringResource(R.string.status_cancelled))
-                }
-
-                Surface(
-                    color = statusBg,
-                    shape = RoundedCornerShape(12.dp)
+            if (hasUnread) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error)
+                        .testTag("conversation_unread_${conversation.id}"),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = statusFg,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-
-                if (hasUnread) {
-                    Box(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.error)
-                            .testTag("conversation_unread_${conversation.id}"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = conversation.unreadCount.toString(),
-                            style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold)
-                        )
-                    }
-                } else {
-                    Icon(
-                        Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(18.dp)
+                        text = conversation.unreadCount.toString(),
+                        style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold)
                     )
                 }
             }

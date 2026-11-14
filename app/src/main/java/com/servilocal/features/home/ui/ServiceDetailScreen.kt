@@ -59,7 +59,7 @@ fun ServiceDetailScreen(
     postId: String,
     viewModel: ServiceDetailViewModel,
     onBack: () -> Unit,
-    onOpenChat: (String) -> Unit,
+    onOpenChat: (String, String?) -> Unit,
     onEditPost: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -75,8 +75,6 @@ fun ServiceDetailScreen(
     var newCommentText by remember { mutableStateOf("") }
     var isMenuExpanded by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
-    var showServiceRequestDialog by remember { mutableStateOf(false) }
-    var serviceRequestError by remember { mutableStateOf<String?>(null) }
     var viewerIndex by remember { mutableStateOf<Int?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -212,15 +210,18 @@ fun ServiceDetailScreen(
                                 }
                                 Button(
                                     onClick = {
-                                        serviceRequestError = null
-                                        showServiceRequestDialog = true
+                                        val result = viewModel.startConversation(post.id)
+                                        if (result != null) {
+                                            val initialText = if (result.isNewChat) "Me interesa '${result.postTitle}'" else null
+                                            onOpenChat(result.conversationId, initialText)
+                                        }
                                     },
                                     shape = RoundedCornerShape(24.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                     modifier = Modifier.weight(1.15f).height(48.dp).testTag("request_service_button"),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                                 ) {
-                                    Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(stringResource(R.string.request_service), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1)
                                 }
@@ -765,36 +766,6 @@ fun ServiceDetailScreen(
                             context.getString(R.string.cannot_report_own_post)
                         )
                     }
-                }
-            }
-        )
-    }
-
-    if (showServiceRequestDialog) {
-        ServiceRequestDialog(
-            applicantName = currentUser.name,
-            errorMessage = serviceRequestError,
-            onDismiss = { showServiceRequestDialog = false },
-            onSubmit = { applicantName, contact, address, description ->
-                when (val result = viewModel.createServiceRequest(
-                    postId = post.id,
-                    applicantName = applicantName,
-                    contact = contact,
-                    address = address,
-                    description = description
-                )) {
-                    is CreateServiceRequestResult.Success -> {
-                        showServiceRequestDialog = false
-                        onOpenChat(result.conversationId)
-                    }
-                    CreateServiceRequestResult.PostNotFound -> serviceRequestError = context.getString(R.string.post_unavailable)
-                    CreateServiceRequestResult.PostNotApproved -> serviceRequestError = context.getString(R.string.verified_request_only)
-                    CreateServiceRequestResult.OwnPost -> serviceRequestError = context.getString(R.string.own_post_request_error)
-                    CreateServiceRequestResult.MissingApplicantName -> serviceRequestError = context.getString(R.string.name_required_short)
-                    CreateServiceRequestResult.MissingContactMethod -> serviceRequestError = context.getString(R.string.contact_required)
-                    CreateServiceRequestResult.MissingAddress -> serviceRequestError = context.getString(R.string.address_required)
-                    CreateServiceRequestResult.MissingDescription -> serviceRequestError = context.getString(R.string.service_description_required)
-                    CreateServiceRequestResult.RequestCouldNotBeCreated -> serviceRequestError = context.getString(R.string.request_creation_failed)
                 }
             }
         )

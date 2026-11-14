@@ -29,6 +29,10 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 @Singleton
@@ -46,39 +50,42 @@ class FirebaseUserRepository @Inject constructor(
     override val moderatorUser: StateFlow<UserProfile> = _moderatorUser.asStateFlow()
     private val _blockedAccountNotice = MutableStateFlow<String?>(null)
     override val blockedAccountNotice: StateFlow<String?> = _blockedAccountNotice.asStateFlow()
-    private var profileRegistration: ListenerRegistration? = null
     private var moderatorRegistration: ListenerRegistration? = null
+    private val authScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
         val firebaseUser = firebaseAuth.currentUser
-        profileRegistration?.remove()
         moderatorRegistration?.remove()
-        profileRegistration = null
         moderatorRegistration = null
         if (firebaseUser == null) {
             _currentUser.value = signedOutProfile()
             _moderatorUser.value = signedOutModeratorProfile()
         } else {
-            profileRegistration = usersCollection.document(firebaseUser.uid)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
-                    val user = snapshot.toUser(firebaseUser.uid) ?: return@addSnapshotListener
-                    if (user.status == UserStatus.BLOCKED) {
-                        _blockedAccountNotice.value = user.name.ifBlank { user.email }
-                        auth.signOut()
-                        return@addSnapshotListener
-                    }
-                    publish(user)
-                    val profile = user.toUserProfile()
-                    _currentUser.value = profile
-                    if (user.role == UserRole.MODERATOR) {
-                        observeModeratorProfile(firebaseUser.uid, profile)
-                    } else {
-                        moderatorRegistration?.remove()
-                        moderatorRegistration = null
-                        _moderatorUser.value = signedOutModeratorProfile()
-                    }
+            authScope.launch {
+                // Use a one-shot profile read here rather than keeping a profile
+                // listener alive while a blocked account is being signed out.
+                val user = runCatching {
+                    usersCollection.document(firebaseUser.uid).get().await()
+                        .takeIf { it.exists() }
+                        ?.toUser(firebaseUser.uid)
+                }.getOrNull() ?: return@launch
+                if (auth.currentUser?.uid != firebaseUser.uid) return@launch
+                if (user.status == UserStatus.BLOCKED) {
+                    _blockedAccountNotice.value = user.name.ifBlank { user.email }
+                    auth.signOut()
+                    return@launch
                 }
+                publish(user)
+                val profile = user.toUserProfile()
+                _currentUser.value = profile
+                if (user.role == UserRole.MODERATOR) {
+                    observeModeratorProfile(firebaseUser.uid, profile)
+                } else {
+                    moderatorRegistration?.remove()
+                    moderatorRegistration = null
+                    _moderatorUser.value = signedOutModeratorProfile()
+                }
+            }
         }
     }
 

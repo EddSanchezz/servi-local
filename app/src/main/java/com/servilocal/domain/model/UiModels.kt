@@ -82,13 +82,21 @@ data class ChatConversation(
     val providerName: String = "Proveedor",
     val recipientName: String,
     val recipientAvatar: String? = null,
+    val clientAvatar: String? = null,
+    val providerAvatar: String? = null,
     val serviceTitle: String,
     val servicePrice: String,
-    val status: ChatStatus,
+    val status: ChatStatus = ServiceRequestStatus.IN_PROGRESS,
     val lastMessage: String,
     val lastTime: String,
     val unreadCount: Int = 0,
     val isClientRole: Boolean = true,
+    val deletedByUsers: List<String> = emptyList(),
+    val postStatus: PostStatus = PostStatus.APPROVED,
+    val providerStatus: UserStatus = UserStatus.ACTIVE,
+    val isPostAvailable: Boolean = postStatus != PostStatus.REJECTED &&
+        providerStatus != UserStatus.BLOCKED &&
+        providerStatus != UserStatus.DELETED,
     val requestAddress: String? = null,
     val requestProblem: String? = null,
     val requestPhone: String? = null,
@@ -102,6 +110,7 @@ data class ChatMessageItem(
     val text: String,
     val time: String,
     val isFromMe: Boolean,
+    val senderAvatar: String? = null,
     val read: Boolean = true
 )
 
