@@ -18,6 +18,9 @@ val localProperties = Properties().apply {
 }
 val cloudinaryCloudName = localProperties.getProperty("CLOUDINARY_CLOUD_NAME", "").trim()
 val cloudinaryUploadPreset = localProperties.getProperty("CLOUDINARY_UPLOAD_PRESET", "").trim()
+val openRouterApiKey = localProperties.getProperty("OPENROUTER_API_KEY", "").trim()
+val openRouterModel = localProperties.getProperty("OPENROUTER_MODEL", "inclusionai/ling-3.2-flash:free").trim()
+val openRouterFallbackModels = localProperties.getProperty("OPENROUTER_FALLBACK_MODELS", "baidu/ernie-5.5-flash-preview:free").split(",").map(String::trim).filter(String::isNotBlank)
 
 android {
   namespace = "com.servilocal"
@@ -32,6 +35,9 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"$cloudinaryCloudName\"")
     buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"$cloudinaryUploadPreset\"")
+    buildConfigField("String", "OPENROUTER_API_KEY", "\"$openRouterApiKey\"")
+    buildConfigField("String", "OPENROUTER_MODEL", "\"$openRouterModel\"")
+    buildConfigField("String", "OPENROUTER_FALLBACK_MODELS", "\"${openRouterFallbackModels.joinToString(",")}\"")
   }
 
   buildTypes {
@@ -89,6 +95,8 @@ dependencies {
   implementation(libs.kotlinx.coroutines.play.services)
   implementation(libs.play.services.location)
   implementation(libs.osmdroid.android)
+  implementation(libs.retrofit)
+  implementation(libs.converter.gson)
 
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

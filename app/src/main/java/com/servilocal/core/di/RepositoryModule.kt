@@ -2,6 +2,7 @@ package com.servilocal.core.di
 
 import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.data.repository.cloudinary.CloudinaryImageStorageRepository
+import com.servilocal.data.repository.openrouter.OpenRouterAiPostAssistantRepository
 import com.servilocal.data.repository.firebase.FirebaseChatRepository
 import com.servilocal.data.repository.firebase.FirebasePostRepository
 import com.servilocal.data.repository.firebase.FirebaseModerationRepository
@@ -9,6 +10,7 @@ import com.servilocal.data.repository.memory.BadgeRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.firebase.FirebaseUserRepository
 import com.servilocal.domain.repository.AuthRepository
+import com.servilocal.domain.repository.AiPostAssistantRepository
 import com.servilocal.domain.repository.BadgeRepository
 import com.servilocal.domain.repository.ChatRepository
 import com.servilocal.domain.repository.CommentRepository
@@ -28,6 +30,10 @@ import jakarta.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindAiPostAssistantRepository(repository: OpenRouterAiPostAssistantRepository): AiPostAssistantRepository
+
     @Binds
     @Singleton
     abstract fun bindImageStorageRepository(repository: CloudinaryImageStorageRepository): ImageStorageRepository

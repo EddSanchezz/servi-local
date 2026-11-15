@@ -88,6 +88,7 @@ import com.servilocal.features.onboarding.ui.OnboardingScreen
 import com.servilocal.features.posts.ui.CreatePostScreen
 import com.servilocal.features.posts.ui.EditPostScreen
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
+import com.servilocal.features.posts.viewmodel.AiPostAssistantViewModel
 import com.servilocal.features.posts.viewmodel.EditPostViewModel
 import com.servilocal.features.profile.ui.UserProfileScreen
 import com.servilocal.features.profile.ui.MyPostsScreen
@@ -350,7 +351,8 @@ private fun DashboardNavigation(
             }
             composable(AppRoute.CREATE_POST) {
                 val viewModel: CreatePostViewModel = hiltViewModel()
-                CreatePostScreen(viewModel, onBack = { navController.navigateUp() }, onOpenHome = { navigateTab(AppRoute.HOME) }, onOpenProfile = { navigateTab(AppRoute.PROFILE) })
+                val aiViewModel: AiPostAssistantViewModel = hiltViewModel()
+                CreatePostScreen(viewModel, aiViewModel = aiViewModel, onBack = { navController.navigateUp() }, onOpenHome = { navigateTab(AppRoute.HOME) }, onOpenProfile = { navigateTab(AppRoute.PROFILE) })
             }
             composable(AppRoute.PROFILE) {
                 val viewModel: ProfileViewModel = hiltViewModel()
