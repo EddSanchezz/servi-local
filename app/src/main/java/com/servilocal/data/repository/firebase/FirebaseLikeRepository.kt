@@ -15,6 +15,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -33,6 +34,7 @@ class FirebaseLikeRepository @Inject constructor(
         .flatMapLatest { session ->
             if (session == null) flowOf(emptyList()) else observeLikes()
         }
+        .catch { emit(emptyList()) }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     override suspend fun toggleLike(postId: String, userId: String): Boolean {
@@ -66,7 +68,7 @@ class FirebaseLikeRepository @Inject constructor(
     private fun observeLikes(): Flow<List<Like>> = callbackFlow {
         val registration: ListenerRegistration = likesCollection.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                trySend(emptyList())
             } else {
                 trySend(snapshot?.documents?.mapNotNull { it.toLike() } ?: emptyList())
             }

@@ -15,6 +15,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -32,6 +33,7 @@ class FirebaseCommentRepository @Inject constructor(
         .flatMapLatest { session ->
             if (session == null) flowOf(emptyList()) else observeComments()
         }
+        .catch { emit(emptyList()) }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     override suspend fun addComment(
@@ -62,7 +64,7 @@ class FirebaseCommentRepository @Inject constructor(
     private fun observeComments(): Flow<List<Comment>> = callbackFlow {
         val registration: ListenerRegistration = commentsCollection.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                trySend(emptyList())
             } else {
                 trySend(snapshot?.documents?.mapNotNull { it.toComment() } ?: emptyList())
             }
