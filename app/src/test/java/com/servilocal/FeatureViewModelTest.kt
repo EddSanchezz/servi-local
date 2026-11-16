@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.servilocal.core.location.LocationProvider
 import com.servilocal.core.util.RequestResult
 import com.servilocal.data.repository.memory.PasswordResetRepositoryImpl
+import com.servilocal.data.repository.memory.BadgeRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.model.PostStatus
@@ -23,6 +24,9 @@ import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import com.servilocal.domain.usecase.auth.ResetPasswordUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
+import com.servilocal.domain.usecase.profile.AddPointsUseCase
+import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
+import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.moderation.ApprovePostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
@@ -40,6 +44,7 @@ import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByQueryUseCase
 import com.servilocal.domain.usecase.posts.ObservePostsUseCase
+import com.servilocal.domain.usecase.posts.ObserveUserLikesUseCase
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.features.home.viewmodel.HomeViewModel
@@ -222,6 +227,14 @@ class FeatureViewModelTest {
     @Test
     fun `create post validation returns an actionable error and saves valid posts`() = runTest {
         val repository = MockDataRepository()
+        val users = UserRepositoryImpl()
+        val notifications = CreateNotificationUseCase(repository)
+        val awardPublicationPoints = AwardPublicationPointsUseCase(
+            AddPointsUseCase(users),
+            CheckAndAwardBadgesUseCase(
+                SessionRepositoryImpl(), users, BadgeRepositoryImpl(), repository, notifications
+            )
+        )
         var uploadCalls = 0
         val imageStorageRepository = object : ImageStorageRepository {
             override suspend fun uploadImage(localUri: String, folder: String, onProgress: (Float) -> Unit): String {
@@ -231,7 +244,7 @@ class FeatureViewModelTest {
             }
         }
         val viewModel = CreatePostViewModel(
-            CreateServicePostUseCase(repository, repository, CreateNotificationUseCase(repository)),
+            CreateServicePostUseCase(repository, repository, notifications, awardPublicationPoints),
             imageStorageRepository,
             testResourceProvider
         )
@@ -249,6 +262,7 @@ class FeatureViewModelTest {
         assertEquals(4.5339, repository.posts.value.first().latitude!!, 0.0001)
         assertEquals(-75.6811, repository.posts.value.first().longitude!!, 0.0001)
         assertEquals(listOf("https://res.cloudinary.com/test/image/upload/post.jpg"), repository.posts.value.first().photos)
+        assertEquals(270, users.findById("1")?.points)
     }
 
     @Test
@@ -259,6 +273,7 @@ class FeatureViewModelTest {
             ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
             TogglePostLikeUseCase(repository, repository, repository, CreateNotificationUseCase(repository)),
             ObservePostsUseCase(repository),
+            ObserveUserLikesUseCase(repository, repository),
             FilterPostsByCategoryUseCase(),
             FilterPostsByQueryUseCase(),
             FilterPostsByLocationUseCase(),
@@ -290,6 +305,7 @@ class FeatureViewModelTest {
             observeModerationPosts = ObserveModerationPostsUseCase(repository),
             observeReports = ObserveReportsUseCase(repository),
             observeReportHistory = com.servilocal.domain.usecase.moderation.ObserveReportHistoryUseCase(repository),
+            getModerationStats = com.servilocal.domain.usecase.moderation.GetModerationStatsUseCase(),
             observeModeratorProfile = ObserveModeratorProfileUseCase(repository),
             resolveReportsForPostUseCase = ResolveReportsForPostUseCase(repository, repository),
             toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(repository),

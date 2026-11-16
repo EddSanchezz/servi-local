@@ -7,6 +7,8 @@ import android.app.Activity
 interface UserRepository {
     val users: StateFlow<List<User>>
     suspend fun save(user: User): User
+    /** Applies the same point event at most once for a user. */
+    suspend fun addPointsOnce(userId: String, points: Int, eventId: String): User?
     suspend fun deleteById(id: String): Boolean = false
     suspend fun findById(id: String): User?
     suspend fun findByEmail(email: String): User?

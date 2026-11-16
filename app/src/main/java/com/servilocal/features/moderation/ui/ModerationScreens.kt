@@ -864,26 +864,7 @@ fun ModerationStatsScreen(
 ) {
     val moderationUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val statsRange = moderationUiState.statsTimeRange
-    val posts by viewModel.posts.collectAsStateWithLifecycle()
-    val reports by viewModel.reports.collectAsStateWithLifecycle()
-    val rangeStart = remember(statsRange) {
-        val now = System.currentTimeMillis()
-        when (statsRange) {
-            "Hoy" -> java.util.Calendar.getInstance().apply {
-                set(java.util.Calendar.HOUR_OF_DAY, 0)
-                set(java.util.Calendar.MINUTE, 0)
-                set(java.util.Calendar.SECOND, 0)
-                set(java.util.Calendar.MILLISECOND, 0)
-            }.timeInMillis
-            "Esta semana" -> now - 7L * 24 * 60 * 60 * 1000
-            else -> now - 30L * 24 * 60 * 60 * 1000
-        }
-    }
-    val rangePosts = posts.filter { it.createdAtMillis >= rangeStart }
-    val rangeReports = reports.filter { it.createdAtMillis >= rangeStart }
-    val approvedCount = rangePosts.count { it.status == PostStatus.APPROVED }
-    val rejectedCount = rangePosts.count { it.status == PostStatus.REJECTED }
-    val pendingCount = rangePosts.count { it.status == PostStatus.PENDING_VERIFICATION }
+    val stats by viewModel.moderationStats.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -964,9 +945,9 @@ fun ModerationStatsScreen(
                     }
                 }
 
-                Text(rangePosts.size.toString(), style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                Text(stats.newPosts.toString(), style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                 Text(stringResource(R.string.new_posts), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                Text(stringResource(R.string.memory_stats_description, stringResource(when (statsRange) {
+                Text(stringResource(R.string.moderation_stats_description, stringResource(when (statsRange) {
                     "Hoy" -> R.string.today_range
                     "Esta semana" -> R.string.this_week_range
                     else -> R.string.this_month_range
@@ -980,14 +961,14 @@ fun ModerationStatsScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatCardTile(
                 icon = Icons.Default.CheckCircle,
-                count = approvedCount.toString(),
+                count = stats.approvedPosts.toString(),
                 label = stringResource(R.string.approved_plural),
                 iconColor = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
             StatCardTile(
                 icon = Icons.Default.Cancel,
-                count = rejectedCount.toString(),
+                count = stats.rejectedPosts.toString(),
                 label = stringResource(R.string.rejected_plural),
                 iconColor = MaterialTheme.colorScheme.error,
                 modifier = Modifier.weight(1f)
@@ -997,14 +978,14 @@ fun ModerationStatsScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatCardTile(
                 icon = Icons.Default.Flag,
-                count = rangeReports.size.toString(),
+                count = stats.reportedPosts.toString(),
                 label = stringResource(R.string.reported_plural),
                 iconColor = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.weight(1f)
             )
             StatCardTile(
                 icon = Icons.Default.PendingActions,
-                count = pendingCount.toString(),
+                count = stats.pendingPosts.toString(),
                 label = stringResource(R.string.pending),
                 iconColor = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.weight(1f)

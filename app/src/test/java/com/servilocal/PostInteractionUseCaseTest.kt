@@ -11,10 +11,10 @@ import com.servilocal.domain.usecase.posts.AddCommentResult
 import com.servilocal.domain.usecase.posts.AddPostCommentUseCase
 import com.servilocal.domain.usecase.posts.ObservePostCommentsUseCase
 import com.servilocal.domain.usecase.posts.ObservePostLikesUseCase
+import com.servilocal.domain.usecase.posts.ObserveUserLikesUseCase
 import com.servilocal.domain.usecase.posts.ToggleLikeResult
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -52,7 +52,7 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
-    fun `a user can like another users post only once and remove that like`() {
+    fun `a user can like another users post only once and remove that like`() = runTest {
         val repository = repository()
         val useCase = toggleLikeUseCase(repository)
         val post = repository.posts.value.first { it.id == "pub_1" }
@@ -74,7 +74,7 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
-    fun `removing a like does not notify the author again`() {
+    fun `removing a like does not notify the author again`() = runTest {
         val repository = repository()
         val useCase = toggleLikeUseCase(repository)
         val authorId = repository.posts.value.first { it.id == "pub_1" }.providerId
@@ -90,7 +90,7 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
-    fun `a user cannot like their own post but can comment on it as the author`() {
+    fun `a user cannot like their own post but can comment on it as the author`() = runTest {
         val repository = repository()
         val ownPost = repository.posts.value.first { it.providerId == repository.currentUser.value.id }
 
@@ -107,7 +107,7 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
-    fun `posts that are not verified cannot be liked or commented`() {
+    fun `posts that are not verified cannot be liked or commented`() = runTest {
         val repository = repository()
         val pending = repository.posts.value.first { it.status == PostStatus.PENDING_VERIFICATION }
 
@@ -120,7 +120,7 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
-    fun `a user can leave multiple comments on another users post`() {
+    fun `a user can leave multiple comments on another users post`() = runTest {
         val repository = repository()
         val useCase = addCommentUseCase(repository)
         val post = repository.posts.value.first { it.id == "pub_2" }
@@ -170,7 +170,7 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
-    fun `blank comments are rejected without touching the comment table`() {
+    fun `blank comments are rejected without touching the comment table`() = runTest {
         val repository = repository()
         val post = repository.posts.value.first { it.id == "pub_2" }
 
@@ -179,7 +179,7 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
-    fun `comments longer than the limit are rejected`() {
+    fun `comments longer than the limit are rejected`() = runTest {
         val repository = repository()
         val tooLong = "a".repeat(AddPostCommentUseCase.MAX_LENGTH + 1)
 
@@ -199,6 +199,18 @@ class PostInteractionUseCaseTest {
         val afterLike = observeLikes("pub_1").first()
         assertTrue(afterLike.likedByCurrentUser)
         assertEquals(initial.count + 1, afterLike.count)
+    }
+
+    @Test
+    fun `observe user likes exposes post ids for feed card state`() = runTest {
+        val repository = repository()
+        val observeUserLikes = ObserveUserLikesUseCase(repository, repository)
+        val initial = observeUserLikes().first()
+        assertFalse("pub_1" in initial)
+
+        toggleLikeUseCase(repository)("pub_1")
+
+        assertTrue("pub_1" in observeUserLikes().first())
     }
 
     @Test

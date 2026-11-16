@@ -32,7 +32,7 @@ app/src/main/java/com/servilocal/
 
 Flujo de datos: `Compose` → `ViewModel` → casos de uso → interfaces de repositorio. Hilt conecta los contratos con sus implementaciones. Navigation Compose tiene un grafo raíz para onboarding/autenticación y un dashboard con navegación distinta según el rol: Home es la pestaña inicial del usuario y Auditoría la del moderador.
 
-La aplicación usa Firebase Authentication y Firestore. En la rama `migracion-firebase`, los perfiles y las publicaciones ya usan Firestore; comentarios, likes, solicitudes, chats, notificaciones y reportes siguen en memoria mientras avanza su migración. Cloudinary almacena imágenes de perfil y publicaciones. El PDF de procesos y reparto está en la raíz.
+La aplicación usa Firebase Authentication y Firestore para perfiles, publicaciones, likes, comentarios, chats/solicitudes, moderación e insignias ganadas. Puntos y nivel se guardan en el perfil del usuario; el otorgamiento por publicación usa un evento idempotente. Las notificaciones siguen en memoria. Cloudinary almacena imágenes de perfil y publicaciones. El PDF de procesos y reparto está en la raíz.
 
 El módulo de publicaciones permite buscar por texto, filtrar por categoría y zona, y limitar por distancia desde coordenadas de la publicación. Al crear o editar, se selecciona el punto en OpenStreetMap/osmdroid y se puede escribir una descripción; el GPS es opcional y solo se solicita al pulsar “Usar mi ubicación”. La dirección no se geocodifica automáticamente. Desde el perfil se consultan y eliminan publicaciones propias; editar y finalizar está permitido al autor para publicaciones aprobadas. La moderación ofrece una cola FIFO de pendientes, aprobación y rechazo con motivo obligatorio.
 
@@ -51,15 +51,31 @@ El feed usa OpenStreetMap mediante osmdroid. La pestaña Mapa muestra tiles real
 
 ### Firebase
 
-Firebase Authentication gestiona las cuentas. Firestore guarda perfiles en `users/{uid}` y publicaciones en `posts/{postId}`; cada publicación incluye su descripción, el punto y la cobertura. El registro de moderadores se mantiene separado en `moderators/{uid}` y solo debe provisionarse desde una sesión administrativa, nunca desde la app.
+Firebase Authentication gestiona las cuentas. Firestore guarda perfiles en `users/{uid}`, insignias ganadas en `users/{uid}/badges/{badgeId}`, eventos de puntos en `users/{uid}/pointEvents/{eventId}`, publicaciones en `posts/{postId}`, apoyos en `likes/{postId}_{uid}` y comentarios en `comments/{commentId}`. El registro de moderadores se mantiene separado en `moderators/{uid}` y solo debe provisionarse desde una sesión administrativa, nunca desde la app.
 
 1. Crea un proyecto Firebase y registra el paquete `com.aistudio.servilocal.quindio`.
 2. Habilita los proveedores Email/Password y Google, además de Firestore.
 3. Registra las huellas SHA-1 y SHA-256 del certificado usado para instalar la aplicación.
 4. Descarga `google-services.json` y colócalo en `app/google-services.json`.
-5. Revisa `firestore.rules` antes de desplegarlas. La configuración local de reglas usa denegación por defecto y, durante la migración, solo habilita los flujos de perfiles, publicaciones y moderadores.
+5. Revisa `firestore.rules` antes de desplegarlas. Las reglas incluyen otorgamiento de puntos ligado a una publicación, likes/comentarios y la subcolección de insignias; deben probarse en Emulator y staging antes de desplegar a producción.
 
 Los usuarios pueden registrarse con correo y contraseña o iniciar sesión con Google. `google-services.json` no debe subirse a Git.
+
+Para probar Auth y Firestore sin escribir en producción, inicia los emuladores locales. En `local.properties` (ignorado por Git) activa el modo emulador solo para `debug`:
+
+```properties
+FIREBASE_EMULATOR_ENABLED=true
+FIREBASE_EMULATOR_HOST=10.0.2.2
+```
+
+En PowerShell, inicia Auth y Firestore usando el mismo ID de proyecto que contiene `google-services.json`:
+
+```powershell
+$projectId = (Get-Content app\google-services.json | ConvertFrom-Json).project_info.project_id
+npx --yes firebase-tools emulators:start --only auth,firestore --project $projectId
+```
+
+La app Android usa `10.0.2.2` para alcanzar los servicios del host desde el AVD. La variante `release` ignora esta opción y nunca se conecta a los emuladores.
 
 ### Cloudinary
 
@@ -79,16 +95,20 @@ En Windows:
 ```powershell
 .\gradlew.bat :app:assembleDebug
 .\gradlew.bat :app:testDebugUnitTest
+.\gradlew.bat :app:connectedDebugAndroidTest
 ```
+
+Las pruebas instrumentadas de Firebase (`:app:connectedDebugAndroidTest`) requieren Auth y Firestore Emulator activos y `FIREBASE_EMULATOR_ENABLED=true` en `local.properties`. No ejecutar esas pruebas contra producción.
 
 En macOS o Linux:
 
 ```bash
 ./gradlew :app:assembleDebug
 ./gradlew :app:testDebugUnitTest
+./gradlew :app:connectedDebugAndroidTest
 ```
 
-Las pruebas unitarias de `app/src/test` usan repositorios falsos para que no consuman lecturas/escrituras de Firebase ni subidas de Cloudinary. Las pruebas instrumentadas de `app/src/androidTest` verifican la configuración básica del proyecto en Android. La validación manual de servicios reales debe ser limitada: una publicación de prueba y una subida de imagen.
+Las pruebas unitarias de `app/src/test` usan repositorios falsos para que no consuman lecturas/escrituras de Firebase ni subidas de Cloudinary. Las pruebas instrumentadas verifican Auth/Firestore Emulator, duplicación de insignias, puntos, likes, comentarios y sus métricas. Ejecuta `connectedDebugAndroidTest` solo con `FIREBASE_EMULATOR_ENABLED=true` y los emuladores activos; nunca contra producción.
 
 El APK de depuración se genera en `app/build/outputs/apk/debug/app-debug.apk`. Para instalarlo en un dispositivo conectado por ADB:
 

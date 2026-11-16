@@ -9,7 +9,7 @@ import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByQueryUseCase
 import com.servilocal.domain.usecase.posts.ObservePostsUseCase
-import com.servilocal.domain.usecase.posts.ToggleLikeResult
+import com.servilocal.domain.usecase.posts.ObserveUserLikesUseCase
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import com.servilocal.features.posts.coordinator.PublishPostCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,6 +44,7 @@ class HomeViewModel @Inject constructor(
     observeNotifications: ObserveNotificationsUseCase,
     private val togglePostLikeUseCase: TogglePostLikeUseCase,
     observePosts: ObservePostsUseCase,
+    observeUserLikes: ObserveUserLikesUseCase,
     private val filterPostsByCategory: FilterPostsByCategoryUseCase,
     private val filterPostsByQuery: FilterPostsByQueryUseCase,
     private val filterPostsByLocation: FilterPostsByLocationUseCase,
@@ -57,8 +58,11 @@ class HomeViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
     )
-    val filteredPosts = combine(posts, _uiState) { feed, state ->
-        val byCategory = filterPostsByCategory(feed, state.selectedCategory)
+    private val likedPostIds = observeUserLikes()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val filteredPosts = combine(posts, _uiState, likedPostIds) { feed, state, likedIds ->
+        val withLikeState = feed.map { post -> post.copy(userUpvoted = post.id in likedIds) }
+        val byCategory = filterPostsByCategory(withLikeState, state.selectedCategory)
         val byQuery = filterPostsByQuery(byCategory, state.searchQuery)
         filterPostsByLocation(
             byQuery,
@@ -98,5 +102,9 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-    fun toggleUpvote(postId: String): Boolean = togglePostLikeUseCase(postId) is ToggleLikeResult.Success
+    fun toggleUpvote(postId: String) {
+        viewModelScope.launch {
+            runCatching { togglePostLikeUseCase(postId) }
+        }
+    }
 }

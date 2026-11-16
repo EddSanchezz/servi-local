@@ -14,6 +14,7 @@ sealed interface AddCommentResult {
     data object TooLong : AddCommentResult
     data object PostNotFound : AddCommentResult
     data object PostNotVerified : AddCommentResult
+    data object NetworkError : AddCommentResult
 }
 
 class AddPostCommentUseCase @Inject constructor(
@@ -22,7 +23,7 @@ class AddPostCommentUseCase @Inject constructor(
     private val authRepository: AuthRepository,
     private val createNotification: CreateNotificationUseCase
 ) {
-    operator fun invoke(postId: String, text: String): AddCommentResult {
+    suspend operator fun invoke(postId: String, text: String): AddCommentResult {
         val content = text.trim()
         if (content.isEmpty()) return AddCommentResult.EmptyContent
         if (content.length > MAX_LENGTH) return AddCommentResult.TooLong

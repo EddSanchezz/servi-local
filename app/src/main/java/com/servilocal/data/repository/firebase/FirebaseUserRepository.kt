@@ -107,6 +107,54 @@ class FirebaseUserRepository @Inject constructor(
         return saved
     }
 
+    override suspend fun addPointsOnce(userId: String, points: Int, eventId: String): User? {
+        if (userId.isBlank() || !eventId.startsWith(PUBLICATION_POINT_EVENT_PREFIX)) return null
+        val sourcePostId = eventId.removePrefix(PUBLICATION_POINT_EVENT_PREFIX).takeIf(String::isNotBlank)
+            ?: return null
+        val userReference = usersCollection.document(userId)
+        val eventReference = userReference.collection(POINT_EVENTS_COLLECTION).document(eventId)
+        val postReference = firestore.collection(POSTS_COLLECTION).document(sourcePostId)
+        val createdAtMillis = System.currentTimeMillis()
+
+        val updatedUser = firestore.runTransaction<User?> { transaction ->
+            val userSnapshot = transaction.get(userReference)
+            if (!userSnapshot.exists()) return@runTransaction null
+            val eventSnapshot = transaction.get(eventReference)
+            val user = userSnapshot.toUser(userId) ?: return@runTransaction null
+            if (eventSnapshot.exists()) return@runTransaction user
+
+            val sourcePost = transaction.get(postReference)
+            if (!sourcePost.exists() || sourcePost.getString("providerId") != userId) {
+                return@runTransaction null
+            }
+
+            val updatedPoints = (user.points + points).coerceAtLeast(0)
+            val updated = user.copy(
+                points = updatedPoints,
+                level = UserLevel.fromPoints(updatedPoints)
+            )
+            transaction.update(userReference, mapOf(
+                "points" to updated.points,
+                "level" to updated.level.name,
+                "lastPointEventId" to eventId
+            ))
+            transaction.set(eventReference, mapOf(
+                "eventId" to eventId,
+                "userId" to userId,
+                "sourcePostId" to sourcePostId,
+                "pointsDelta" to points,
+                "createdAtMillis" to createdAtMillis
+            ))
+            updated
+        }.await()
+
+        if (updatedUser != null) {
+            publish(updatedUser)
+            if (auth.currentUser?.uid == userId) _currentUser.value = updatedUser.toUserProfile()
+        }
+        return updatedUser
+    }
+
     override suspend fun deleteById(id: String): Boolean {
         val uid = id.ifBlank { auth.currentUser?.uid ?: return false }
         return try {
@@ -356,6 +404,9 @@ class FirebaseUserRepository @Inject constructor(
 
     private companion object {
         const val MODERATORS_COLLECTION = "moderators"
+        const val POSTS_COLLECTION = "posts"
+        const val POINT_EVENTS_COLLECTION = "pointEvents"
+        const val PUBLICATION_POINT_EVENT_PREFIX = "publication_"
         val INVALID_LOGIN_CODES: Set<String> = setOf(
             "ERROR_INVALID_CREDENTIAL",
             ERROR_USER_NOT_FOUND,

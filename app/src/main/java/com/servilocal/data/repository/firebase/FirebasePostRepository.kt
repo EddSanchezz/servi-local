@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -50,6 +51,11 @@ class FirebasePostRepository @Inject constructor(
         .flatMapLatest { session ->
             if (session == null) {
                 flowOf(emptyList())
+            } else if (session.role == UserRole.MODERATOR) {
+                // Moderation metrics and history need every status, including rejected posts.
+                observePosts(postsCollection).map { posts ->
+                    posts.sortedByDescending(ServicePost::createdAtMillis)
+                }
             } else {
                 val approved = observePosts(
                     postsCollection.whereEqualTo(FIELD_STATUS, PostStatus.APPROVED.name)
@@ -57,19 +63,9 @@ class FirebasePostRepository @Inject constructor(
                 val owned = observePosts(
                     postsCollection.whereEqualTo(FIELD_PROVIDER_ID, session.userId)
                 )
-                if (session.role == UserRole.MODERATOR) {
-                    val pending = observePosts(
-                        postsCollection.whereEqualTo(FIELD_STATUS, PostStatus.PENDING_VERIFICATION.name)
-                    )
-                    combine(approved, owned, pending) { publicPosts, ownPosts, pendingPosts ->
-                        (publicPosts + ownPosts + pendingPosts).distinctBy(ServicePost::id)
-                            .sortedByDescending(ServicePost::createdAtMillis)
-                    }
-                } else {
-                    combine(approved, owned) { publicPosts, ownPosts ->
-                        (publicPosts + ownPosts).distinctBy(ServicePost::id)
-                            .sortedByDescending(ServicePost::createdAtMillis)
-                    }
+                combine(approved, owned) { publicPosts, ownPosts ->
+                    (publicPosts + ownPosts).distinctBy(ServicePost::id)
+                        .sortedByDescending(ServicePost::createdAtMillis)
                 }
             }
         }
@@ -200,6 +196,13 @@ class FirebasePostRepository @Inject constructor(
         snapshot.documents.forEach { it.reference.delete().await() }
         return true
     }
+
+    override suspend fun countPostsByProvider(providerId: String): Int =
+        postsCollection.whereEqualTo(FIELD_PROVIDER_ID, providerId).get().await().size()
+
+    override suspend fun firstPostIdByProvider(providerId: String): String? =
+        postsCollection.whereEqualTo(FIELD_PROVIDER_ID, providerId).limit(1).get().await()
+            .documents.firstOrNull()?.id
 
     override suspend fun finishPost(postId: String): Boolean {
         val current = posts.value.firstOrNull { it.id == postId } ?: return false

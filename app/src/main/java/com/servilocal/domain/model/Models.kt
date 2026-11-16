@@ -110,14 +110,18 @@ data class Comment(
     val postId: String,
     val userId: String,
     val content: String,
-    val createdAtMillis: Long = System.currentTimeMillis()
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val postOwnerId: String? = null,
+    val authorName: String? = null,
+    val displayDate: String? = null
 )
 
 /** Tabla likes ("Es importante" / "Me interesa") */
 data class Like(
     val id: String,
     val userId: String,
-    val postId: String
+    val postId: String,
+    val createdAtMillis: Long = System.currentTimeMillis()
 )
 
 /**

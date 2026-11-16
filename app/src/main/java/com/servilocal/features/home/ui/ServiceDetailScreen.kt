@@ -685,8 +685,8 @@ fun ServiceDetailScreen(
                             )
                             IconButton(
                                 onClick = {
-                                    if (viewModel.addComment(post.id, newCommentText)) {
-                                        newCommentText = ""
+                                    viewModel.addComment(post.id, newCommentText) { submitted ->
+                                        if (submitted) newCommentText = ""
                                     }
                                 }
                             ) {

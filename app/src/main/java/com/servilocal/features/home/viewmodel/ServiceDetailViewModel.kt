@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class ServiceDetailUiState(
     val likeResult: RequestResult? = null,
@@ -64,29 +65,39 @@ class ServiceDetailViewModel @Inject constructor(
     fun startConversation(postId: String): StartConversationResult? = startConversationUseCase(postId)
 
     fun toggleUpvote(postId: String) {
-        val result = when (val outcome = togglePostLikeUseCase(postId)) {
-            is ToggleLikeResult.Success -> RequestResult.Success(
-                resources.getString(if (outcome.liked) R.string.like_success else R.string.like_removed)
-            )
-            ToggleLikeResult.OwnPost -> RequestResult.Failure(resources.getString(R.string.cannot_like_own_post))
-            ToggleLikeResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_like))
-            ToggleLikeResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+        viewModelScope.launch {
+            val outcome = runCatching { togglePostLikeUseCase(postId) }
+                .getOrElse { ToggleLikeResult.NetworkError }
+            val result = when (outcome) {
+                is ToggleLikeResult.Success -> RequestResult.Success(
+                    resources.getString(if (outcome.liked) R.string.like_success else R.string.like_removed)
+                )
+                ToggleLikeResult.OwnPost -> RequestResult.Failure(resources.getString(R.string.cannot_like_own_post))
+                ToggleLikeResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_like))
+                ToggleLikeResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+                ToggleLikeResult.NetworkError -> RequestResult.Failure(resources.getString(R.string.interaction_network_error))
+            }
+            _uiState.update { it.copy(likeResult = result) }
         }
-        _uiState.update { it.copy(likeResult = result) }
     }
 
-    fun addComment(postId: String, text: String): Boolean {
-        val result = when (addPostCommentUseCase(postId, text)) {
-            AddCommentResult.Success -> RequestResult.Success(resources.getString(R.string.comment_success))
-            AddCommentResult.EmptyContent -> RequestResult.Failure(resources.getString(R.string.comment_empty))
-            AddCommentResult.TooLong -> RequestResult.Failure(
-                resources.getString(R.string.comment_too_long, AddPostCommentUseCase.MAX_LENGTH)
-            )
-            AddCommentResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_comment))
-            AddCommentResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+    fun addComment(postId: String, text: String, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val outcome = runCatching { addPostCommentUseCase(postId, text) }
+                .getOrElse { AddCommentResult.NetworkError }
+            val result = when (outcome) {
+                AddCommentResult.Success -> RequestResult.Success(resources.getString(R.string.comment_success))
+                AddCommentResult.EmptyContent -> RequestResult.Failure(resources.getString(R.string.comment_empty))
+                AddCommentResult.TooLong -> RequestResult.Failure(
+                    resources.getString(R.string.comment_too_long, AddPostCommentUseCase.MAX_LENGTH)
+                )
+                AddCommentResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_comment))
+                AddCommentResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+                AddCommentResult.NetworkError -> RequestResult.Failure(resources.getString(R.string.interaction_network_error))
+            }
+            _uiState.update { it.copy(commentResult = result) }
+            onComplete(outcome == AddCommentResult.Success)
         }
-        _uiState.update { it.copy(commentResult = result) }
-        return result is RequestResult.Success
     }
 
     fun clearInteractionFeedback() {

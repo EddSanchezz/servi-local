@@ -10,6 +10,8 @@ import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.usecase.moderation.ApprovePostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
+import com.servilocal.domain.usecase.moderation.GetModerationStatsUseCase
+import com.servilocal.domain.usecase.moderation.ModerationStats
 import com.servilocal.domain.usecase.moderation.ObserveModerationPostsUseCase
 import com.servilocal.domain.usecase.moderation.ObserveModeratorProfileUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
@@ -54,6 +56,7 @@ class ModerationViewModel @Inject constructor(
     observeModerationPosts: ObserveModerationPostsUseCase,
     observeReports: ObserveReportsUseCase,
     observeReportHistory: ObserveReportHistoryUseCase,
+    private val getModerationStats: GetModerationStatsUseCase,
     observeModeratorProfile: ObserveModeratorProfileUseCase,
     private val resolveReportsForPostUseCase: ResolveReportsForPostUseCase,
     private val toggleModeratorShiftUseCase: ToggleModeratorShiftUseCase,
@@ -85,6 +88,18 @@ class ModerationViewModel @Inject constructor(
             initialValue = emptyList()
         )
     val moderatorUser = observeModeratorProfile()
+
+    val moderationStats: StateFlow<ModerationStats> = combine(posts, reportHistory, _uiState) { currentPosts, allReports, state ->
+        getModerationStats(
+            posts = currentPosts,
+            reportHistory = allReports,
+            timeRange = state.statsTimeRange
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ModerationStats()
+    )
 
     fun setFilter(value: String) {
         _uiState.update {

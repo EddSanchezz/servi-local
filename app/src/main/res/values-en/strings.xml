@@ -138,6 +138,15 @@
     <string name="pending">Pending</string>
     <string name="working_hours">Working hours</string>
     <string name="my_activity">My activity</string>
+    <string name="user_stats_entry_title">My statistics</string>
+    <string name="user_stats_entry_summary">View your activity, posts, and achievements</string>
+    <string name="user_stats_title">User statistics</string>
+    <string name="user_stats_total_posts">Total posts</string>
+    <string name="user_stats_approved_posts">Approved posts</string>
+    <string name="user_stats_likes_received">Likes received</string>
+    <string name="user_stats_comments_received">Comments received</string>
+    <string name="user_stats_unavailable">Statistics are not available yet.</string>
+    <string name="user_stats_max_level">You have reached the maximum level!</string>
     <string name="my_publications">My posts</string>
     <string name="manage_my_posts">Manage active and inactive services</string>
     <string name="my_votes_title">Services I support / My votes</string>
@@ -439,7 +448,7 @@
     <string name="today_range">Today</string>
     <string name="this_week_range">This week</string>
     <string name="this_month_range">This month</string>
-    <string name="memory_stats_description">In-memory records entered %1$s in Armenia and Quindío</string>
+    <string name="moderation_stats_description">Posts and reports recorded %1$s in Armenia and Quindío</string>
     <string name="rejected_plural">Rejected</string>
     <string name="reported_plural">Reported</string>
     <string name="staff_identifier">ServiLocal staff · ID: %1$s</string>
@@ -526,6 +535,7 @@
     <string name="cannot_like_own_post">You cannot support your own post.</string>
     <string name="verified_posts_only_like">You can only support verified posts.</string>
     <string name="comment_success">Comment posted.</string>
+    <string name="interaction_network_error">The interaction could not sync. Check your connection and try again.</string>
     <string name="comment_empty">Comment cannot be empty.</string>
     <string name="comment_too_long">Comment cannot exceed %1$d characters.</string>
     <string name="verified_posts_only_comment">You can only comment on verified posts.</string>

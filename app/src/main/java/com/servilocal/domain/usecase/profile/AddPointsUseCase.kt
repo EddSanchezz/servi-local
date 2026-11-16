@@ -1,7 +1,6 @@
 package com.servilocal.domain.usecase.profile
 
 import com.servilocal.domain.model.User
-import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.repository.UserRepository
 import jakarta.inject.Inject
 
@@ -13,14 +12,6 @@ import jakarta.inject.Inject
 class AddPointsUseCase @Inject constructor(
     private val userRepository: UserRepository
 ) {
-    suspend operator fun invoke(userId: String, points: Int): User? {
-        val user = userRepository.findById(userId) ?: return null
-        val updatedPoints = (user.points + points).coerceAtLeast(0)
-        val updatedUser = user.copy(
-            points = updatedPoints,
-            level = UserLevel.fromPoints(updatedPoints)
-        )
-        userRepository.save(updatedUser)
-        return updatedUser
-    }
+    suspend operator fun invoke(userId: String, points: Int, eventId: String): User? =
+        userRepository.addPointsOnce(userId, points, eventId)
 }

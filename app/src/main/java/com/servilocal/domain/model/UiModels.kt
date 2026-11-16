@@ -68,7 +68,8 @@ data class ServiceComment(
     val text: String,
     val isAuthorReply: Boolean = false,
     val isRecommended: Boolean = true,
-    val authorId: String? = null
+    val authorId: String? = null,
+    val createdAtMillis: Long = System.currentTimeMillis()
 )
 
 typealias ChatStatus = ServiceRequestStatus
