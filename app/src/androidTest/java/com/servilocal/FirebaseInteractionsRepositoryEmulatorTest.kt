@@ -8,11 +8,14 @@ import com.servilocal.core.di.FirebaseModule
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.firebase.FirebaseCommentRepository
 import com.servilocal.data.repository.firebase.FirebaseLikeRepository
+import com.servilocal.data.repository.firebase.FirebaseNotificationRepository
 import com.servilocal.data.repository.firebase.FirebasePostRepository
 import com.servilocal.data.repository.firebase.FirebaseBadgeRepository
 import com.servilocal.data.repository.firebase.FirebaseUserRepository
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.model.UserSession
+import com.servilocal.domain.model.AppNotification
+import com.servilocal.domain.model.NotificationType
 import com.servilocal.domain.repository.SessionRepository
 import com.servilocal.domain.usecase.profile.GetProfileStatsUseCase
 import com.servilocal.domain.usecase.user.ObserveCurrentUserUseCase
@@ -62,6 +65,8 @@ class FirebaseInteractionsRepositoryEmulatorTest {
         val postId = "interaction-post-$suffix"
         seedApprovedPost(postId, ownerId)
         val likeId = "${postId}_$likerId"
+        val likeNotificationId = "like-notification-$suffix"
+        val commentNotificationId = "comment-notification-$suffix"
         var commentId: String? = null
 
         try {
@@ -71,6 +76,14 @@ class FirebaseInteractionsRepositoryEmulatorTest {
             assertTrue(runCatching { postReference.update("upvotesCount", 99).await() }.isFailure)
             assertTrue(likeRepository.toggleLike(postId, likerId))
             assertEquals(1L, postReference.get().await().getLong("upvotesCount"))
+            FirebaseNotificationRepository(firestore, likerSession).create(AppNotification(
+                id = likeNotificationId,
+                userId = ownerId,
+                title = "Nuevo apoyo en tu servicio",
+                body = "Un cliente apoyó tu publicación.",
+                type = NotificationType.INTERACTION,
+                relatedPostId = postId
+            ))
             assertTrue(withTimeout(10_000) {
                 likeRepository.likes.first { likes -> likes.any { it.postId == postId && it.userId == likerId } }
             }.any { it.postId == postId })
@@ -83,8 +96,8 @@ class FirebaseInteractionsRepositoryEmulatorTest {
             assertEquals(1L, postReference.get().await().getLong("upvotesCount"))
 
             val commentRepository = FirebaseCommentRepository(firestore, likerSession)
-            assertTrue(!commentRepository.addComment(postId, ownerId, "Proveedor", "Comentario ajeno"))
-            assertTrue(commentRepository.addComment(postId, likerId, "Cliente de prueba", "Comentario sincronizado"))
+            assertTrue(commentRepository.addComment(postId, ownerId, "Proveedor", "Comentario ajeno") == null)
+            assertTrue(commentRepository.addComment(postId, likerId, "Cliente de prueba", "Comentario sincronizado") != null)
             val postComments = withTimeout(10_000) {
                 commentRepository.observeForPost(postId).first { comments ->
                     comments.any { it.content == "Comentario sincronizado" }
@@ -93,10 +106,25 @@ class FirebaseInteractionsRepositoryEmulatorTest {
             val createdComment = postComments.first { it.content == "Comentario sincronizado" }
             commentId = createdComment.id
             assertEquals(ownerId, createdComment.postOwnerId)
+            FirebaseNotificationRepository(firestore, likerSession).create(AppNotification(
+                id = commentNotificationId,
+                userId = ownerId,
+                title = "Nuevo comentario en tu servicio",
+                body = "Un cliente comentó tu publicación.",
+                type = NotificationType.COMMENT,
+                relatedPostId = postId,
+                relatedCommentId = createdComment.id
+            ))
 
             auth.signOut()
             auth.signInWithEmailAndPassword(ownerEmail, password).await()
             val ownerSession = TestSessionRepository(ownerId)
+            val ownerNotifications = withTimeout(10_000) {
+                FirebaseNotificationRepository(firestore, ownerSession).notifications.first { items ->
+                    items.any { it.id == likeNotificationId } && items.any { it.id == commentNotificationId }
+                }
+            }
+            assertEquals(2, ownerNotifications.count { it.id in setOf(likeNotificationId, commentNotificationId) })
             val receivedComments = withTimeout(10_000) {
                 FirebaseCommentRepository(firestore, ownerSession).comments.first { comments ->
                     comments.any { it.id == createdComment.id }
@@ -130,6 +158,8 @@ class FirebaseInteractionsRepositoryEmulatorTest {
             assertEquals(1, stats?.commentsReceived)
         } finally {
             deleteEmulatorDocument("likes/$likeId")
+            deleteEmulatorDocument("notifications/$likeNotificationId")
+            deleteEmulatorDocument("notifications/$commentNotificationId")
             commentId?.let { deleteEmulatorDocument("comments/$it") }
             deleteEmulatorDocument("posts/$postId")
             deleteEmulatorDocument("users/$ownerId")

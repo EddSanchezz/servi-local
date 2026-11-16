@@ -9,5 +9,6 @@ interface CommentRepository {
 
     fun observeForPost(postId: String): Flow<List<Comment>>
 
-    suspend fun addComment(postId: String, userId: String, authorName: String, content: String): Boolean
+    /** Returns the persisted comment id, or null if the comment could not be added. */
+    suspend fun addComment(postId: String, userId: String, authorName: String, content: String): String?
 }

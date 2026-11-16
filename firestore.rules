@@ -1,3 +1,9 @@
+// Notification data contract:
+// notifications/{notificationId} stores id, recipient userId, authenticated
+// createdByUserId, title/body, NotificationType, isRead, createdAtMillis, and
+// optional relatedPostId/relatedChatId/relatedCommentId/relatedReportId.
+// Recipients alone can read/update their inbox; create requires proof of the
+// related post, like, comment, chat, moderator decision, or self-generated event.
 rules_version = '2';
 
 service cloud.firestore {
@@ -313,6 +319,136 @@ service cloud.firestore {
         && request.resource.data.postOwnerId
           == get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.providerId;
       allow update, delete: if false;
+    }
+
+    // Notifications are private to the recipient. Client-created notifications
+    // must identify their authenticated actor and prove the related app event.
+    match /notifications/{notificationId} {
+      function validNotificationShape() {
+        return request.resource.data.keys().hasOnly([
+            'id', 'userId', 'createdByUserId', 'title', 'body', 'type', 'isRead',
+            'relatedPostId', 'relatedChatId', 'relatedCommentId', 'relatedReportId', 'createdAtMillis'
+          ])
+          && request.resource.data.keys().hasAll([
+            'id', 'userId', 'createdByUserId', 'title', 'body', 'type', 'isRead', 'createdAtMillis'
+          ])
+          && request.resource.data.id == notificationId
+          && request.resource.data.userId is string
+          && request.resource.data.userId.size() > 0
+          && request.resource.data.createdByUserId == request.auth.uid
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 2000
+          && request.resource.data.type in ['REQUEST', 'SYSTEM', 'COMMENT', 'ACHIEVEMENT', 'INTERACTION']
+          && request.resource.data.isRead == false
+          && request.resource.data.createdAtMillis is int
+          && (!('relatedPostId' in request.resource.data)
+            || request.resource.data.relatedPostId == null
+            || request.resource.data.relatedPostId is string)
+          && (!('relatedChatId' in request.resource.data)
+            || request.resource.data.relatedChatId == null
+            || request.resource.data.relatedChatId is string)
+          && (!('relatedCommentId' in request.resource.data)
+            || request.resource.data.relatedCommentId == null
+            || request.resource.data.relatedCommentId is string)
+          && (!('relatedReportId' in request.resource.data)
+            || request.resource.data.relatedReportId == null
+            || request.resource.data.relatedReportId is string);
+      }
+
+      function isSelfNotification() {
+        return request.resource.data.userId == request.auth.uid
+          && request.resource.data.type == 'ACHIEVEMENT'
+          || (request.resource.data.userId == request.auth.uid
+            && request.resource.data.type == 'SYSTEM'
+            && (request.resource.data.relatedPostId == null
+              || (request.resource.data.relatedPostId is string
+                && exists(/databases/$(database)/documents/posts/$(request.resource.data.relatedPostId))
+                && get(/databases/$(database)/documents/posts/$(request.resource.data.relatedPostId)).data.providerId == request.auth.uid)));
+      }
+
+      function isModerationPostNotification() {
+        let postId = request.resource.data.relatedPostId;
+        let postPath = /databases/$(database)/documents/posts/$(postId);
+        return request.resource.data.type == 'SYSTEM'
+          && isModerator()
+          && postId is string
+          && exists(postPath)
+          && get(postPath).data.providerId == request.resource.data.userId
+          && get(postPath).data.moderatorId == request.auth.uid
+          && get(postPath).data.status in ['APPROVED', 'REJECTED'];
+      }
+
+      function isModerationReportNotification() {
+        let reportId = request.resource.data.relatedReportId;
+        let reportPath = /databases/$(database)/documents/reports/$(reportId);
+        return request.resource.data.type == 'SYSTEM'
+          && isModerator()
+          && reportId is string
+          && exists(reportPath)
+          && get(reportPath).data.reporterId == request.resource.data.userId
+          && get(reportPath).data.moderatorId == request.auth.uid
+          && get(reportPath).data.status == 'REVIEWED'
+          && get(reportPath).data.targetPostId == request.resource.data.relatedPostId;
+      }
+
+      function isChatNotification() {
+        let chatId = request.resource.data.relatedChatId;
+        let chatPath = /databases/$(database)/documents/chats/$(chatId);
+        return request.resource.data.type == 'REQUEST'
+          && chatId is string
+          && request.resource.data.userId != request.auth.uid
+          && exists(chatPath)
+          && get(chatPath).data.participants.hasAny([request.auth.uid])
+          && get(chatPath).data.participants.hasAny([request.resource.data.userId]);
+      }
+
+      function isLikeNotification() {
+        let postId = request.resource.data.relatedPostId;
+        let postPath = /databases/$(database)/documents/posts/$(postId);
+        let likePath = /databases/$(database)/documents/likes/$(postId + '_' + request.auth.uid);
+        return request.resource.data.type == 'INTERACTION'
+          && postId is string
+          && request.resource.data.userId != request.auth.uid
+          && exists(postPath)
+          && get(postPath).data.providerId == request.resource.data.userId
+          && exists(likePath);
+      }
+
+      function isCommentNotification() {
+        let commentId = request.resource.data.relatedCommentId;
+        let commentPath = /databases/$(database)/documents/comments/$(commentId);
+        return request.resource.data.type == 'COMMENT'
+          && commentId is string
+          && request.resource.data.userId != request.auth.uid
+          && exists(commentPath)
+          && get(commentPath).data.userId == request.auth.uid
+          && get(commentPath).data.postOwnerId == request.resource.data.userId
+          && get(commentPath).data.postId == request.resource.data.relatedPostId;
+      }
+
+      function isValidNotificationCreate() {
+        return request.auth != null
+          && validNotificationShape()
+          && exists(/databases/$(database)/documents/users/$(request.resource.data.userId))
+          && (isSelfNotification()
+            || isModerationPostNotification()
+            || isModerationReportNotification()
+            || isChatNotification()
+            || isLikeNotification()
+            || isCommentNotification());
+      }
+
+      allow get, list: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isValidNotificationCreate();
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead is bool;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
     // Resto de colecciones sigue cerrado.

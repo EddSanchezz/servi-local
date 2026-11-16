@@ -9,6 +9,7 @@ import com.servilocal.data.repository.firebase.FirebaseCommentRepository
 import com.servilocal.data.repository.firebase.FirebaseLikeRepository
 import com.servilocal.data.repository.firebase.FirebasePostRepository
 import com.servilocal.data.repository.firebase.FirebaseModerationRepository
+import com.servilocal.data.repository.firebase.FirebaseNotificationRepository
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.firebase.FirebaseUserRepository
 import com.servilocal.domain.repository.AuthRepository
@@ -62,7 +63,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindNotificationRepository(repository: MockDataRepository): NotificationRepository
+    abstract fun bindNotificationRepository(repository: FirebaseNotificationRepository): NotificationRepository
 
     @Binds
     @Singleton

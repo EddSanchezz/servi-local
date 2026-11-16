@@ -76,9 +76,9 @@ class FirebaseCommentRepository @Inject constructor(
         userId: String,
         authorName: String,
         content: String
-    ): Boolean {
+    ): String? {
         val sessionUserId = sessionRepository.session.value?.userId
-        if (postId.isBlank() || userId.isBlank() || userId != sessionUserId || content.isBlank()) return false
+        if (postId.isBlank() || userId.isBlank() || userId != sessionUserId || content.isBlank()) return null
 
         val postReference = firestore.collection(POSTS_COLLECTION).document(postId)
         val commentReference = collection.document()
@@ -86,9 +86,9 @@ class FirebaseCommentRepository @Inject constructor(
         return firestore.runTransaction { transaction ->
             val post = transaction.get(postReference)
             if (!post.exists() || post.getString("status") != PostStatus.APPROVED.name) {
-                return@runTransaction false
+                return@runTransaction null
             }
-            val postOwnerId = post.getString("providerId") ?: return@runTransaction false
+            val postOwnerId = post.getString("providerId") ?: return@runTransaction null
             transaction.set(commentReference, mapOf(
                 "id" to commentReference.id,
                 "postId" to postId,
@@ -98,7 +98,7 @@ class FirebaseCommentRepository @Inject constructor(
                 "content" to content.trim(),
                 "createdAtMillis" to createdAtMillis
             ))
-            true
+            commentReference.id
         }.await()
     }
 

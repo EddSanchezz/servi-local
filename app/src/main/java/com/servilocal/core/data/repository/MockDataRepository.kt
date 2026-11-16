@@ -231,8 +231,8 @@ class MockDataRepository @Inject constructor(
             .sortedByDescending(Comment::createdAtMillis)
     }
 
-    override suspend fun addComment(postId: String, userId: String, authorName: String, content: String): Boolean {
-        if (content.isBlank()) return false
+    override suspend fun addComment(postId: String, userId: String, authorName: String, content: String): String? {
+        if (content.isBlank()) return null
         val post = _posts.value.firstOrNull { it.id == postId }
 
         val newComment = Comment(
@@ -261,7 +261,7 @@ class MockDataRepository @Inject constructor(
                 if (it.id == postId) it.copy(comments = listOf(uiComment) + it.comments) else it
             }
         }
-        return true
+        return newComment.id
     }
 
     override suspend fun createPost(

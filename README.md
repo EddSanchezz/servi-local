@@ -32,7 +32,7 @@ app/src/main/java/com/servilocal/
 
 Flujo de datos: `Compose` → `ViewModel` → casos de uso → interfaces de repositorio. Hilt conecta los contratos con sus implementaciones. Navigation Compose tiene un grafo raíz para onboarding/autenticación y un dashboard con navegación distinta según el rol: Home es la pestaña inicial del usuario y Auditoría la del moderador.
 
-La aplicación usa Firebase Authentication y Firestore para perfiles, publicaciones, likes, comentarios, chats/solicitudes, moderación e insignias ganadas. Puntos y nivel se guardan en el perfil del usuario; el otorgamiento por publicación usa un evento idempotente. Las notificaciones siguen en memoria. Cloudinary almacena imágenes de perfil y publicaciones. El PDF de procesos y reparto está en la raíz.
+La aplicación usa Firebase Authentication y Firestore para perfiles, publicaciones, likes, comentarios, chats/solicitudes, moderación, insignias ganadas y notificaciones dentro de la app. Puntos y nivel se guardan en el perfil del usuario; el otorgamiento por publicación usa un evento idempotente. Cloudinary almacena imágenes de perfil y publicaciones. El PDF de procesos y reparto está en la raíz.
 
 El módulo de publicaciones permite buscar por texto, filtrar por categoría y zona, y limitar por distancia desde coordenadas de la publicación. Al crear o editar, se selecciona el punto en OpenStreetMap/osmdroid y se puede escribir una descripción; el GPS es opcional y solo se solicita al pulsar “Usar mi ubicación”. La dirección no se geocodifica automáticamente. Desde el perfil se consultan y eliminan publicaciones propias; editar y finalizar está permitido al autor para publicaciones aprobadas. La moderación ofrece una cola FIFO de pendientes, aprobación y rechazo con motivo obligatorio.
 
@@ -51,7 +51,7 @@ El feed usa OpenStreetMap mediante osmdroid. La pestaña Mapa muestra tiles real
 
 ### Firebase
 
-Firebase Authentication gestiona las cuentas. Firestore guarda perfiles en `users/{uid}`, insignias ganadas en `users/{uid}/badges/{badgeId}`, eventos de puntos en `users/{uid}/pointEvents/{eventId}`, publicaciones en `posts/{postId}`, apoyos en `likes/{postId}_{uid}` y comentarios en `comments/{commentId}`. El registro de moderadores se mantiene separado en `moderators/{uid}` y solo debe provisionarse desde una sesión administrativa, nunca desde la app.
+Firebase Authentication gestiona las cuentas. Firestore guarda perfiles en `users/{uid}`, insignias ganadas en `users/{uid}/badges/{badgeId}`, eventos de puntos en `users/{uid}/pointEvents/{eventId}`, publicaciones en `posts/{postId}`, apoyos en `likes/{postId}_{uid}`, comentarios en `comments/{commentId}` y notificaciones en `notifications/{notificationId}`. El inbox se consulta por UID y cada notificación conserva el actor y la referencia al evento que la originó. El registro de moderadores se mantiene separado en `moderators/{uid}` y solo debe provisionarse desde una sesión administrativa, nunca desde la app.
 
 1. Crea un proyecto Firebase y registra el paquete `com.aistudio.servilocal.quindio`.
 2. Habilita los proveedores Email/Password y Google, además de Firestore.
@@ -108,7 +108,7 @@ En macOS o Linux:
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-Las pruebas unitarias de `app/src/test` usan repositorios falsos para que no consuman lecturas/escrituras de Firebase ni subidas de Cloudinary. Las pruebas instrumentadas verifican Auth/Firestore Emulator, duplicación de insignias, puntos, likes, comentarios y sus métricas. Ejecuta `connectedDebugAndroidTest` solo con `FIREBASE_EMULATOR_ENABLED=true` y los emuladores activos; nunca contra producción.
+Las pruebas unitarias de `app/src/test` usan repositorios falsos para que no consuman lecturas/escrituras de Firebase ni subidas de Cloudinary. Las pruebas instrumentadas verifican Auth/Firestore Emulator, duplicación de insignias, puntos, likes, comentarios, notificaciones persistentes y sus métricas. Ejecuta `connectedDebugAndroidTest` solo con `FIREBASE_EMULATOR_ENABLED=true` y los emuladores activos; nunca contra producción.
 
 El APK de depuración se genera en `app/build/outputs/apk/debug/app-debug.apk`. Para instalarlo en un dispositivo conectado por ADB:
 

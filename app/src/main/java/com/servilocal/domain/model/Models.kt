@@ -158,7 +158,9 @@ data class AppNotification(
     val isRead: Boolean = false,
     val relatedPostId: String? = null,
     val relatedChatId: String? = null,
-    val createdAtMillis: Long = System.currentTimeMillis()
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val relatedCommentId: String? = null,
+    val relatedReportId: String? = null
 )
 
 /** Criterio que desbloquea una insignia. */
