@@ -177,6 +177,138 @@ service cloud.firestore {
         && resource.data.postId is string
         && likeId == resource.data.postId + '_' + request.auth.uid;
     }
+
+    match /notifications/{notificationId} {
+      function validNotificationShape() {
+        return request.resource.data.keys().hasOnly([
+            'id', 'userId', 'createdByUserId', 'title', 'body', 'type', 'isRead',
+            'relatedPostId', 'relatedChatId', 'relatedCommentId', 'relatedReportId',
+            'createdAtMillis'
+          ])
+          && request.resource.data.keys().hasAll([
+            'id', 'userId', 'createdByUserId', 'title', 'body', 'type', 'isRead',
+            'createdAtMillis'
+          ])
+          && request.resource.data.id == notificationId
+          && request.resource.data.userId is string
+          && request.resource.data.userId.size() > 0
+          && request.resource.data.createdByUserId == request.auth.uid
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 2000
+          && request.resource.data.type in ['REQUEST', 'SYSTEM', 'COMMENT', 'ACHIEVEMENT', 'INTERACTION']
+          && request.resource.data.isRead == false
+          && request.resource.data.createdAtMillis is int
+          && (!('relatedPostId' in request.resource.data)
+            || request.resource.data.relatedPostId == null
+            || request.resource.data.relatedPostId is string)
+          && (!('relatedChatId' in request.resource.data)
+            || request.resource.data.relatedChatId == null
+            || request.resource.data.relatedChatId is string)
+          && (!('relatedCommentId' in request.resource.data)
+            || request.resource.data.relatedCommentId == null
+            || request.resource.data.relatedCommentId is string)
+          && (!('relatedReportId' in request.resource.data)
+            || request.resource.data.relatedReportId == null
+            || request.resource.data.relatedReportId is string);
+      }
+
+      function isSelfNotification() {
+        return (request.resource.data.userId == request.auth.uid
+            && request.resource.data.type == 'ACHIEVEMENT')
+          || (request.resource.data.userId == request.auth.uid
+            && request.resource.data.type == 'SYSTEM'
+            && (request.resource.data.relatedPostId == null
+              || (request.resource.data.relatedPostId is string
+                && exists(/databases/$(database)/documents/posts/$(request.resource.data.relatedPostId))
+                && get(/databases/$(database)/documents/posts/$(request.resource.data.relatedPostId)).data.providerId == request.auth.uid)));
+      }
+
+      function isModerationPostNotification() {
+        let postId = request.resource.data.relatedPostId;
+        return request.resource.data.type == 'SYSTEM'
+          && isModerator()
+          && postId is string
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == request.resource.data.userId
+          && get(/databases/$(database)/documents/posts/$(postId)).data.moderatorId == request.auth.uid
+          && get(/databases/$(database)/documents/posts/$(postId)).data.status in ['APPROVED', 'REJECTED'];
+      }
+
+      function isModerationReportNotification() {
+        let reportId = request.resource.data.relatedReportId;
+        return request.resource.data.type == 'SYSTEM'
+          && isModerator()
+          && reportId is string
+          && exists(/databases/$(database)/documents/reports/$(reportId))
+          && get(/databases/$(database)/documents/reports/$(reportId)).data.reporterId == request.resource.data.userId
+          && get(/databases/$(database)/documents/reports/$(reportId)).data.moderatorId == request.auth.uid
+          && get(/databases/$(database)/documents/reports/$(reportId)).data.status == 'REVIEWED'
+          && get(/databases/$(database)/documents/reports/$(reportId)).data.targetPostId == request.resource.data.relatedPostId;
+      }
+
+      function isChatNotification() {
+        let chatId = request.resource.data.relatedChatId;
+        return request.resource.data.type == 'REQUEST'
+          && chatId is string
+          && chatId.size() > 0
+          && request.resource.data.userId != request.auth.uid
+          && exists(/databases/$(database)/documents/chats/$(chatId))
+          && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid])
+          && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.resource.data.userId]);
+      }
+
+      function isLikeNotification() {
+        let postId = request.resource.data.relatedPostId;
+        let likeId = postId + '_' + request.auth.uid;
+        return request.resource.data.type == 'INTERACTION'
+          && postId is string
+          && request.resource.data.userId != request.auth.uid
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == request.resource.data.userId
+          && exists(/databases/$(database)/documents/likes/$(likeId))
+          && get(/databases/$(database)/documents/likes/$(likeId)).data.userId == request.auth.uid
+          && get(/databases/$(database)/documents/likes/$(likeId)).data.postId == postId;
+      }
+
+      function isCommentNotification() {
+        let commentId = request.resource.data.relatedCommentId;
+        let postId = request.resource.data.relatedPostId;
+        return request.resource.data.type == 'COMMENT'
+          && commentId is string
+          && postId is string
+          && request.resource.data.userId != request.auth.uid
+          && exists(/databases/$(database)/documents/comments/$(commentId))
+          && get(/databases/$(database)/documents/comments/$(commentId)).data.userId == request.auth.uid
+          && get(/databases/$(database)/documents/comments/$(commentId)).data.postId == postId
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == request.resource.data.userId;
+      }
+
+      function isValidNotificationCreate() {
+        return request.auth != null
+          && validNotificationShape()
+          && exists(/databases/$(database)/documents/users/$(request.resource.data.userId))
+          && (isSelfNotification()
+            || isModerationPostNotification()
+            || isModerationReportNotification()
+            || isChatNotification()
+            || isLikeNotification()
+            || isCommentNotification());
+      }
+
+      allow get, list: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isValidNotificationCreate();
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead is bool;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
     // Resto de colecciones sigue cerrado.
     match /{document=**} {
       allow read, write: if false;

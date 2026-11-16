@@ -1,6 +1,7 @@
 package com.servilocal.domain.usecase.auth
 
 import com.servilocal.domain.repository.ChatRepository
+import com.servilocal.domain.repository.NotificationRepository
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.repository.SessionRepository
 import com.servilocal.domain.repository.UserRepository
@@ -20,7 +21,8 @@ class DeleteAccountUseCase @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val userRepository: UserRepository,
     private val postRepository: PostRepository,
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val notificationRepository: NotificationRepository
 ) {
     suspend operator fun invoke(): DeleteAccountResult {
         val session = sessionRepository.session.value ?: return DeleteAccountResult.NoActiveSession
@@ -28,7 +30,8 @@ class DeleteAccountUseCase @Inject constructor(
 
         val postsDeleted = postRepository.deletePostsByUser(userId)
         val chatsDeleted = chatRepository.deleteConversationsForUser(userId)
-        if (!postsDeleted || !chatsDeleted) return DeleteAccountResult.Failed
+        val notificationsDeleted = notificationRepository.deleteNotificationsForUser(userId)
+        if (!postsDeleted || !chatsDeleted || !notificationsDeleted) return DeleteAccountResult.Failed
 
         if (!userRepository.deleteById(userId)) return DeleteAccountResult.Failed
 

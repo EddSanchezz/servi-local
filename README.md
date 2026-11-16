@@ -154,6 +154,7 @@ Es la base de datos principal. Las colecciones usadas son:
 - `posts/{postId}`: publicaciones con estado de moderación, rango de precios, zona de cobertura, ubicación y fotos.
 - `chats/{chatId}` y `chats/{chatId}/messages`: conversaciones y mensajes.
 - `reports/{reportId}`: reportes de publicaciones.
+- `notifications/{notificationId}`: bandeja de notificaciones por usuario, con estado de lectura y referencias a publicaciones, chats, comentarios o reportes.
 - `moderators/{uid}`: datos del personal de moderación.
 
 Las reglas de seguridad (`firestore.rules`) aplican denegación por defecto y validan rol, autoría y estados permitidos.

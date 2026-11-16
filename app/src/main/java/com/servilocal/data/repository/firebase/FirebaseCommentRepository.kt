@@ -41,7 +41,7 @@ class FirebaseCommentRepository @Inject constructor(
         userId: String,
         authorName: String,
         content: String
-    ): Boolean {
+    ): String? {
         return try {
             val reference = commentsCollection.document()
             reference.set(
@@ -55,9 +55,9 @@ class FirebaseCommentRepository @Inject constructor(
                     "createdAt" to FieldValue.serverTimestamp()
                 )
             ).await()
-            true
+            reference.id
         } catch (error: Exception) {
-            false
+            null
         }
     }
 

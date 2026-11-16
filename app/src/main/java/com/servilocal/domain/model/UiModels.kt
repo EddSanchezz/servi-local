@@ -130,7 +130,9 @@ data class NotificationItem(
     val type: NotificationType,
     val read: Boolean = false,
     val relatedPostId: String? = null,
-    val relatedChatId: String? = null
+    val relatedChatId: String? = null,
+    val relatedCommentId: String? = null,
+    val relatedReportId: String? = null
 )
 
 data class ModerationReportItem(

@@ -59,12 +59,32 @@ class NotificationUseCaseTest {
             title = "Nuevo comentario",
             body = "Alguien respondió a tu publicación.",
             type = NotificationType.COMMENT,
-            relatedPostId = "pub_1"
+            relatedPostId = "pub_1",
+            relatedCommentId = "comment_1"
         )
 
         assertNotNull(created)
         val result = observeNotifications().first()
         assertTrue(result.any { it.id == created?.id && it.type == NotificationType.COMMENT })
+        assertEquals("comment_1", result.first { it.id == created?.id }.relatedCommentId)
+    }
+
+    @Test
+    fun `create notification preserves the related report id`() = runTest {
+        sessions.saveSession("moderator-1", UserRole.MODERATOR)
+
+        val created = createNotification(
+            userId = "reporter-1",
+            title = "Estado de reporte",
+            body = "Tu reporte fue revisado.",
+            type = NotificationType.SYSTEM,
+            relatedPostId = "pub_1",
+            relatedReportId = "report-1"
+        )
+
+        assertNotNull(created)
+        val stored = notifications.notifications.value.first { it.id == created?.id }
+        assertEquals("report-1", stored.relatedReportId)
     }
 
     @Test

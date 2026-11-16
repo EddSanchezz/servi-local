@@ -19,7 +19,9 @@ class CreateNotificationUseCase @Inject constructor(
         body: String,
         type: NotificationType = NotificationType.SYSTEM,
         relatedPostId: String? = null,
-        relatedChatId: String? = null
+        relatedChatId: String? = null,
+        relatedCommentId: String? = null,
+        relatedReportId: String? = null
     ): AppNotification? {
         if (userId.isBlank() || title.isBlank() || body.isBlank()) return null
 
@@ -30,7 +32,9 @@ class CreateNotificationUseCase @Inject constructor(
             body = body.trim(),
             type = type,
             relatedPostId = relatedPostId,
-            relatedChatId = relatedChatId
+            relatedChatId = relatedChatId,
+            relatedCommentId = relatedCommentId,
+            relatedReportId = relatedReportId
         )
         notificationRepository.create(notification)
         return notification

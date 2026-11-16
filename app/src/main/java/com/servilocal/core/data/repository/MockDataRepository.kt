@@ -210,8 +210,8 @@ class MockDataRepository @Inject constructor(
     override fun hasLiked(postId: String, userId: String): Boolean =
         erdLikes.value.any { it.postId == postId && it.userId == userId }
 
-    override suspend fun addComment(postId: String, userId: String, authorName: String, content: String): Boolean {
-        if (content.isBlank()) return false
+    override suspend fun addComment(postId: String, userId: String, authorName: String, content: String): String? {
+        if (content.isBlank()) return null
         val post = _posts.value.firstOrNull { it.id == postId }
 
         val newComment = Comment(
@@ -237,7 +237,7 @@ class MockDataRepository @Inject constructor(
                 if (it.id == postId) it.copy(comments = listOf(uiComment) + it.comments) else it
             }
         }
-        return true
+        return newComment.id
     }
 
     override suspend fun createPost(
@@ -831,6 +831,11 @@ class MockDataRepository @Inject constructor(
                 if (notification.userId == userId) notification.copy(isRead = true) else notification
             }
         }
+    }
+
+    override suspend fun deleteNotificationsForUser(userId: String): Boolean {
+        _notifications.update { current -> current.filterNot { it.userId == userId } }
+        return true
     }
 
     override suspend fun toggleModeratorShift() {

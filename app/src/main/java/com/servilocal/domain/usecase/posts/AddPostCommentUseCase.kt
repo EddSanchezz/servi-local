@@ -33,13 +33,13 @@ class AddPostCommentUseCase @Inject constructor(
 
         if (post.status != PostStatus.APPROVED) return AddCommentResult.PostNotVerified
 
-        val added = commentRepository.addComment(
+        val commentId = commentRepository.addComment(
             postId = postId,
             userId = currentUser.id,
             authorName = currentUser.name,
             content = content
         )
-        if (!added) return AddCommentResult.PostNotFound
+        if (commentId == null) return AddCommentResult.PostNotFound
 
         val authorId = post.providerId
         if (authorId != null && authorId != currentUser.id) {
@@ -48,7 +48,8 @@ class AddPostCommentUseCase @Inject constructor(
                 title = "Nuevo comentario en tu servicio",
                 body = "${currentUser.name} comentó en '${post.title}': \"$content\"",
                 type = NotificationType.COMMENT,
-                relatedPostId = post.id
+                relatedPostId = post.id,
+                relatedCommentId = commentId
             )
         }
         return AddCommentResult.Success

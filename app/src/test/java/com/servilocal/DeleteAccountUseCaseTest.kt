@@ -26,7 +26,7 @@ class DeleteAccountUseCaseTest {
         users = UserRepositoryImpl()
         sessions = SessionRepositoryImpl()
         content = MockDataRepository(users, sessions)
-        deleteAccount = DeleteAccountUseCase(sessions, users, content, content)
+        deleteAccount = DeleteAccountUseCase(sessions, users, content, content, content)
     }
 
     @Test
@@ -55,5 +55,6 @@ class DeleteAccountUseCaseTest {
                 it.clientId == "1" || it.providerId == "1"
             }
         )
+        assertTrue(content.notifications.value.none { it.userId == "1" })
     }
 }

@@ -57,5 +57,7 @@ private fun AppNotification.toNotificationItem(): NotificationItem = Notificatio
     type = type,
     read = isRead,
     relatedPostId = relatedPostId,
-    relatedChatId = relatedChatId
+    relatedChatId = relatedChatId,
+    relatedCommentId = relatedCommentId,
+    relatedReportId = relatedReportId
 )

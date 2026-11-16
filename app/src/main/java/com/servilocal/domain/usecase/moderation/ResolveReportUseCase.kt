@@ -65,7 +65,8 @@ class ResolveReportUseCase @Inject constructor(
             title = "Estado de reporte",
             body = "El reporte sobre '${report.targetTitle}' ha sido resuelto por moderación.",
             type = NotificationType.SYSTEM,
-            relatedPostId = report.targetPostId
+            relatedPostId = report.targetPostId,
+            relatedReportId = report.id
         )
 
         return true

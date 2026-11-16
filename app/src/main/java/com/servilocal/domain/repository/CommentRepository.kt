@@ -6,5 +6,5 @@ import kotlinx.coroutines.flow.StateFlow
 interface CommentRepository {
     val comments: StateFlow<List<Comment>>
 
-    suspend fun addComment(postId: String, userId: String, authorName: String, content: String): Boolean
+    suspend fun addComment(postId: String, userId: String, authorName: String, content: String): String?
 }
