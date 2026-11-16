@@ -88,6 +88,7 @@ import com.servilocal.features.onboarding.ui.OnboardingScreen
 import com.servilocal.features.posts.ui.CreatePostScreen
 import com.servilocal.features.posts.ui.EditPostScreen
 import com.servilocal.features.posts.viewmodel.CreatePostViewModel
+import com.servilocal.features.posts.viewmodel.AiPostAssistantViewModel
 import com.servilocal.features.posts.viewmodel.EditPostViewModel
 import com.servilocal.features.profile.ui.UserProfileScreen
 import com.servilocal.features.profile.ui.MyPostsScreen
@@ -116,13 +117,15 @@ object AppRoute {
     const val SERVICE_DETAIL = "service-detail/{postId}"
     const val EDIT_POST = "edit-post/{postId}"
     const val MY_POSTS = "my-posts"
-    const val CHAT_DETAIL = "chat-detail/{chatId}"
+    const val CHAT_DETAIL = "chat-detail/{chatId}?initialText={initialText}"
     const val MODERATION_DETAIL = "moderation-detail/{postId}"
     const val MODERATION_REPORT_DETAIL = "moderation-report-detail/{reportId}"
 
     fun serviceDetail(postId: String) = "service-detail/$postId"
     fun editPost(postId: String) = "edit-post/$postId"
-    fun chatDetail(chatId: String) = "chat-detail/$chatId"
+    fun chatDetail(chatId: String, initialText: String? = null) =
+        if (initialText.isNullOrBlank()) "chat-detail/$chatId"
+        else "chat-detail/$chatId?initialText=${Uri.encode(initialText)}"
     fun moderationDetail(postId: String) = "moderation-detail/$postId"
     fun moderationReportDetail(reportId: String) = "moderation-report-detail/$reportId"
     fun passwordReset(code: String) = "password-reset?code=${Uri.encode(code)}"
@@ -348,7 +351,8 @@ private fun DashboardNavigation(
             }
             composable(AppRoute.CREATE_POST) {
                 val viewModel: CreatePostViewModel = hiltViewModel()
-                CreatePostScreen(viewModel, onBack = { navController.navigateUp() }, onOpenHome = { navigateTab(AppRoute.HOME) }, onOpenProfile = { navigateTab(AppRoute.PROFILE) })
+                val aiViewModel: AiPostAssistantViewModel = hiltViewModel()
+                CreatePostScreen(viewModel, aiViewModel = aiViewModel, onBack = { navController.navigateUp() }, onOpenHome = { navigateTab(AppRoute.HOME) }, onOpenProfile = { navigateTab(AppRoute.PROFILE) })
             }
             composable(AppRoute.PROFILE) {
                 val viewModel: ProfileViewModel = hiltViewModel()
@@ -438,7 +442,7 @@ private fun DashboardNavigation(
                     postId = entry.arguments?.getString("postId").orEmpty(),
                     viewModel = viewModel,
                     onBack = { navController.navigateUp() },
-                    onOpenChat = { navController.navigate(AppRoute.chatDetail(it)) },
+                    onOpenChat = { chatId, initialText -> navController.navigate(AppRoute.chatDetail(chatId, initialText)) },
                     onEditPost = { navController.navigate(AppRoute.editPost(it)) }
                 )
             }
@@ -459,9 +463,21 @@ private fun DashboardNavigation(
                     }
                 )
             }
-            composable(AppRoute.CHAT_DETAIL, arguments = listOf(navArgument("chatId") { type = NavType.StringType })) { entry ->
+            composable(
+                route = AppRoute.CHAT_DETAIL,
+                arguments = listOf(
+                    navArgument("chatId") { type = NavType.StringType },
+                    navArgument("initialText") { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
+            ) { entry ->
                 val viewModel: ChatDetailViewModel = hiltViewModel()
-                ChatDetailScreen(entry.arguments?.getString("chatId").orEmpty(), viewModel, appUiState, onBack = { navController.navigateUp() })
+                ChatDetailScreen(
+                    chatId = entry.arguments?.getString("chatId").orEmpty(),
+                    initialText = entry.arguments?.getString("initialText"),
+                    viewModel = viewModel,
+                    appUiState = appUiState,
+                    onBack = { navController.navigateUp() }
+                )
             }
             composable(AppRoute.MODERATION_DETAIL, arguments = listOf(navArgument("postId") { type = NavType.StringType })) { entry ->
                 val viewModel: ModerationViewModel = hiltViewModel()

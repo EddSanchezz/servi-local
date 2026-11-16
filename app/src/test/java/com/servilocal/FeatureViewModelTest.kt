@@ -2,6 +2,7 @@ package com.servilocal
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.servilocal.core.location.LocationProvider
 import com.servilocal.core.util.RequestResult
 import com.servilocal.data.repository.memory.PasswordResetRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
@@ -264,7 +265,8 @@ class FeatureViewModelTest {
             FilterPostsByCategoryUseCase(),
             FilterPostsByQueryUseCase(),
             FilterPostsByLocationUseCase(),
-            testResourceProvider
+            testResourceProvider,
+            LocationProvider(ApplicationProvider.getApplicationContext())
         )
 
         viewModel.setSearchQuery("electricista")

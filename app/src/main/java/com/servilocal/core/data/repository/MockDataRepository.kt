@@ -85,7 +85,7 @@ class MockDataRepository @Inject constructor(
     private fun refreshConversations() {
         val currentUserId = _currentUser.value.id
         val mapped = _allConversations.value.mapNotNull { chat ->
-            if (chat.clientId == currentUserId || chat.providerId == currentUserId) {
+            if ((chat.clientId == currentUserId || chat.providerId == currentUserId) && currentUserId !in chat.deletedByUsers) {
                 val isClient = chat.clientId == currentUserId
                 val recipient = if (isClient) chat.providerName else chat.clientName
                 val currentUserName = _currentUser.value.name
@@ -97,9 +97,13 @@ class MockDataRepository @Inject constructor(
                         else -> message
                     }
                 }
+                val isPostAvailable = chat.postStatus != PostStatus.REJECTED &&
+                    chat.providerStatus != UserStatus.BLOCKED &&
+                    chat.providerStatus != UserStatus.DELETED
                 chat.copy(
                     isClientRole = isClient,
                     recipientName = recipient,
+                    isPostAvailable = isPostAvailable,
                     messages = normalizedMessages
                 )
             } else {
@@ -107,6 +111,20 @@ class MockDataRepository @Inject constructor(
             }
         }
         _conversations.value = mapped
+    }
+
+    override fun softDeleteChat(conversationId: String) {
+        val currentUserId = _currentUser.value.id
+        _allConversations.update { list ->
+            list.map { chat ->
+                if (chat.id == conversationId) {
+                    if (currentUserId !in chat.deletedByUsers) {
+                        chat.copy(deletedByUsers = chat.deletedByUsers + currentUserId)
+                    } else chat
+                } else chat
+            }
+        }
+        refreshConversations()
     }
 
     private val _posts = MutableStateFlow<List<ServicePost>>(getInitialPosts())
@@ -527,8 +545,12 @@ class MockDataRepository @Inject constructor(
 
     override fun startConversation(postId: String): String? {
         val post = _posts.value.find { it.id == postId } ?: return null
-        val currentUserId = _currentUser.value.id
-        val currentUserName = _currentUser.value.name
+        return startConversation(post, _currentUser.value)
+    }
+
+    override fun startConversation(post: ServicePost, currentUser: UserProfile): String? {
+        val currentUserId = currentUser.id
+        val currentUserName = currentUser.name
         val providerId = post.providerId ?: "2"
         val providerName = post.providerName
 
@@ -536,7 +558,7 @@ class MockDataRepository @Inject constructor(
         if (providerId == currentUserId) return null
 
         val existing = _allConversations.value.firstOrNull {
-            it.clientId == currentUserId && it.providerId == providerId && it.postId == postId
+            it.clientId == currentUserId && it.providerId == providerId && it.postId == post.id
         }
         if (existing != null) return existing.id
 
@@ -545,7 +567,7 @@ class MockDataRepository @Inject constructor(
             id = conversationId,
             clientId = currentUserId,
             providerId = providerId,
-            postId = postId,
+            postId = post.id,
             clientName = currentUserName,
             providerName = providerName,
             recipientName = providerName,

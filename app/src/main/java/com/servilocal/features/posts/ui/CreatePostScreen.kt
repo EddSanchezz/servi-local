@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,6 +40,10 @@ import com.servilocal.core.ui.components.ImagePicker
 import com.servilocal.core.ui.components.PostPhotoUploader
 import com.servilocal.core.ui.components.PostLocationMap
 import com.servilocal.core.util.requestCurrentLocation
+import com.servilocal.core.constants.AiAssistantAssets
+import com.servilocal.domain.model.AiPostAssistantMode
+import com.servilocal.features.posts.viewmodel.AiPostAssistantViewModel
+import com.servilocal.features.posts.viewmodel.AiPostAssistantUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +54,7 @@ fun CreatePostScreen(
     onOpenProfile: () -> Unit,
     editPost: ServicePost? = null,
     editViewModel: EditPostViewModel? = null,
+    aiViewModel: AiPostAssistantViewModel? = null,
     onEditSaved: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -67,7 +73,8 @@ fun CreatePostScreen(
     var isCategoryDropdownExpanded by remember { mutableStateOf(false) }
     var attemptedSubmit by remember { mutableStateOf(false) }
     var activePhotoIndex by rememberSaveable { mutableIntStateOf(0) }
-    var showHelpDialog by remember { mutableStateOf(false) }
+    var showAiAssistant by remember { mutableStateOf(false) }
+    val aiUiState = aiViewModel?.uiState?.collectAsStateWithLifecycle()?.value ?: AiPostAssistantUiState()
     val formUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val editUiState = editViewModel?.uiState?.collectAsStateWithLifecycle()
     val attachedPhotos = if (editPost == null) formUiState.selectedImageUris else existingPhotos + newPhotoUris
@@ -85,6 +92,10 @@ fun CreatePostScreen(
         "Transporte" to R.string.category_transport
     )
     val context = LocalContext.current
+
+    LaunchedEffect(aiViewModel) {
+        aiViewModel?.reset(context.getString(R.string.ai_assistant_welcome))
+    }
 
     fun requestDeviceLocation() {
         requestCurrentLocation(context) { deviceLocation ->
@@ -113,6 +124,7 @@ fun CreatePostScreen(
 
     LaunchedEffect(formUiState.isCreated) {
         if (formUiState.isCreated && editPost == null) {
+            viewModel.acknowledgeCreation()
             onOpenHome()
         }
     }
@@ -146,8 +158,8 @@ fun CreatePostScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showHelpDialog = true }) {
-                        Icon(Icons.Default.HelpOutline, contentDescription = stringResource(R.string.help))
+                    if (editPost == null && aiViewModel != null) Surface(onClick = { showAiAssistant = true }, shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.padding(end = 8.dp).size(42.dp)) {
+                        AsyncImage(model = AiAssistantAssets.AVATAR_URL, contentDescription = stringResource(R.string.ai_assistant_open), contentScale = androidx.compose.ui.layout.ContentScale.Fit, modifier = Modifier.padding(4.dp).fillMaxSize())
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -576,12 +588,19 @@ fun CreatePostScreen(
         }
     }
 
-    if (showHelpDialog) {
-        AlertDialog(
-            onDismissRequest = { showHelpDialog = false },
-            title = { Text(stringResource(R.string.create_post)) },
-            text = { Text(stringResource(R.string.create_post_help)) },
-            confirmButton = { TextButton(onClick = { showHelpDialog = false }) { Text(stringResource(R.string.understood)) } }
+    if (showAiAssistant && aiViewModel != null && editPost == null) {
+        AiPostAssistantDialog(
+            uiState = aiUiState,
+            onDismiss = { showAiAssistant = false },
+            onInputChange = aiViewModel::onInputChange,
+            onSend = { aiViewModel.sendMessage(if (title.isBlank() && description.isBlank()) AiPostAssistantMode.CREATE else AiPostAssistantMode.IMPROVE, title, description) },
+            onRetry = { aiViewModel.retryLast(title, description) },
+            onApplySuggestion = { suggestedTitle, suggestedDescription ->
+                title = suggestedTitle.take(80)
+                description = suggestedDescription.take(500)
+                showAiAssistant = false
+                coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.ai_assistant_applied)) }
+            }
         )
     }
 

@@ -51,6 +51,20 @@ class CreatePostViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(CreatePostUiState())
     val uiState: StateFlow<CreatePostUiState> = _uiState.asStateFlow()
 
+    fun acknowledgeCreation() {
+        _uiState.update {
+            it.copy(
+                selectedImageUri = null,
+                selectedImageUris = emptyList(),
+                uploadedImageUrl = null,
+                uploadedImageSourceUri = null,
+                uploadProgress = null,
+                isCreated = false,
+                submissionError = null
+            )
+        }
+    }
+
     fun onImageSelected(uri: String) {
         onImagesSelected(listOf(uri))
     }
