@@ -51,13 +51,13 @@ El feed usa OpenStreetMap mediante osmdroid. La pestaña Mapa muestra tiles real
 
 ### Firebase
 
-Firebase Authentication gestiona las cuentas. Firestore guarda perfiles en `users/{uid}`, insignias ganadas en `users/{uid}/badges/{badgeId}`, eventos de puntos en `users/{uid}/pointEvents/{eventId}`, publicaciones en `posts/{postId}`, apoyos en `likes/{postId}_{uid}`, comentarios en `comments/{commentId}` y notificaciones en `notifications/{notificationId}`. El inbox se consulta por UID y cada notificación conserva el actor y la referencia al evento que la originó. El registro de moderadores se mantiene separado en `moderators/{uid}` y solo debe provisionarse desde una sesión administrativa, nunca desde la app.
+Firebase Authentication gestiona las cuentas. Firestore separa `users/{uid}` (privado: correo, rol, puntos y estado; lectura solo del titular) de `users_public/{uid}` (nombre, foto y estado visibles a usuarios autenticados). También guarda insignias en `users/{uid}/badges/{badgeId}`, eventos de puntos en `users/{uid}/pointEvents/{eventId}`, publicaciones en `posts/{postId}`, apoyos en `likes/{postId}_{uid}`, comentarios en `comments/{commentId}` y notificaciones en `notifications/{notificationId}`. El inbox se consulta por UID y cada notificación conserva el actor y la referencia al evento que la originó. El registro de moderadores se mantiene separado en `moderators/{uid}` y solo debe provisionarse desde una sesión administrativa, nunca desde la app.
 
 1. Crea un proyecto Firebase y registra el paquete `com.aistudio.servilocal.quindio`.
 2. Habilita los proveedores Email/Password y Google, además de Firestore.
 3. Registra las huellas SHA-1 y SHA-256 del certificado usado para instalar la aplicación.
 4. Descarga `google-services.json` y colócalo en `app/google-services.json`.
-5. Revisa `firestore.rules` antes de desplegarlas. Las reglas incluyen otorgamiento de puntos ligado a una publicación, likes/comentarios y la subcolección de insignias; deben probarse en Emulator y staging antes de desplegar a producción.
+5. Revisa `firestore.rules` antes de desplegarlas. Las reglas incluyen la separación de perfiles públicos/privados, otorgamiento de puntos ligado a una publicación, likes/comentarios/notificaciones y la subcolección de insignias; deben probarse en Emulator y staging antes de desplegar a producción.
 
 Los usuarios pueden registrarse con correo y contraseña o iniciar sesión con Google. `google-services.json` no debe subirse a Git.
 

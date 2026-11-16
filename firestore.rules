@@ -1,3 +1,9 @@
+// User data contract:
+// users/{uid} is private and contains email, role, points, level, account status,
+// timestamps and point-event metadata. Only the owner may read it; moderator
+// operations use trusted rule-side lookups.
+// users_public/{uid} contains only display name, avatar URL and visibility status.
+//
 // Notification data contract:
 // notifications/{notificationId} stores id, recipient userId, authenticated
 // createdByUserId, title/body, NotificationType, isRead, createdAtMillis, and
@@ -19,31 +25,41 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
+      function isValidPrivateUserProfile(data) {
+        return data.keys().hasOnly([
+            'name', 'email', 'role', 'points', 'level', 'status', 'createdAtMillis', 'photoUrl', 'lastPointEventId'
+          ])
+          && data.keys().hasAll(['name', 'email', 'role', 'points', 'level', 'status', 'createdAtMillis'])
+          && data.name is string
+          && data.name.size() > 0
+          && data.name.size() <= 100
+          && data.email is string
+          && data.email.size() > 3
+          && data.email.size() <= 254
+          && data.email.matches('^[^@]+@[^@]+\\.[^@]+$')
+          && data.role in ['USER', 'MODERATOR']
+          && data.points is int
+          && data.points >= 0
+          && data.points <= 10000000
+          && data.level == levelForPoints(data.points)
+          && data.status in ['ACTIVE', 'BLOCKED', 'DELETED']
+          && data.createdAtMillis is int
+          && (!('photoUrl' in data)
+            || data.photoUrl == null
+            || (data.photoUrl is string
+              && data.photoUrl.size() <= 2048
+              && data.photoUrl.matches('^https://.*')))
+          && (!('lastPointEventId' in data)
+            || (data.lastPointEventId is string && data.lastPointEventId.size() <= 512));
+      }
+
       function isValidNewUser() {
         return request.auth.uid == uid
-          && request.resource.data.keys().hasOnly([
-            'name', 'email', 'role', 'points', 'level', 'status', 'createdAtMillis', 'photoUrl'
-          ])
-          && request.resource.data.keys().hasAll([
-            'name', 'email', 'role', 'points', 'level', 'status', 'createdAtMillis'
-          ])
-          && request.resource.data.name is string
-          && request.resource.data.name.size() > 0
-          && request.resource.data.name.size() <= 100
-          && request.resource.data.email is string
-          && request.resource.data.email.size() > 3
-          && request.resource.data.email.size() <= 254
-          && request.resource.data.email.matches('^[^@]+@[^@]+\\.[^@]+$')
+          && isValidPrivateUserProfile(request.resource.data)
           && request.resource.data.role == 'USER'
           && request.resource.data.points == 0
           && request.resource.data.level == 'PRINCIPIANTE'
-          && request.resource.data.status == 'ACTIVE'
-          && request.resource.data.createdAtMillis is int
-          && (!('photoUrl' in request.resource.data)
-            || request.resource.data.photoUrl == null
-            || (request.resource.data.photoUrl is string
-              && request.resource.data.photoUrl.size() <= 2048
-              && request.resource.data.photoUrl.matches('^https://.*')));
+          && request.resource.data.status == 'ACTIVE';
       }
 
       function levelForPoints(points) {
@@ -60,6 +76,7 @@ service cloud.firestore {
         let postId = getAfter(eventPath).data.sourcePostId;
         let postPath = /databases/$(database)/documents/posts/$(postId);
         return request.auth.uid == uid
+          && isValidPrivateUserProfile(request.resource.data)
           && eventId is string
           && changedKeys.hasOnly(['points', 'level', 'lastPointEventId'])
           && changedKeys.hasAll(['points', 'level', 'lastPointEventId'])
@@ -78,16 +95,19 @@ service cloud.firestore {
           && request.resource.data.level == levelForPoints(request.resource.data.points);
       }
 
-      allow read: if request.auth != null;
+      // Private profile fields (including email) are owner-only.
+      allow get, list: if request.auth != null && request.auth.uid == uid;
       allow create: if isValidNewUser();
       allow update: if request.auth != null
         && ((request.auth.uid == uid
+              && isValidPrivateUserProfile(request.resource.data)
               && request.resource.data.status == resource.data.status
               && request.resource.data.role == resource.data.role
-              && !request.resource.data.diff(resource.data).affectedKeys()
-                .hasAny(['points', 'level', 'lastPointEventId']))
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['name', 'email', 'photoUrl']))
           || (request.auth.uid == uid && isValidPointGrant())
           || (isModerator()
+              && isValidPrivateUserProfile(request.resource.data)
               && request.resource.data.status == 'BLOCKED'
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])));
       allow delete: if request.auth != null && request.auth.uid == uid;
@@ -138,6 +158,44 @@ service cloud.firestore {
                 && get(/databases/$(database)/documents/users/$(uid)).data.points >= 500));
         allow update, delete: if false;
       }
+    }
+
+    match /users_public/{uid} {
+      function isValidPublicProfile(data) {
+        return data.keys().hasOnly(['name', 'photoUrl', 'status'])
+          && data.keys().hasAll(['name', 'photoUrl', 'status'])
+          && data.name is string
+          && data.name.size() > 0
+          && data.name.size() <= 100
+          && (data.photoUrl == null
+            || (data.photoUrl is string
+              && data.photoUrl.size() <= 2048
+              && data.photoUrl.matches('^https://.*')))
+          && data.status in ['ACTIVE', 'BLOCKED', 'DELETED'];
+      }
+
+      allow get, list: if request.auth != null;
+      allow create: if request.auth != null
+        && isValidPublicProfile(request.resource.data)
+        && existsAfter(/databases/$(database)/documents/users/$(uid))
+        && request.resource.data.name == getAfter(/databases/$(database)/documents/users/$(uid)).data.name
+        && request.resource.data.photoUrl == getAfter(/databases/$(database)/documents/users/$(uid)).data.get('photoUrl', null)
+        && ((request.auth.uid == uid && request.resource.data.status == 'ACTIVE')
+          || (isModerator()
+            && request.resource.data.status == 'BLOCKED'
+            && getAfter(/databases/$(database)/documents/users/$(uid)).data.status == 'BLOCKED'));
+      allow update: if request.auth != null
+        && isValidPublicProfile(request.resource.data)
+        && ((request.auth.uid == uid
+              && request.resource.data.status == resource.data.status
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photoUrl'])
+              && request.resource.data.name == getAfter(/databases/$(database)/documents/users/$(uid)).data.name
+              && request.resource.data.photoUrl == getAfter(/databases/$(database)/documents/users/$(uid)).data.get('photoUrl', null))
+          || (isModerator()
+              && request.resource.data.status == 'BLOCKED'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+              && getAfter(/databases/$(database)/documents/users/$(uid)).data.status == 'BLOCKED'));
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     match /posts/{postId} {

@@ -26,6 +26,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -85,6 +86,9 @@ class PublicationPointsEmulatorTest {
 
             withTimeout(10_000) { sessionRepository.session.first { it?.userId == userId } }
             withTimeout(10_000) { userRepository.currentUser.first { it.id == userId } }
+            val publicProfile = firestore.collection(PUBLIC_USERS_COLLECTION).document(userId).get().await()
+            assertEquals("Publicador de prueba", publicProfile.getString("name"))
+            assertFalse(publicProfile.contains("email"))
 
             val createPost = CreateServicePostUseCase(
                 postRepository = postRepository,
@@ -181,6 +185,7 @@ class PublicationPointsEmulatorTest {
         const val POSTS_COLLECTION = "posts"
         const val BADGES_COLLECTION = "badges"
         const val POINT_EVENTS_COLLECTION = "pointEvents"
+        const val PUBLIC_USERS_COLLECTION = "users_public"
         const val TEST_PASSWORD = "ServiLocalTest2026"
     }
 }

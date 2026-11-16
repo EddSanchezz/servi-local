@@ -44,6 +44,7 @@ class FirebaseUserRepository @Inject constructor(
     private val _users = MutableStateFlow<List<User>>(emptyList())
     override val users: StateFlow<List<User>> = _users.asStateFlow()
     private val usersCollection get() = firestore.collection("users")
+    private val publicUsersCollection get() = firestore.collection(PUBLIC_USERS_COLLECTION)
     private val _currentUser = MutableStateFlow(signedOutProfile())
     override val currentUser: StateFlow<UserProfile> = _currentUser.asStateFlow()
     private val _moderatorUser = MutableStateFlow(signedOutModeratorProfile())
@@ -75,6 +76,7 @@ class FirebaseUserRepository @Inject constructor(
                     auth.signOut()
                     return@launch
                 }
+                runCatching { syncPublicProfile(user) }
                 publish(user)
                 val profile = user.toUserProfile()
                 _currentUser.value = profile
@@ -102,7 +104,10 @@ class FirebaseUserRepository @Inject constructor(
             ?.let { runCatching { UserStatus.valueOf(it) }.getOrNull() }
             ?: UserStatus.ACTIVE
         val saved = user.copy(id = uid, passwordHash = null, status = currentStatus)
-        usersCollection.document(uid).set(saved.toMap(), SetOptions.merge()).await()
+        val batch = firestore.batch()
+        batch.set(usersCollection.document(uid), saved.toMap(), SetOptions.merge())
+        batch.set(publicUsersCollection.document(uid), saved.toPublicMap(), SetOptions.merge())
+        batch.commit().await()
         publish(saved)
         return saved
     }
@@ -157,8 +162,12 @@ class FirebaseUserRepository @Inject constructor(
 
     override suspend fun deleteById(id: String): Boolean {
         val uid = id.ifBlank { auth.currentUser?.uid ?: return false }
+        if (auth.currentUser?.uid != uid) return false
         return try {
-            usersCollection.document(uid).delete().await()
+            val batch = firestore.batch()
+            batch.delete(usersCollection.document(uid))
+            batch.delete(publicUsersCollection.document(uid))
+            batch.commit().await()
             _users.value = _users.value.filterNot { it.id == uid }
             // Si es la cuenta autenticada, se elimina también de Firebase Auth.
             // Puede requerir un inicio de sesión reciente; si falla, la sesión se cierra
@@ -172,8 +181,13 @@ class FirebaseUserRepository @Inject constructor(
         }
     }
 
-    override suspend fun findById(id: String): User? =
-        usersCollection.document(id).get().await().toUser(id)?.also(::publish)
+    override suspend fun findById(id: String): User? {
+        if (auth.currentUser?.uid != id) return null
+        val user = usersCollection.document(id).get().await().toUser(id) ?: return null
+        publish(user)
+        syncPublicProfile(user)
+        return user
+    }
 
     /** User documents contain PII; clients may only resolve their own email to a profile. */
     override suspend fun findByEmail(email: String): User? {
@@ -217,7 +231,10 @@ class FirebaseUserRepository @Inject constructor(
             status = UserStatus.ACTIVE
         )
         return try {
-            usersCollection.document(firebaseUser.uid).set(profile.toMap()).await()
+            val batch = firestore.batch()
+            batch.set(usersCollection.document(firebaseUser.uid), profile.toMap())
+            batch.set(publicUsersCollection.document(firebaseUser.uid), profile.toPublicMap())
+            batch.commit().await()
             publish(profile)
             profile
         } catch (writeFailure: Exception) {
@@ -246,14 +263,18 @@ class FirebaseUserRepository @Inject constructor(
         if (!firebaseUser.email.equals(normalizedEmail, ignoreCase = true)) {
             firebaseUser.updateEmail(normalizedEmail).await()
         }
-        usersCollection.document(firebaseUser.uid).update(
-            mapOf("name" to name.trim(), "email" to normalizedEmail)
-        ).await()
+        val batch = firestore.batch()
+        batch.update(usersCollection.document(firebaseUser.uid), mapOf("name" to name.trim(), "email" to normalizedEmail))
+        batch.set(publicUsersCollection.document(firebaseUser.uid), mapOf("name" to name.trim()), SetOptions.merge())
+        batch.commit().await()
     }
 
     override suspend fun updateCurrentUserPhoto(photoUrl: String?) {
         val uid = auth.currentUser?.uid ?: error("No authenticated user")
-        usersCollection.document(uid).update("photoUrl", photoUrl).await()
+        val batch = firestore.batch()
+        batch.update(usersCollection.document(uid), "photoUrl", photoUrl)
+        batch.set(publicUsersCollection.document(uid), mapOf("photoUrl" to photoUrl), SetOptions.merge())
+        batch.commit().await()
     }
 
     override suspend fun syncCurrentUser(user: User) {
@@ -319,6 +340,7 @@ class FirebaseUserRepository @Inject constructor(
                     auth.signOut()
                     return GoogleSignInResult.UserBlocked
                 }
+                syncPublicProfile(existing)
                 publish(existing)
                 GoogleSignInResult.Success(existing)
             } else {
@@ -331,7 +353,10 @@ class FirebaseUserRepository @Inject constructor(
                     status = UserStatus.ACTIVE,
                     photoUrl = null
                 )
-                usersCollection.document(firebaseUser.uid).set(profile.toMap()).await()
+                val batch = firestore.batch()
+                batch.set(usersCollection.document(firebaseUser.uid), profile.toMap())
+                batch.set(publicUsersCollection.document(firebaseUser.uid), profile.toPublicMap())
+                batch.commit().await()
                 publish(profile)
                 GoogleSignInResult.Success(profile)
             }
@@ -350,6 +375,17 @@ class FirebaseUserRepository @Inject constructor(
         "createdAtMillis" to createdAtMillis,
         "photoUrl" to photoUrl
     )
+
+    /** Public profile deliberately excludes email, role, points and account metadata. */
+    private fun User.toPublicMap(): Map<String, Any?> = mapOf(
+        "name" to name,
+        "photoUrl" to photoUrl,
+        "status" to status.name
+    )
+
+    private suspend fun syncPublicProfile(user: User) {
+        publicUsersCollection.document(user.id).set(user.toPublicMap(), SetOptions.merge()).await()
+    }
 
     private fun publish(user: User) {
         _users.value = (_users.value.filterNot { it.id == user.id } + user)
@@ -404,6 +440,7 @@ class FirebaseUserRepository @Inject constructor(
 
     private companion object {
         const val MODERATORS_COLLECTION = "moderators"
+        const val PUBLIC_USERS_COLLECTION = "users_public"
         const val POSTS_COLLECTION = "posts"
         const val POINT_EVENTS_COLLECTION = "pointEvents"
         const val PUBLICATION_POINT_EVENT_PREFIX = "publication_"

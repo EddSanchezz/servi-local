@@ -76,7 +76,7 @@ class FirebaseInteractionsRepositoryEmulatorTest {
             assertTrue(runCatching { postReference.update("upvotesCount", 99).await() }.isFailure)
             assertTrue(likeRepository.toggleLike(postId, likerId))
             assertEquals(1L, postReference.get().await().getLong("upvotesCount"))
-            FirebaseNotificationRepository(firestore, likerSession).create(AppNotification(
+            FirebaseNotificationRepository(firestore, likerSession).createAndAwait(AppNotification(
                 id = likeNotificationId,
                 userId = ownerId,
                 title = "Nuevo apoyo en tu servicio",
@@ -106,7 +106,7 @@ class FirebaseInteractionsRepositoryEmulatorTest {
             val createdComment = postComments.first { it.content == "Comentario sincronizado" }
             commentId = createdComment.id
             assertEquals(ownerId, createdComment.postOwnerId)
-            FirebaseNotificationRepository(firestore, likerSession).create(AppNotification(
+            FirebaseNotificationRepository(firestore, likerSession).createAndAwait(AppNotification(
                 id = commentNotificationId,
                 userId = ownerId,
                 title = "Nuevo comentario en tu servicio",

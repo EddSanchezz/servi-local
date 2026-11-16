@@ -167,7 +167,7 @@ class FirebaseChatRepository @Inject constructor(
         if (userId.isBlank() || avatarCache.containsKey(userId) || !avatarLoads.add(userId)) return
         scope.launch {
             try {
-                firestore.collection("users").document(userId).get().await()
+                firestore.collection(PUBLIC_USERS_COLLECTION).document(userId).get().await()
                     .getString("photoUrl")
                     ?.takeIf(String::isNotBlank)
                     ?.let { avatarCache[userId] = it }
@@ -210,7 +210,7 @@ class FirebaseChatRepository @Inject constructor(
                 }
         }
         if (providerId.isNotBlank() && providerId !in providerListeners) {
-            providerListeners[providerId] = firestore.collection("users")
+            providerListeners[providerId] = firestore.collection(PUBLIC_USERS_COLLECTION)
                 .document(providerId)
                 .addSnapshotListener { snapshot, error ->
                     if (error != null) {
@@ -503,5 +503,6 @@ class FirebaseChatRepository @Inject constructor(
 
     private companion object {
         const val TAG = "FirebaseChatRepository"
+        const val PUBLIC_USERS_COLLECTION = "users_public"
     }
 }

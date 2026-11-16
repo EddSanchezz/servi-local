@@ -63,20 +63,24 @@ class FirebaseNotificationRepository @Inject constructor(
     /** Creation is intentionally non-blocking for existing use-case callers. Firestore's
      * snapshot listener emits local pending writes and then confirms the server result. */
     override fun create(notification: AppNotification) {
-        val senderId = sessionRepository.session.value?.userId?.takeIf(String::isNotBlank)
-        if (senderId == null || notification.id.isBlank() || notification.userId.isBlank() ||
-            notification.title.isBlank() || notification.body.isBlank()
-        ) return
-
         scope.launch {
             try {
-                collection.document(notification.id).set(notification.toFirestoreMap(senderId)).await()
+                createAndAwait(notification)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
                 Log.w(TAG, "Could not save notification ${notification.id}", error)
             }
         }
+    }
+
+    /** Awaits Firestore acknowledgement when the caller needs to confirm persistence. */
+    suspend fun createAndAwait(notification: AppNotification) {
+        val senderId = sessionRepository.session.value?.userId?.takeIf(String::isNotBlank)
+        if (senderId == null || notification.id.isBlank() || notification.userId.isBlank() ||
+            notification.title.isBlank() || notification.body.isBlank()
+        ) return
+        collection.document(notification.id).set(notification.toFirestoreMap(senderId)).await()
     }
 
     override suspend fun markRead(notificationId: String, userId: String, isRead: Boolean): Boolean {

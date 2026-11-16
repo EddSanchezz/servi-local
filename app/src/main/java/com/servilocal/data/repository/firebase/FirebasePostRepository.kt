@@ -289,7 +289,7 @@ class FirebasePostRepository @Inject constructor(
         if (providerAvatarCache.containsKey(providerId)) {
             return providerAvatarCache[providerId]
         }
-        val avatar = firestore.collection(USERS_COLLECTION)
+        val avatar = firestore.collection(PUBLIC_USERS_COLLECTION)
             .document(providerId)
             .get()
             .await()
@@ -304,7 +304,7 @@ class FirebasePostRepository @Inject constructor(
                 flowOf(emptySet())
             } else {
                 callbackFlow {
-                    val registration = firestore.collection(USERS_COLLECTION)
+                    val registration = firestore.collection(PUBLIC_USERS_COLLECTION)
                         .whereEqualTo("status", UserStatus.BLOCKED.name)
                         .addSnapshotListener { snapshot, error ->
                             // Permission/network failures must never terminate the shared posts flow.
@@ -319,7 +319,7 @@ class FirebasePostRepository @Inject constructor(
     private suspend fun providerStatusFor(providerId: String): UserStatus {
         providerStatusCache[providerId]?.let { return it }
         val status = runCatching {
-            firestore.collection(USERS_COLLECTION).document(providerId).get().await()
+            firestore.collection(PUBLIC_USERS_COLLECTION).document(providerId).get().await()
                 .getString("status")
                 ?.let { UserStatus.valueOf(it) }
         }.getOrNull() ?: UserStatus.ACTIVE
@@ -440,6 +440,7 @@ class FirebasePostRepository @Inject constructor(
     private companion object {
         const val POSTS_COLLECTION = "posts"
         const val USERS_COLLECTION = "users"
+        const val PUBLIC_USERS_COLLECTION = "users_public"
         const val FIELD_STATUS = "status"
         const val FIELD_PROVIDER_ID = "providerId"
     }
