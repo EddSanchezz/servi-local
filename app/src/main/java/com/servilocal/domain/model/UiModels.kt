@@ -58,7 +58,8 @@ data class ServicePost(
     val rejectionReason: String? = null,
     val rejectionNotes: String? = null,
     val reportCount: Int = 0,
-    val createdAtMillis: Long = System.currentTimeMillis()
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val moderatedAtMillis: Long = 0L
 )
 
 data class ServiceComment(

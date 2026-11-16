@@ -215,11 +215,13 @@ class FirebasePostRepository @Inject constructor(
     override suspend fun approvePost(postId: String) {
         val session = sessionRepository.session.value ?: return
         if (session.role != UserRole.MODERATOR) return
+        val moderatedAtMillis = System.currentTimeMillis()
         postsCollection.document(postId).update(
             mapOf(
                 FIELD_STATUS to PostStatus.APPROVED.name,
                 "moderatorId" to session.userId,
-                "moderatedAt" to FieldValue.serverTimestamp()
+                "moderatedAt" to FieldValue.serverTimestamp(),
+                "moderatedAtMillis" to moderatedAtMillis
             )
         ).await()
     }
@@ -227,13 +229,15 @@ class FirebasePostRepository @Inject constructor(
     override suspend fun rejectPost(postId: String, reason: String, notes: String?) {
         val session = sessionRepository.session.value ?: return
         if (session.role != UserRole.MODERATOR || reason.isBlank()) return
+        val moderatedAtMillis = System.currentTimeMillis()
         postsCollection.document(postId).update(
             mapOf(
                 FIELD_STATUS to PostStatus.REJECTED.name,
                 "moderatorId" to session.userId,
                 "rejectionReason" to reason.trim(),
                 "rejectionNotes" to notes?.trim(),
-                "moderatedAt" to FieldValue.serverTimestamp()
+                "moderatedAt" to FieldValue.serverTimestamp(),
+                "moderatedAtMillis" to moderatedAtMillis
             )
         ).await()
     }
@@ -247,13 +251,15 @@ class FirebasePostRepository @Inject constructor(
         val session = sessionRepository.session.value ?: return false
         if (session.role != UserRole.MODERATOR || status !in setOf(PostStatus.REJECTED, PostStatus.FINISHED)) return false
         if (status == PostStatus.REJECTED && reason.isNullOrBlank()) return false
+        val moderatedAtMillis = System.currentTimeMillis()
         postsCollection.document(postId).update(
             mapOf(
                 FIELD_STATUS to status.name,
                 "moderatorId" to session.userId,
                 "rejectionReason" to if (status == PostStatus.REJECTED) reason?.trim() else null,
                 "rejectionNotes" to if (status == PostStatus.REJECTED) notes?.trim() else null,
-                "moderatedAt" to FieldValue.serverTimestamp()
+                "moderatedAt" to FieldValue.serverTimestamp(),
+                "moderatedAtMillis" to moderatedAtMillis
             )
         ).await()
         return true
@@ -364,7 +370,10 @@ class FirebasePostRepository @Inject constructor(
             rejectionReason = getString("rejectionReason"),
             rejectionNotes = getString("rejectionNotes"),
             reportCount = getLong("reportCount")?.toInt() ?: 0,
-            createdAtMillis = getLong("createdAtMillis") ?: 0L
+            createdAtMillis = getLong("createdAtMillis") ?: 0L,
+            moderatedAtMillis = getLong("moderatedAtMillis")
+                ?: getTimestamp("moderatedAt")?.toDate()?.time
+                ?: 0L
         )
     }
 

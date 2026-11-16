@@ -37,13 +37,17 @@ class GetModerationStatsUseCase @Inject constructor() {
 
         val rangePosts = posts.filter { it.createdAtMillis >= rangeStart }
         val rangeReports = reportHistory.count { it.createdAtMillis >= rangeStart }
+        fun ServicePost.wasModeratedInRange(): Boolean {
+            val moderationTime = moderatedAtMillis.takeIf { it > 0L } ?: createdAtMillis
+            return moderationTime >= rangeStart
+        }
 
         return ModerationStats(
             newPosts = rangePosts.size,
-            approvedPosts = rangePosts.count { it.status == PostStatus.APPROVED },
-            rejectedPosts = rangePosts.count { it.status == PostStatus.REJECTED },
+            approvedPosts = posts.count { it.status == PostStatus.APPROVED && it.wasModeratedInRange() },
+            rejectedPosts = posts.count { it.status == PostStatus.REJECTED && it.wasModeratedInRange() },
             reportedPosts = rangeReports,
-            pendingPosts = rangePosts.count { it.status == PostStatus.PENDING_VERIFICATION }
+            pendingPosts = posts.count { it.status == PostStatus.PENDING_VERIFICATION }
         )
     }
 }
