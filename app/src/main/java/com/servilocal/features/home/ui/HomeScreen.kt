@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.R
+import com.servilocal.core.util.RequestResult
 import com.servilocal.features.app.viewmodel.AppUiState
 import com.servilocal.core.ui.localizedDistance
 import com.servilocal.core.ui.localizedServiceCategory
@@ -135,6 +136,17 @@ fun HomeScreen(
                 }
                 is PublishPostEvent.Progress -> Unit
             }
+        }
+    }
+
+    LaunchedEffect(uiState.likeResult) {
+        when (val result = uiState.likeResult) {
+            is RequestResult.Success -> snackbarHostState.showSnackbar(result.message)
+            is RequestResult.Failure -> snackbarHostState.showSnackbar(result.errorMessage)
+            else -> Unit
+        }
+        if (uiState.likeResult != null && uiState.likeResult !is RequestResult.Loading) {
+            viewModel.clearLikeFeedback()
         }
     }
 

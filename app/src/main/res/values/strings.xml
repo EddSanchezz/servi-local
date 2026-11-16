@@ -510,6 +510,8 @@
     <string name="review_new_password">Revisa la nueva contraseña.</string>
     <string name="like_success">Apoyaste esta publicación.</string>
     <string name="like_removed">Quitaste tu apoyo.</string>
+    <string name="like_permission_denied">Firebase rechazó el apoyo. Publica las reglas de likes actualizadas e inténtalo de nuevo.</string>
+    <string name="like_update_failed">No se pudo actualizar el apoyo. Comprueba tu conexión e inténtalo de nuevo.</string>
     <string name="cannot_like_own_post">No puedes apoyar tu propia publicación.</string>
     <string name="verified_posts_only_like">Solo puedes apoyar publicaciones verificadas.</string>
     <string name="comment_success">Comentario publicado.</string>

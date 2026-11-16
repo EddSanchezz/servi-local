@@ -44,6 +44,8 @@ import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.features.home.viewmodel.HomeViewModel
 import com.servilocal.features.home.viewmodel.ViewDisplayMode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -257,10 +259,12 @@ class FeatureViewModelTest {
             repository,
             ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
             TogglePostLikeUseCase(repository, repository, repository, CreateNotificationUseCase(repository)),
+            repository,
             ObservePostsUseCase(repository),
             FilterPostsByCategoryUseCase(),
             FilterPostsByQueryUseCase(),
-            FilterPostsByLocationUseCase()
+            FilterPostsByLocationUseCase(),
+            testResourceProvider
         )
 
         viewModel.setSearchQuery("electricista")
@@ -270,6 +274,32 @@ class FeatureViewModelTest {
         assertEquals("electricista", viewModel.uiState.value.searchQuery)
         assertEquals("Electricidad", viewModel.uiState.value.selectedCategory)
         assertEquals(ViewDisplayMode.MAP, viewModel.uiState.value.displayMode)
+    }
+
+    @Test
+    fun `home feed reflects likes from the current user`() = runTest {
+        val repository = MockDataRepository()
+        val viewModel = HomeViewModel(
+            repository,
+            ObserveNotificationsUseCase(SessionRepositoryImpl(), repository),
+            TogglePostLikeUseCase(repository, repository, repository, CreateNotificationUseCase(repository)),
+            repository,
+            ObservePostsUseCase(repository),
+            FilterPostsByCategoryUseCase(),
+            FilterPostsByQueryUseCase(),
+            FilterPostsByLocationUseCase(),
+            testResourceProvider
+        )
+        val postId = repository.posts.value.first().id
+        val feedJob = backgroundScope.launch { viewModel.posts.collect() }
+        advanceUntilIdle()
+
+        assertFalse(viewModel.posts.value.first { it.id == postId }.userUpvoted)
+        repository.toggleLike(postId, repository.currentUser.value.id)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.posts.value.first { it.id == postId }.userUpvoted)
+        feedJob.cancel()
     }
 
     @Test

@@ -190,8 +190,10 @@ private fun HeaderSlotContent(slot: PostCardHeaderSlot) {
                 IconButton(onClick = slot.onLikeClick, modifier = Modifier.size(32.dp)) {
                     Icon(
                         if (slot.isLiked) Icons.Rounded.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = stringResource(R.string.like_post),
-                        tint = if (slot.isLiked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        contentDescription = stringResource(
+                            if (slot.isLiked) R.string.supported else R.string.like_post
+                        ),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(

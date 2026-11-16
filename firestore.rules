@@ -12,6 +12,32 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == request.auth.uid;
     }
 
+    function isLikeCountUpdate(postId) {
+      return request.auth != null && isAuthenticatedLikeCountUpdate(postId);
+    }
+
+    function isAuthenticatedLikeCountUpdate(postId) {
+      let likeId = postId + '_' + request.auth.uid;
+      return resource.data.status == 'APPROVED'
+        && resource.data.providerId != request.auth.uid
+        && resource.data.upvotesCount is int
+        && request.resource.data.upvotesCount is int
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvotesCount'])
+        && (
+          (request.resource.data.upvotesCount == resource.data.upvotesCount + 1
+            && !exists(/databases/$(database)/documents/likes/$(likeId))
+            && existsAfter(/databases/$(database)/documents/likes/$(likeId))
+            && getAfter(/databases/$(database)/documents/likes/$(likeId)).data.userId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/likes/$(likeId)).data.postId == postId)
+          || (request.resource.data.upvotesCount == resource.data.upvotesCount - 1
+            && resource.data.upvotesCount > 0
+            && exists(/databases/$(database)/documents/likes/$(likeId))
+            && !existsAfter(/databases/$(database)/documents/likes/$(likeId))
+            && get(/databases/$(database)/documents/likes/$(likeId)).data.userId == request.auth.uid
+            && get(/databases/$(database)/documents/likes/$(likeId)).data.postId == postId)
+        );
+    }
+
     match /users/{uid} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
@@ -42,6 +68,7 @@ service cloud.firestore {
           && (request.resource.data.status == resource.data.status
             || request.resource.data.status == 'PENDING_VERIFICATION'
             || (resource.data.status == 'APPROVED' && request.resource.data.status == 'FINISHED')))
+        || isLikeCountUpdate(postId)
       );
       allow delete: if request.auth != null
         && (isModerator() || request.auth.uid == resource.data.providerId);
@@ -100,9 +127,20 @@ service cloud.firestore {
     match /likes/{likeId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.keys().hasOnly(['id', 'userId', 'postId'])
+        && request.resource.data.keys().hasAll(['id', 'userId', 'postId'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.postId is string
+        && request.resource.data.postId.size() > 0
+        && likeId == request.resource.data.postId + '_' + request.auth.uid
+        && request.resource.data.id == likeId
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId))
+        && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.status == 'APPROVED'
+        && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.providerId != request.auth.uid;
       allow delete: if request.auth != null
-        && resource.data.userId == request.auth.uid;
+        && resource.data.userId == request.auth.uid
+        && resource.data.postId is string
+        && likeId == resource.data.postId + '_' + request.auth.uid;
     }
     // Resto de colecciones sigue cerrado.
     match /{document=**} {

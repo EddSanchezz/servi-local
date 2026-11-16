@@ -2,8 +2,13 @@ package com.servilocal.features.home.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.FirebaseFirestoreException
+import com.servilocal.R
 import com.servilocal.core.location.LocationProvider
+import com.servilocal.core.util.RequestResult
+import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.repository.AuthRepository
+import com.servilocal.domain.repository.LikeRepository
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
@@ -24,6 +29,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class HomeUiState(
@@ -33,26 +39,40 @@ data class HomeUiState(
     val maxDistanceKm: Double? = null,
     val originLatitude: Double? = null,
     val originLongitude: Double? = null,
-    val displayMode: ViewDisplayMode = ViewDisplayMode.LIST
+    val displayMode: ViewDisplayMode = ViewDisplayMode.LIST,
+    val likeResult: RequestResult? = null
 )
 
 enum class ViewDisplayMode { LIST, MAP }
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    authRepository: AuthRepository,
+    private val authRepository: AuthRepository,
     observeNotifications: ObserveNotificationsUseCase,
     private val togglePostLikeUseCase: TogglePostLikeUseCase,
+    likeRepository: LikeRepository,
     observePosts: ObservePostsUseCase,
     private val filterPostsByCategory: FilterPostsByCategoryUseCase,
     private val filterPostsByQuery: FilterPostsByQueryUseCase,
     private val filterPostsByLocation: FilterPostsByLocationUseCase,
+    private val resources: ResourceProvider,
     private val locationProvider: LocationProvider? = null,
     private val publishPostCoordinator: PublishPostCoordinator? = null
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
-    val posts = observePosts().stateIn(
+    val currentUser = authRepository.currentUser
+    val posts = combine(
+        observePosts(),
+        likeRepository.likes,
+        currentUser
+    ) { feed, likes, user ->
+        val likedPostIds = likes.asSequence()
+            .filter { it.userId == user.id }
+            .map { it.postId }
+            .toSet()
+        feed.map { post -> post.copy(userUpvoted = post.id in likedPostIds) }
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
@@ -72,7 +92,6 @@ class HomeViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
     )
-    val currentUser = authRepository.currentUser
     val notifications = observeNotifications()
         .stateIn(
             scope = viewModelScope,
@@ -99,8 +118,38 @@ class HomeViewModel @Inject constructor(
         }
     }
     fun toggleUpvote(postId: String) {
+        if (_uiState.value.likeResult is RequestResult.Loading) return
+        _uiState.update { it.copy(likeResult = RequestResult.Loading) }
         viewModelScope.launch {
-            togglePostLikeUseCase(postId)
+            val result = try {
+                when (val outcome = togglePostLikeUseCase(postId)) {
+                    is ToggleLikeResult.Success -> RequestResult.Success(
+                        resources.getString(if (outcome.liked) R.string.like_success else R.string.like_removed)
+                    )
+                    ToggleLikeResult.OwnPost -> RequestResult.Failure(resources.getString(R.string.cannot_like_own_post))
+                    ToggleLikeResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_like))
+                    ToggleLikeResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: FirebaseFirestoreException) {
+                RequestResult.Failure(
+                    resources.getString(
+                        if (error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            R.string.like_permission_denied
+                        } else {
+                            R.string.like_update_failed
+                        }
+                    )
+                )
+            } catch (_: Exception) {
+                RequestResult.Failure(resources.getString(R.string.like_update_failed))
+            }
+            _uiState.update { it.copy(likeResult = result) }
         }
+    }
+
+    fun clearLikeFeedback() {
+        _uiState.update { it.copy(likeResult = null) }
     }
 }

@@ -507,6 +507,8 @@
     <string name="review_new_password">Check your new password.</string>
     <string name="like_success">You supported this post.</string>
     <string name="like_removed">You removed your support.</string>
+    <string name="like_permission_denied">Firebase rejected the support. Publish the updated likes rules and try again.</string>
+    <string name="like_update_failed">Could not update your support. Check your connection and try again.</string>
     <string name="cannot_like_own_post">You cannot support your own post.</string>
     <string name="verified_posts_only_like">You can only support verified posts.</string>
     <string name="comment_success">Comment posted.</string>

@@ -3,6 +3,7 @@ package com.servilocal.features.home.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.servilocal.core.util.RequestResult
 import com.servilocal.core.util.ResourceProvider
 import com.servilocal.R
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class ServiceDetailUiState(
@@ -77,14 +79,30 @@ class ServiceDetailViewModel @Inject constructor(
     )
 
     fun toggleUpvote(postId: String) {
+        if (_uiState.value.likeResult is RequestResult.Loading) return
+        _uiState.update { it.copy(likeResult = RequestResult.Loading) }
         viewModelScope.launch {
-            val result = when (val outcome = togglePostLikeUseCase(postId)) {
-                is ToggleLikeResult.Success -> RequestResult.Success(
-                    resources.getString(if (outcome.liked) R.string.like_success else R.string.like_removed)
+            val result = try {
+                when (val outcome = togglePostLikeUseCase(postId)) {
+                    is ToggleLikeResult.Success -> null
+                    ToggleLikeResult.OwnPost -> RequestResult.Failure(resources.getString(R.string.cannot_like_own_post))
+                    ToggleLikeResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_like))
+                    ToggleLikeResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: FirebaseFirestoreException) {
+                RequestResult.Failure(
+                    resources.getString(
+                        if (error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            R.string.like_permission_denied
+                        } else {
+                            R.string.like_update_failed
+                        }
+                    )
                 )
-                ToggleLikeResult.OwnPost -> RequestResult.Failure(resources.getString(R.string.cannot_like_own_post))
-                ToggleLikeResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_like))
-                ToggleLikeResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+            } catch (_: Exception) {
+                RequestResult.Failure(resources.getString(R.string.like_update_failed))
             }
             _uiState.update { it.copy(likeResult = result) }
         }
