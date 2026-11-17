@@ -14,6 +14,8 @@ import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.DeleteServicePostUseCase
 import com.servilocal.domain.usecase.posts.ObserveMyPostsUseCase
 import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
+import com.servilocal.domain.usecase.profile.AddPointsUseCase
+import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
 import com.servilocal.domain.usecase.profile.GetProfileStatsUseCase
 import com.servilocal.domain.usecase.profile.ObserveUserBadgesUseCase
 import com.servilocal.domain.usecase.user.ObserveCurrentUserUseCase
@@ -92,7 +94,12 @@ class ProfileViewModelTest {
                 badgeRepository,
                 authAndData
             ),
-            checkAndAwardBadges = checkBadges
+            checkAndAwardBadges = checkBadges,
+            awardPublicationPoints = AwardPublicationPointsUseCase(
+                AddPointsUseCase(users),
+                checkBadges,
+                postRepository
+            )
         )
 
         advanceUntilIdle()

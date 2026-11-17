@@ -38,7 +38,7 @@ import java.util.UUID
 class PublicationPointsEmulatorTest {
 
     @Test
-    fun creatingPublicationAwardsFiftyPointsAndEligibleBadgesOnce() = runBlocking {
+    fun onlyApprovedPublicationsAwardFiftyPointsAndEligibleBadgesOnce() = runBlocking {
         assertTrue("Enable FIREBASE_EMULATOR_ENABLED for this instrumentation test", BuildConfig.FIREBASE_EMULATOR_ENABLED)
 
         val auth = FirebaseModule.provideFirebaseAuth()
@@ -81,7 +81,8 @@ class PublicationPointsEmulatorTest {
                     badgeRepository,
                     postRepository,
                     CreateNotificationUseCase(notifications)
-                )
+                ),
+                postRepository
             )
 
             withTimeout(10_000) { sessionRepository.session.first { it?.userId == userId } }
@@ -93,8 +94,7 @@ class PublicationPointsEmulatorTest {
             val createPost = CreateServicePostUseCase(
                 postRepository = postRepository,
                 authRepository = userRepository,
-                createNotification = CreateNotificationUseCase(notifications),
-                awardPublicationPoints = awardPoints
+                createNotification = CreateNotificationUseCase(notifications)
             )
             val post = createPost(
                 title = "Servicio Firebase de prueba",
@@ -113,8 +113,21 @@ class PublicationPointsEmulatorTest {
             assertEquals(PostStatus.PENDING_VERIFICATION, post.status)
 
             val persistedUser = userReference.get().await()
-            assertEquals(270L, persistedUser.getLong("points"))
-            assertEquals(UserLevel.EXPERTO.name, persistedUser.getString("level"))
+            assertEquals(220L, persistedUser.getLong("points"))
+            assertFalse(userReference.collection(POINT_EVENTS_COLLECTION)
+                .document("publication_${post.id}").get().await().exists())
+
+            assertEquals(null, awardPoints(userId, post.id))
+            assertEquals(220L, userReference.get().await().getLong("points"))
+            setEmulatorPostStatus(post.id, PostStatus.APPROVED)
+            withTimeout(10_000) {
+                postRepository.posts.first { posts ->
+                    posts.any { it.id == post.id && it.status == PostStatus.APPROVED }
+                }
+            }
+            assertTrue(awardPoints(userId, post.id) != null)
+            assertEquals(270L, userReference.get().await().getLong("points"))
+            assertEquals(UserLevel.EXPERTO.name, userReference.get().await().getString("level"))
             assertTrue(userReference.collection(POINT_EVENTS_COLLECTION)
                 .document("publication_${post.id}").get().await().exists())
 
@@ -139,6 +152,7 @@ class PublicationPointsEmulatorTest {
             val pointEvents = userReference.collection(POINT_EVENTS_COLLECTION).get().await()
             pointEvents.documents.forEach { deleteEmulatorDocument("users/$userId/pointEvents/${it.id}") }
             deleteEmulatorDocument("users/$userId")
+            deleteEmulatorDocument("$PUBLIC_USERS_COLLECTION/$userId")
             auth.signOut()
             runCatching { auth.signInWithEmailAndPassword(email, TEST_PASSWORD).await().user?.delete()?.await() }
             auth.signOut()
@@ -161,6 +175,29 @@ class PublicationPointsEmulatorTest {
             connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             check(connection.responseCode in 200..299) {
                 "Could not seed existing point balance: HTTP ${connection.responseCode}"
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun setEmulatorPostStatus(postId: String, status: PostStatus) {
+        val projectId = FirebaseApp.getInstance().options.projectId
+        val fields = JSONObject()
+            .put("status", JSONObject().put("stringValue", status.name))
+        val body = JSONObject().put("fields", fields).toString()
+        val url = URL(
+            "http://${BuildConfig.FIREBASE_EMULATOR_HOST}:8080/v1/projects/$projectId/databases/(default)/documents/$POSTS_COLLECTION/$postId?updateMask.fieldPaths=status"
+        )
+        val connection = url.openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = "PATCH"
+            connection.setRequestProperty("Authorization", "Bearer owner")
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.doOutput = true
+            connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            check(connection.responseCode in 200..299) {
+                "Could not approve emulator post: HTTP ${connection.responseCode}"
             }
         } finally {
             connection.disconnect()

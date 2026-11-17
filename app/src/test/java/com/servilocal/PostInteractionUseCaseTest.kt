@@ -153,12 +153,13 @@ class PostInteractionUseCaseTest {
 
         assertEquals(0, newPost.upvotesCount)
         assertFalse(newPost.userUpvoted)
+        val notifications = CreateNotificationUseCase(repository)
 
         assertTrue(
             com.servilocal.domain.usecase.moderation.ApprovePostUseCase(
                 repository,
                 repository,
-                CreateNotificationUseCase(repository)
+                notifications
             )(newPost.id)
         )
 

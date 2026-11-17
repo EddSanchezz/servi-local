@@ -2,6 +2,7 @@ package com.servilocal.features.home.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.servilocal.R
 import com.servilocal.core.location.LocationProvider
@@ -16,6 +17,8 @@ import com.servilocal.domain.usecase.posts.ObservePostsUseCase
 import com.servilocal.domain.usecase.posts.ObserveUserLikesUseCase
 import com.servilocal.domain.usecase.posts.ToggleLikeResult
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
+import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
+import com.servilocal.domain.model.PostStatus
 import com.servilocal.features.posts.coordinator.PublishPostCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
@@ -24,6 +27,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
@@ -52,6 +57,7 @@ class HomeViewModel @Inject constructor(
     private val togglePostLikeUseCase: TogglePostLikeUseCase,
     observePosts: ObservePostsUseCase,
     observeUserLikes: ObserveUserLikesUseCase,
+    private val awardPublicationPoints: AwardPublicationPointsUseCase,
     private val filterPostsByCategory: FilterPostsByCategoryUseCase,
     private val filterPostsByQuery: FilterPostsByQueryUseCase,
     private val filterPostsByLocation: FilterPostsByLocationUseCase,
@@ -93,6 +99,29 @@ class HomeViewModel @Inject constructor(
         )
     val publicationEvents = publishPostCoordinator?.events ?: emptyFlow()
     fun retryPublication() = publishPostCoordinator?.retryLast()
+
+    init {
+        viewModelScope.launch {
+            combine(posts, currentUser) { feed, user ->
+                user.id to feed
+                    .filter { it.providerId == user.id && it.status == PostStatus.APPROVED }
+                    .map { it.id }
+                    .distinct()
+                    .sorted()
+            }.distinctUntilChanged().collect { (userId, approvedPostIds) ->
+                if (userId.isBlank()) return@collect
+                approvedPostIds.forEach { postId ->
+                    try {
+                        awardPublicationPoints(userId, postId)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Log.w(TAG, "Could not grant points for approved post $postId", error)
+                    }
+                }
+            }
+        }
+    }
 
     fun setSearchQuery(value: String) = _uiState.update { it.copy(searchQuery = value) }
     fun setSelectedCategory(value: String) = _uiState.update { it.copy(selectedCategory = value) }
@@ -145,5 +174,9 @@ class HomeViewModel @Inject constructor(
 
     fun clearLikeFeedback() {
         _uiState.update { it.copy(likeResult = null) }
+    }
+
+    private companion object {
+        const val TAG = "HomeViewModel"
     }
 }

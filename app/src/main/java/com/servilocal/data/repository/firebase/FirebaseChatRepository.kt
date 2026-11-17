@@ -20,6 +20,7 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -183,8 +184,11 @@ class FirebaseChatRepository @Inject constructor(
                     } else {
                         conversation
                     }
-
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(TAG, "No se pudo cargar el avatar público del usuario $userId", error)
             } finally {
                 avatarLoads.remove(userId)
             }
@@ -376,9 +380,15 @@ class FirebaseChatRepository @Inject constructor(
     override fun softDeleteChat(conversationId: String) {
         val currentUserId = auth.currentUser?.uid ?: return
         scope.launch {
-            chatsCollection.document(conversationId).update(
-                "deletedByUsers", FieldValue.arrayUnion(currentUserId)
-            ).await()
+            try {
+                chatsCollection.document(conversationId).update(
+                    "deletedByUsers", FieldValue.arrayUnion(currentUserId)
+                ).await()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(TAG, "No se pudo ocultar el chat $conversationId", error)
+            }
         }
     }
 
@@ -388,9 +398,15 @@ class FirebaseChatRepository @Inject constructor(
         if (existing != null) {
             if (currentUserId in existing.deletedByUsers) {
                 scope.launch {
-                    chatsCollection.document(existing.id).update(
-                        "deletedByUsers", FieldValue.arrayRemove(currentUserId)
-                    ).await()
+                    try {
+                        chatsCollection.document(existing.id).update(
+                            "deletedByUsers", FieldValue.arrayRemove(currentUserId)
+                        ).await()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Log.w(TAG, "No se pudo reabrir el chat ${existing.id}", error)
+                    }
                 }
             }
             return existing.id
@@ -411,9 +427,15 @@ class FirebaseChatRepository @Inject constructor(
         if (existing != null) {
             if (currentUserId in existing.deletedByUsers) {
                 scope.launch {
-                    chatsCollection.document(existing.id).update(
-                        "deletedByUsers", FieldValue.arrayRemove(currentUserId)
-                    ).await()
+                    try {
+                        chatsCollection.document(existing.id).update(
+                            "deletedByUsers", FieldValue.arrayRemove(currentUserId)
+                        ).await()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Log.w(TAG, "No se pudo reabrir el chat ${existing.id}", error)
+                    }
                 }
             }
             return existing.id
@@ -479,15 +501,27 @@ class FirebaseChatRepository @Inject constructor(
     override fun markConversationRead(conversationId: String) {
         val currentUserId = auth.currentUser?.uid ?: return
         scope.launch {
-            chatsCollection.document(conversationId)
-                .update("unreadCounts.$currentUserId", 0)
-                .await()
+            try {
+                chatsCollection.document(conversationId)
+                    .update("unreadCounts.$currentUserId", 0)
+                    .await()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(TAG, "No se pudo marcar leído el chat $conversationId", error)
+            }
         }
     }
 
     override fun updateConversationStatus(conversationId: String, status: ChatStatus) {
         scope.launch {
-            chatsCollection.document(conversationId).update("status", status.name).await()
+            try {
+                chatsCollection.document(conversationId).update("status", status.name).await()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(TAG, "No se pudo actualizar el estado del chat $conversationId", error)
+            }
         }
     }
 

@@ -57,7 +57,7 @@ class ProfileUseCaseTest {
             posts,
             CreateNotificationUseCase(posts)
         )
-        awardPublicationPoints = AwardPublicationPointsUseCase(addPoints, checkAndAwardBadges)
+        awardPublicationPoints = AwardPublicationPointsUseCase(addPoints, checkAndAwardBadges, posts)
     }
 
     @Test
@@ -72,7 +72,7 @@ class ProfileUseCaseTest {
     fun `award publication points grants reputation and unlocks badges`() = runTest {
         sessions.saveSession("1", UserRole.USER)
 
-        val updated = awardPublicationPoints("1", "test-publication")
+        val updated = awardPublicationPoints("1", "pub_3")
 
         assertEquals(270, updated?.points)
         assertEquals(UserLevel.EXPERTO, updated?.level)
@@ -87,8 +87,8 @@ class ProfileUseCaseTest {
     fun `same publication event does not award points twice`() = runTest {
         sessions.saveSession("1", UserRole.USER)
 
-        awardPublicationPoints("1", "same-publication")
-        val repeated = awardPublicationPoints("1", "same-publication")
+        awardPublicationPoints("1", "pub_3")
+        val repeated = awardPublicationPoints("1", "pub_3")
 
         assertEquals(270, repeated?.points)
         assertEquals(270, users.findById("1")?.points)

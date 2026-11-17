@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.domain.model.BadgeDisplay
+import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.ImageStorageRepository
 import com.servilocal.domain.repository.PostRepository
@@ -14,6 +15,7 @@ import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
 import com.servilocal.domain.usecase.profile.GetProfileStatsUseCase
 import com.servilocal.domain.usecase.profile.ObserveUserBadgesUseCase
 import com.servilocal.domain.usecase.profile.ProfileStats
+import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
 import com.servilocal.domain.usecase.posts.DeleteServicePostUseCase
 import com.servilocal.domain.usecase.posts.ObserveMyPostsUseCase
 import com.servilocal.domain.usecase.moderation.ObserveReportHistoryUseCase
@@ -23,6 +25,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CancellationException
@@ -47,7 +51,8 @@ class ProfileViewModel @Inject constructor(
     private val deleteServicePost: DeleteServicePostUseCase,
     private val deleteAccountUseCase: DeleteAccountUseCase,
     private val getProfileStats: GetProfileStatsUseCase,
-    private val checkAndAwardBadges: CheckAndAwardBadgesUseCase
+    private val checkAndAwardBadges: CheckAndAwardBadgesUseCase,
+    private val awardPublicationPoints: AwardPublicationPointsUseCase
 ) : ViewModel() {
 
     val currentUser = authRepository.currentUser
@@ -79,13 +84,43 @@ class ProfileViewModel @Inject constructor(
                 _uiState.update { it.copy(stats = stats, isLoading = false) }
             }
         }
+        viewModelScope.launch {
+            myPosts
+                .map { posts ->
+                    posts.asSequence()
+                        .filter { it.status == PostStatus.APPROVED }
+                        .map { it.id }
+                        .sorted()
+                        .toList()
+                }
+                .distinctUntilChanged()
+                .collect { approvedPostIds -> syncApprovedPublicationPoints(approvedPostIds) }
+        }
         refresh()
+    }
+
+    private suspend fun syncApprovedPublicationPoints(postIds: List<String>) {
+        val userId = currentUser.value.id
+        if (userId.isBlank()) return
+        postIds.forEach { postId ->
+            try {
+                awardPublicationPoints(userId, postId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(TAG, "Could not grant points for approved post $postId", error)
+            }
+        }
     }
 
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
+                val approvedPostIds = myPosts.value
+                    .filter { it.status == PostStatus.APPROVED }
+                    .map { it.id }
+                syncApprovedPublicationPoints(approvedPostIds)
                 checkAndAwardBadges()
             } catch (error: CancellationException) {
                 throw error

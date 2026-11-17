@@ -102,7 +102,8 @@ service cloud.firestore {
         return postId is string
           && eventId == 'publication_' + postId
           && exists(/databases/$(database)/documents/posts/$(postId))
-          && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == uid;
+          && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == uid
+          && get(/databases/$(database)/documents/posts/$(postId)).data.status == 'APPROVED';
       }
 
       // Private profile fields (including email) are owner-only.
@@ -138,6 +139,7 @@ service cloud.firestore {
           && request.resource.data.createdAtMillis is int
           && exists(/databases/$(database)/documents/posts/$(request.resource.data.sourcePostId))
           && get(/databases/$(database)/documents/posts/$(request.resource.data.sourcePostId)).data.providerId == uid
+          && get(/databases/$(database)/documents/posts/$(request.resource.data.sourcePostId)).data.status == 'APPROVED'
           && getAfter(/databases/$(database)/documents/users/$(uid)).data.lastPointEventId == eventId
           && getAfter(/databases/$(database)/documents/users/$(uid)).data.points
             == get(/databases/$(database)/documents/users/$(uid)).data.points + request.resource.data.pointsDelta;

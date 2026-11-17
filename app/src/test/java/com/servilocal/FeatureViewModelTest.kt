@@ -24,10 +24,10 @@ import com.servilocal.domain.usecase.auth.RegisterUserUseCase
 import com.servilocal.domain.usecase.auth.ResetPasswordUseCase
 import com.servilocal.domain.usecase.auth.ValidateLoginCredentialsUseCase
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
+import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.profile.AddPointsUseCase
 import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
 import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
-import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.moderation.ApprovePostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
 import com.servilocal.domain.usecase.moderation.ObserveModerationPostsUseCase
@@ -76,6 +76,21 @@ import org.robolectric.annotation.Config
 class FeatureViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
+
+    private fun publicationPointsAwarder(repository: MockDataRepository): AwardPublicationPointsUseCase {
+        val users = UserRepositoryImpl()
+        return AwardPublicationPointsUseCase(
+            AddPointsUseCase(users),
+            CheckAndAwardBadgesUseCase(
+                SessionRepositoryImpl(),
+                users,
+                BadgeRepositoryImpl(),
+                repository,
+                CreateNotificationUseCase(repository)
+            ),
+            repository
+        )
+    }
 
     @Before
     fun setUp() {
@@ -229,14 +244,8 @@ class FeatureViewModelTest {
     @Test
     fun `create post validation returns an actionable error and saves valid posts`() = runTest {
         val repository = MockDataRepository()
-        val users = UserRepositoryImpl()
         val notifications = CreateNotificationUseCase(repository)
-        val awardPublicationPoints = AwardPublicationPointsUseCase(
-            AddPointsUseCase(users),
-            CheckAndAwardBadgesUseCase(
-                SessionRepositoryImpl(), users, BadgeRepositoryImpl(), repository, notifications
-            )
-        )
+        val initialPoints = repository.currentUser.value.points
         var uploadCalls = 0
         val imageStorageRepository = object : ImageStorageRepository {
             override suspend fun uploadImage(localUri: String, folder: String, onProgress: (Float) -> Unit): String {
@@ -246,7 +255,7 @@ class FeatureViewModelTest {
             }
         }
         val viewModel = CreatePostViewModel(
-            CreateServicePostUseCase(repository, repository, notifications, awardPublicationPoints),
+            CreateServicePostUseCase(repository, repository, notifications),
             imageStorageRepository,
             testResourceProvider
         )
@@ -264,7 +273,7 @@ class FeatureViewModelTest {
         assertEquals(4.5339, repository.posts.value.first().latitude!!, 0.0001)
         assertEquals(-75.6811, repository.posts.value.first().longitude!!, 0.0001)
         assertEquals(listOf("https://res.cloudinary.com/test/image/upload/post.jpg"), repository.posts.value.first().photos)
-        assertEquals(270, users.findById("1")?.points)
+        assertEquals(initialPoints, repository.currentUser.value.points)
     }
 
     @Test
@@ -276,6 +285,7 @@ class FeatureViewModelTest {
             TogglePostLikeUseCase(repository, repository, repository, CreateNotificationUseCase(repository)),
             ObservePostsUseCase(repository),
             ObserveUserLikesUseCase(repository, repository),
+            publicationPointsAwarder(repository),
             FilterPostsByCategoryUseCase(),
             FilterPostsByQueryUseCase(),
             FilterPostsByLocationUseCase(),
@@ -301,6 +311,7 @@ class FeatureViewModelTest {
             TogglePostLikeUseCase(repository, repository, repository, CreateNotificationUseCase(repository)),
             ObservePostsUseCase(repository),
             ObserveUserLikesUseCase(repository, repository),
+            publicationPointsAwarder(repository),
             FilterPostsByCategoryUseCase(),
             FilterPostsByQueryUseCase(),
             FilterPostsByLocationUseCase(),

@@ -19,6 +19,7 @@ import com.servilocal.domain.model.User
 import com.servilocal.domain.exception.UserBlockedException
 import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.model.UserRole
+import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.UserProfile
 import com.servilocal.domain.model.UserStatus
 import com.servilocal.domain.repository.AuthRepository
@@ -129,7 +130,10 @@ class FirebaseUserRepository @Inject constructor(
             if (eventSnapshot.exists()) return@runTransaction user
 
             val sourcePost = transaction.get(postReference)
-            if (!sourcePost.exists() || sourcePost.getString("providerId") != userId) {
+            if (!sourcePost.exists() ||
+                sourcePost.getString("providerId") != userId ||
+                sourcePost.getString("status") != PostStatus.APPROVED.name
+            ) {
                 return@runTransaction null
             }
 

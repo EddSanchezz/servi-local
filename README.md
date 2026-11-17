@@ -32,7 +32,7 @@ La aplicación resuelve un problema concreto: muchos emprendedores y negocios pe
 - Visualización de publicaciones en lista o en mapa interactivo.
 - Solicitudes de servicio y chat entre cliente y proveedor.
 - Comentarios, votación "Es importante"/"Me interesa" y notificaciones persistentes.
-- Gamificación con puntos, niveles e insignias; cada publicación creada otorga 50 puntos mediante un evento idempotente.
+- Gamificación con puntos, niveles e insignias; cada publicación aprobada otorga 50 puntos mediante un evento idempotente.
 - Estadísticas personales y métricas de moderación.
 - Reporte de publicaciones y flujo de moderación.
 - Edición, finalización y eliminación de publicaciones propias.

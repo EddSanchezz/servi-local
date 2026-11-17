@@ -5,14 +5,12 @@ import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.repository.AuthRepository
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
-import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
 import jakarta.inject.Inject
 
 class CreateServicePostUseCase @Inject constructor(
     private val postRepository: PostRepository,
     private val authRepository: AuthRepository,
-    private val createNotification: CreateNotificationUseCase,
-    private val awardPublicationPoints: AwardPublicationPointsUseCase
+    private val createNotification: CreateNotificationUseCase
 ) {
     suspend operator fun invoke(
         title: String,
@@ -47,7 +45,6 @@ class CreateServicePostUseCase @Inject constructor(
             type = NotificationType.SYSTEM,
             relatedPostId = post.id
         )
-        awardPublicationPoints(authorId, post.id)
         return post
     }
 }
