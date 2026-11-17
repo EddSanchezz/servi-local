@@ -128,7 +128,6 @@ service cloud.firestore {
         && (isValidOwnerProfileUpdate()
           || (request.auth.uid == uid && isValidPointGrant())
           || (isModerator()
-              && isValidPrivateUserProfile(request.resource.data)
               && request.resource.data.status == 'BLOCKED'
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])));
       allow delete: if request.auth != null && request.auth.uid == uid;

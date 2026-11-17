@@ -1,5 +1,6 @@
 package com.servilocal.data.repository.firebase
 
+import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -17,6 +18,7 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -134,7 +136,8 @@ class FirebaseModerationRepository @Inject constructor(
         moderatorComment: String,
         newPostStatus: PostStatus?,
         blockUser: Boolean
-    ): Boolean = runCatching {
+    ): Boolean {
+        return try {
         val moderator = authRepository.currentUser.value
         require(moderator.role == UserRole.MODERATOR && moderator.id.isNotBlank())
         val reportSnapshot = collection.whereEqualTo("targetPostId", reportPostId(reportId))
@@ -150,15 +153,10 @@ class FirebaseModerationRepository @Inject constructor(
             check(post.exists())
             val caseReports = caseReferences.map { transaction.get(it) }
             val providerId = post.getString("providerId")
-            val blockedPrivateUser = if (resolution == ReportResolution.UPHELD && blockUser) {
-                val uid = providerId ?: error("Proveedor no encontrado")
-                val userReference = firestore.collection(USERS_COLLECTION).document(uid)
-                transaction.get(userReference).also { check(it.exists()) }
-            } else null
             val blockedPublicReference = providerId?.let {
                 firestore.collection(PUBLIC_USERS_COLLECTION).document(it)
             }
-            val blockedPublicUser = if (blockedPrivateUser != null) {
+            val blockedPublicUser = if (resolution == ReportResolution.UPHELD && blockUser) {
                 blockedPublicReference?.let { transaction.get(it) }
             } else null
             val now = System.currentTimeMillis()
@@ -186,22 +184,20 @@ class FirebaseModerationRepository @Inject constructor(
             if (resolution == ReportResolution.UPHELD && blockUser) {
                 val uid = providerId ?: error("Proveedor no encontrado")
                 transaction.update(firestore.collection(USERS_COLLECTION).document(uid), "status", "BLOCKED")
-                val publicReference = blockedPublicReference
-                    ?: firestore.collection(PUBLIC_USERS_COLLECTION).document(uid)
                 if (blockedPublicUser?.exists() == true) {
-                    transaction.update(publicReference, "status", "BLOCKED")
-                } else {
-                    transaction.set(publicReference, mapOf(
-                        "name" to blockedPrivateUser?.getString("name").orEmpty(),
-                        "photoUrl" to blockedPrivateUser?.getString("photoUrl"),
-                        "status" to "BLOCKED"
-                    ))
+                    transaction.update(requireNotNull(blockedPublicReference), "status", "BLOCKED")
                 }
             }
             null
         }.await()
         true
-    }.getOrDefault(false)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.e(TAG, "No se pudo resolver el reporte $reportId", error)
+            false
+        }
+    }
 
     private suspend fun reportPostId(reportId: String): String = collection.document(reportId).get().await()
         .getString("targetPostId").orEmpty()
@@ -224,6 +220,7 @@ class FirebaseModerationRepository @Inject constructor(
     }.getOrDefault(false)
 
     private companion object {
+        const val TAG = "FirebaseModerationRepository"
         const val REPORTS_COLLECTION = "reports"
         const val POSTS_COLLECTION = "posts"
         const val USERS_COLLECTION = "users"

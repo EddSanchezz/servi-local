@@ -27,6 +27,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -142,7 +143,14 @@ class FirebaseChatRepository @Inject constructor(
                             )
                         }
 
-                        _conversations.value = chats
+                        _conversations.update { latestConversations ->
+                            chats.map { chat ->
+                                val latestMessages = latestConversations
+                                    .firstOrNull { it.id == chat.id }
+                                    ?.messages
+                                chat.copy(messages = latestMessages ?: chat.messages)
+                            }
+                        }
                         publicProfiles.keys.forEach(::applyPublicProfileToConversations)
                         val activeChatIds = chats.map { it.id }.toSet()
                         messageListeners.keys
@@ -312,15 +320,17 @@ class FirebaseChatRepository @Inject constructor(
                     )
                 }
 
-                _conversations.value = _conversations.value.map { conversation ->
-                    if (conversation.id == conversationId) {
-                        conversation.copy(
-                            messages = messages,
-                            lastMessage = messages.lastOrNull()?.text ?: conversation.lastMessage,
-                            lastTime = messages.lastOrNull()?.time ?: conversation.lastTime
-                        )
-                    } else {
-                        conversation
+                _conversations.update { conversations ->
+                    conversations.map { conversation ->
+                        if (conversation.id == conversationId) {
+                            conversation.copy(
+                                messages = messages,
+                                lastMessage = messages.lastOrNull()?.text ?: conversation.lastMessage,
+                                lastTime = messages.lastOrNull()?.time ?: conversation.lastTime
+                            )
+                        } else {
+                            conversation
+                        }
                     }
                 }
             }
