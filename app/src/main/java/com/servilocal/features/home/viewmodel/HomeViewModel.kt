@@ -8,12 +8,12 @@ import com.servilocal.core.location.LocationProvider
 import com.servilocal.core.util.RequestResult
 import com.servilocal.core.util.ResourceProvider
 import com.servilocal.domain.repository.AuthRepository
-import com.servilocal.domain.repository.LikeRepository
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByCategoryUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByLocationUseCase
 import com.servilocal.domain.usecase.posts.FilterPostsByQueryUseCase
 import com.servilocal.domain.usecase.posts.ObservePostsUseCase
+import com.servilocal.domain.usecase.posts.ObserveUserLikesUseCase
 import com.servilocal.domain.usecase.posts.ToggleLikeResult
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import com.servilocal.features.posts.coordinator.PublishPostCoordinator
@@ -50,8 +50,8 @@ class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     observeNotifications: ObserveNotificationsUseCase,
     private val togglePostLikeUseCase: TogglePostLikeUseCase,
-    likeRepository: LikeRepository,
     observePosts: ObservePostsUseCase,
+    observeUserLikes: ObserveUserLikesUseCase,
     private val filterPostsByCategory: FilterPostsByCategoryUseCase,
     private val filterPostsByQuery: FilterPostsByQueryUseCase,
     private val filterPostsByLocation: FilterPostsByLocationUseCase,
@@ -62,23 +62,16 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
     val currentUser = authRepository.currentUser
-    val posts = combine(
-        observePosts(),
-        likeRepository.likes,
-        currentUser
-    ) { feed, likes, user ->
-        val likedPostIds = likes.asSequence()
-            .filter { it.userId == user.id }
-            .map { it.postId }
-            .toSet()
-        feed.map { post -> post.copy(userUpvoted = post.id in likedPostIds) }
-    }.stateIn(
+    val posts = observePosts().stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
     )
-    val filteredPosts = combine(posts, _uiState) { feed, state ->
-        val byCategory = filterPostsByCategory(feed, state.selectedCategory)
+    private val likedPostIds = observeUserLikes()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val filteredPosts = combine(posts, _uiState, likedPostIds) { feed, state, likedIds ->
+        val withLikeState = feed.map { post -> post.copy(userUpvoted = post.id in likedIds) }
+        val byCategory = filterPostsByCategory(withLikeState, state.selectedCategory)
         val byQuery = filterPostsByQuery(byCategory, state.searchQuery)
         filterPostsByLocation(
             byQuery,
@@ -129,6 +122,7 @@ class HomeViewModel @Inject constructor(
                     ToggleLikeResult.OwnPost -> RequestResult.Failure(resources.getString(R.string.cannot_like_own_post))
                     ToggleLikeResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_like))
                     ToggleLikeResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+                    ToggleLikeResult.NetworkError -> RequestResult.Failure(resources.getString(R.string.interaction_network_error))
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled

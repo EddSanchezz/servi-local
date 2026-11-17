@@ -12,6 +12,7 @@ import com.servilocal.domain.repository.PostRepository
 import com.servilocal.core.data.repository.MockDataRepository
 import com.servilocal.domain.usecase.moderation.ApprovePendingPostUseCase
 import com.servilocal.domain.usecase.moderation.FilterPendingPostsByCategoryUseCase
+import com.servilocal.domain.usecase.moderation.GetModerationStatsUseCase
 import com.servilocal.domain.usecase.moderation.ObservePendingPostsUseCase
 import com.servilocal.domain.usecase.moderation.ObserveModerationPostsUseCase
 import com.servilocal.domain.usecase.moderation.ObserveModeratorProfileUseCase
@@ -188,6 +189,7 @@ class ModerationUseCaseTest {
         observeModerationPosts = ObserveModerationPostsUseCase(postRepository),
         observeReports = ObserveReportsUseCase(moderationRepository),
         observeReportHistory = ObserveReportHistoryUseCase(moderationRepository),
+        getModerationStats = GetModerationStatsUseCase(),
         observeModeratorProfile = ObserveModeratorProfileUseCase(authRepository),
         resolveReportsForPostUseCase = ResolveReportsForPostUseCase(moderationRepository, authRepository),
         toggleModeratorShiftUseCase = ToggleModeratorShiftUseCase(authRepository),

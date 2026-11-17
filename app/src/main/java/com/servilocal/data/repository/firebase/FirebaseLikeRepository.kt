@@ -4,6 +4,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.servilocal.domain.model.Like
+import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.repository.LikeRepository
 import com.servilocal.domain.repository.SessionRepository
 import jakarta.inject.Inject
@@ -11,16 +12,14 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+/** Firestore-backed likes; document IDs make each user's like on a post unique. */
 @Singleton
 class FirebaseLikeRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
@@ -28,60 +27,76 @@ class FirebaseLikeRepository @Inject constructor(
 ) : LikeRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val likesCollection get() = firestore.collection(LIKES_COLLECTION)
-    private val postsCollection get() = firestore.collection(POSTS_COLLECTION)
+    private val _likes = MutableStateFlow<List<Like>>(emptyList())
+    override val likes: StateFlow<List<Like>> = _likes.asStateFlow()
+    private var likesRegistration: ListenerRegistration? = null
 
-    override val likes = sessionRepository.session
-        .flatMapLatest { session ->
-            if (session == null) flowOf(emptyList()) else observeLikes()
+    @Volatile
+    private var activeUserId: String? = null
+
+    init {
+        scope.launch {
+            sessionRepository.session.collectLatest { session ->
+                likesRegistration?.remove()
+                likesRegistration = null
+                val userId = session?.userId?.takeIf(String::isNotBlank)
+                activeUserId = userId
+                _likes.value = emptyList()
+                if (userId == null) return@collectLatest
+                likesRegistration = likesCollection.whereEqualTo("userId", userId)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null || snapshot == null) return@addSnapshotListener
+                        if (activeUserId != userId) return@addSnapshotListener
+                        _likes.value = snapshot.documents.mapNotNull { it.toLike() }
+                            .sortedByDescending(Like::createdAtMillis)
+                    }
+            }
         }
-        .catch { emit(emptyList()) }
-        .stateIn(scope, SharingStarted.Eagerly, emptyList())
+    }
 
     override suspend fun toggleLike(postId: String, userId: String): Boolean {
-        val likeId = "${postId}_${userId}"
-        val likeRef = likesCollection.document(likeId)
-        val postRef = postsCollection.document(postId)
+        if (userId.isBlank() || sessionRepository.session.value?.userId != userId) return false
+        val postReference = firestore.collection(POSTS_COLLECTION).document(postId)
+        val likeReference = likesCollection.document("${postId}_$userId")
+        val now = System.currentTimeMillis()
+
         return firestore.runTransaction { transaction ->
-            val likeSnapshot = transaction.get(likeRef)
-            val liked = !likeSnapshot.exists()
-            if (liked) {
-                transaction.set(
-                    likeRef,
-                    mapOf(
-                        "id" to likeId,
-                        "userId" to userId,
-                        "postId" to postId
-                    )
-                )
-                transaction.update(postRef, "upvotesCount", FieldValue.increment(1))
-            } else {
-                transaction.delete(likeRef)
-                transaction.update(postRef, "upvotesCount", FieldValue.increment(-1))
+            val post = transaction.get(postReference)
+            if (!post.exists() || post.getString("status") != PostStatus.APPROVED.name) {
+                return@runTransaction false
             }
-            liked
+            val postOwnerId = post.getString("providerId") ?: return@runTransaction false
+            if (postOwnerId == userId) return@runTransaction false
+
+            val existingLike = transaction.get(likeReference)
+            if (existingLike.exists()) {
+                transaction.delete(likeReference)
+                transaction.update(postReference, "upvotesCount", FieldValue.increment(-1))
+                false
+            } else {
+                transaction.set(likeReference, mapOf(
+                    "id" to likeReference.id,
+                    "postId" to postId,
+                    "userId" to userId,
+                    "createdAtMillis" to now
+                ))
+                transaction.update(postReference, "upvotesCount", FieldValue.increment(1))
+                true
+            }
         }.await()
     }
 
     override fun hasLiked(postId: String, userId: String): Boolean =
         likes.value.any { it.postId == postId && it.userId == userId }
 
-    private fun observeLikes(): Flow<List<Like>> = callbackFlow {
-        val registration: ListenerRegistration = likesCollection.addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                trySend(emptyList())
-            } else {
-                trySend(snapshot?.documents?.mapNotNull { it.toLike() } ?: emptyList())
-            }
-        }
-        awaitClose { registration.remove() }
-    }
-
     private fun com.google.firebase.firestore.DocumentSnapshot.toLike(): Like? {
-        if (!exists()) return null
+        val postId = getString("postId") ?: return null
+        val userId = getString("userId") ?: return null
         return Like(
             id = id,
-            userId = getString("userId") ?: return null,
-            postId = getString("postId") ?: return null
+            userId = userId,
+            postId = postId,
+            createdAtMillis = getLong("createdAtMillis") ?: 0L
         )
     }
 

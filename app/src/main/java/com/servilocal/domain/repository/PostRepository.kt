@@ -34,6 +34,10 @@ interface PostRepository {
     ): Boolean
     suspend fun deletePost(postId: String): Boolean
     suspend fun deletePostsByUser(userId: String): Boolean
+    suspend fun countPostsByProvider(providerId: String): Int =
+        posts.value.count { it.providerId == providerId }
+    suspend fun firstPostIdByProvider(providerId: String): String? =
+        posts.value.firstOrNull { it.providerId == providerId }?.id
     suspend fun finishPost(postId: String): Boolean
     suspend fun approvePost(postId: String)
     suspend fun rejectPost(postId: String, reason: String, notes: String? = null)

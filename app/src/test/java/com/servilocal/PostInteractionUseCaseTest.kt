@@ -11,10 +11,10 @@ import com.servilocal.domain.usecase.posts.AddCommentResult
 import com.servilocal.domain.usecase.posts.AddPostCommentUseCase
 import com.servilocal.domain.usecase.posts.ObservePostCommentsUseCase
 import com.servilocal.domain.usecase.posts.ObservePostLikesUseCase
+import com.servilocal.domain.usecase.posts.ObserveUserLikesUseCase
 import com.servilocal.domain.usecase.posts.ToggleLikeResult
 import com.servilocal.domain.usecase.posts.TogglePostLikeUseCase
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -202,9 +202,21 @@ class PostInteractionUseCaseTest {
     }
 
     @Test
+    fun `observe user likes exposes post ids for feed card state`() = runTest {
+        val repository = repository()
+        val observeUserLikes = ObserveUserLikesUseCase(repository, repository)
+        val initial = observeUserLikes().first()
+        assertFalse("pub_1" in initial)
+
+        toggleLikeUseCase(repository)("pub_1")
+
+        assertTrue("pub_1" in observeUserLikes().first())
+    }
+
+    @Test
     fun `observe comments returns the newest comment first`() = runTest {
         val repository = repository()
-        val observeComments = ObservePostCommentsUseCase(repository, repository)
+        val observeComments = ObservePostCommentsUseCase(repository)
         val initialSize = observeComments("pub_2").first().size
 
         addCommentUseCase(repository)("pub_2", "¿Atienden los domingos?")

@@ -31,10 +31,11 @@ class CheckAndAwardBadgesUseCase @Inject constructor(
             .map { it.badgeId }
             .toSet()
 
-        val publishedPosts = postRepository.posts.value.count { post ->
-            post.providerId == user.id ||
-                (post.providerId == null && post.providerName.equals(user.name, ignoreCase = true))
-        }
+        val publishedPosts = postRepository.countPostsByProvider(user.id) +
+            postRepository.posts.value.count { post ->
+                post.providerId == null && post.providerName.equals(user.name, ignoreCase = true)
+            }
+        val sourcePostId = if (publishedPosts > 0) postRepository.firstPostIdByProvider(user.id) else null
 
         val newBadges = badgeRepository.badges.value.filter { badge ->
             badge.id !in awardedIds && badge.isEligible(user, publishedPosts)
@@ -42,7 +43,8 @@ class CheckAndAwardBadgesUseCase @Inject constructor(
 
         val awarded = mutableListOf<Badge>()
         newBadges.forEach { badge ->
-            if (badgeRepository.award(targetUserId, badge.id)) {
+            val evidencePostId = sourcePostId.takeIf { badge.criterion == BadgeCriterion.CREATED_POSTS }
+            if (badgeRepository.award(targetUserId, badge.id, evidencePostId)) {
                 awarded += badge
                 createNotification(
                     userId = targetUserId,

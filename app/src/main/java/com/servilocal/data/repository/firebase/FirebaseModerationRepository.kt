@@ -149,6 +149,12 @@ class FirebaseModerationRepository @Inject constructor(
             val post = transaction.get(postReference)
             check(post.exists())
             val caseReports = caseReferences.map { transaction.get(it) }
+            val providerId = post.getString("providerId")
+            val blockedPrivateUser = if (resolution == ReportResolution.UPHELD && blockUser) {
+                val uid = providerId ?: error("Proveedor no encontrado")
+                val userReference = firestore.collection(USERS_COLLECTION).document(uid)
+                transaction.get(userReference).also { check(it.exists()) }
+            } else null
             val now = System.currentTimeMillis()
             caseReports.forEach { document ->
                 if (!document.exists() || document.getString(FIELD_STATUS) != ReportStatus.PENDING.name) return@forEach
@@ -172,8 +178,13 @@ class FirebaseModerationRepository @Inject constructor(
                 ))
             }
             if (resolution == ReportResolution.UPHELD && blockUser) {
-                val providerId = post.getString("providerId") ?: error("Proveedor no encontrado")
-                transaction.update(firestore.collection(USERS_COLLECTION).document(providerId), "status", "BLOCKED")
+                val uid = providerId ?: error("Proveedor no encontrado")
+                transaction.update(firestore.collection(USERS_COLLECTION).document(uid), "status", "BLOCKED")
+                transaction.set(firestore.collection(PUBLIC_USERS_COLLECTION).document(uid), mapOf(
+                    "name" to blockedPrivateUser?.getString("name").orEmpty(),
+                    "photoUrl" to blockedPrivateUser?.getString("photoUrl"),
+                    "status" to "BLOCKED"
+                ))
             }
             null
         }.await()
@@ -204,6 +215,7 @@ class FirebaseModerationRepository @Inject constructor(
         const val REPORTS_COLLECTION = "reports"
         const val POSTS_COLLECTION = "posts"
         const val USERS_COLLECTION = "users"
+        const val PUBLIC_USERS_COLLECTION = "users_public"
         const val FIELD_STATUS = "status"
     }
 }

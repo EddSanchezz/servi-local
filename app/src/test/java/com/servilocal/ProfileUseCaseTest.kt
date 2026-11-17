@@ -5,6 +5,7 @@ import com.servilocal.data.repository.memory.BadgeRepositoryImpl
 import com.servilocal.data.repository.memory.SessionRepositoryImpl
 import com.servilocal.data.repository.memory.UserRepositoryImpl
 import com.servilocal.domain.model.NotificationType
+import com.servilocal.domain.model.User
 import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.model.UserRole
 import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
@@ -45,7 +46,8 @@ class ProfileUseCaseTest {
         getProfileStats = GetProfileStatsUseCase(
             ObserveCurrentUserUseCase(sessions, users),
             posts,
-            badges
+            badges,
+            posts
         )
         observeUserBadges = ObserveUserBadgesUseCase(sessions, badges)
         checkAndAwardBadges = CheckAndAwardBadgesUseCase(
@@ -60,7 +62,7 @@ class ProfileUseCaseTest {
 
     @Test
     fun `add points recalculates the level`() = runTest {
-        val updated = addPoints("1", 50)
+        val updated = addPoints("1", 50, "test-add-points")
 
         assertEquals(270, updated?.points)
         assertEquals(UserLevel.EXPERTO, updated?.level)
@@ -70,7 +72,7 @@ class ProfileUseCaseTest {
     fun `award publication points grants reputation and unlocks badges`() = runTest {
         sessions.saveSession("1", UserRole.USER)
 
-        val updated = awardPublicationPoints("1")
+        val updated = awardPublicationPoints("1", "test-publication")
 
         assertEquals(270, updated?.points)
         assertEquals(UserLevel.EXPERTO, updated?.level)
@@ -82,9 +84,20 @@ class ProfileUseCaseTest {
     }
 
     @Test
+    fun `same publication event does not award points twice`() = runTest {
+        sessions.saveSession("1", UserRole.USER)
+
+        awardPublicationPoints("1", "same-publication")
+        val repeated = awardPublicationPoints("1", "same-publication")
+
+        assertEquals(270, repeated?.points)
+        assertEquals(270, users.findById("1")?.points)
+    }
+
+    @Test
     fun `check and award badges grants new badges and creates a notification`() = runTest {
         sessions.saveSession("1", UserRole.USER)
-        addPoints("1", 50)
+        addPoints("1", 50, "badge-check-event")
 
         val awarded = checkAndAwardBadges()
 
@@ -106,7 +119,7 @@ class ProfileUseCaseTest {
     @Test
     fun `check and award badges does not duplicate an existing badge`() = runTest {
         sessions.saveSession("1", UserRole.USER)
-        addPoints("1", 50)
+        addPoints("1", 50, "duplicate-badge-check-event")
 
         assertEquals(1, checkAndAwardBadges().size)
         assertTrue(checkAndAwardBadges().isEmpty())
@@ -119,6 +132,22 @@ class ProfileUseCaseTest {
         val awarded = checkAndAwardBadges()
 
         assertEquals(listOf("badge_1"), awarded.map { it.id })
+    }
+
+    @Test
+    fun `first publication badge is not awarded when provider has no posts`() = runTest {
+        users.save(
+            User(
+                id = "new-user-without-posts",
+                name = "Nuevo usuario",
+                email = "new-user@example.com",
+                role = UserRole.USER
+            )
+        )
+
+        val awarded = checkAndAwardBadges("new-user-without-posts")
+
+        assertTrue(awarded.isEmpty())
     }
 
     @Test
@@ -148,6 +177,26 @@ class ProfileUseCaseTest {
         assertEquals(30, stats?.remainingPoints)
         assertTrue((stats?.totalPosts ?: 0) >= 1)
         assertTrue(stats?.levelLabel?.contains("Nivel 2") == true)
+        val userPosts = posts.posts.value.filter { it.providerId == "1" }
+        assertEquals(userPosts.sumOf { it.upvotesCount }, stats?.likesReceived)
+        assertEquals(
+            userPosts.flatMap { post -> post.comments.filter { it.authorId != "1" }.map { it.id } }.toSet().size,
+            stats?.commentsReceived
+        )
+    }
+
+    @Test
+    fun `profile interaction metrics update when likes and comments are added`() = runTest {
+        sessions.saveSession("1", UserRole.USER)
+        val post = posts.posts.value.first { it.providerId == "1" }
+        val before = requireNotNull(getProfileStats().first())
+
+        posts.toggleLike(post.id, "another-user")
+        posts.addComment(post.id, "another-user", "Otro proveedor", "Buen servicio")
+
+        val after = requireNotNull(getProfileStats().first())
+        assertEquals(before.likesReceived + 1, after.likesReceived)
+        assertEquals(before.commentsReceived + 1, after.commentsReceived)
     }
 
     @Test

@@ -91,6 +91,7 @@ import com.servilocal.features.posts.viewmodel.CreatePostViewModel
 import com.servilocal.features.posts.viewmodel.AiPostAssistantViewModel
 import com.servilocal.features.posts.viewmodel.EditPostViewModel
 import com.servilocal.features.profile.ui.UserProfileScreen
+import com.servilocal.features.profile.ui.UserStatsScreen
 import com.servilocal.features.profile.ui.MyPostsScreen
 import com.servilocal.features.profile.ui.AppSettingsScreen
 import com.servilocal.features.profile.ui.EditProfileScreen
@@ -107,6 +108,7 @@ object AppRoute {
     const val MESSAGES = "messages"
     const val CREATE_POST = "create-post"
     const val PROFILE = "profile"
+    const val USER_STATS = "user-stats"
     const val EDIT_PROFILE = "edit-profile"
     const val SETTINGS = "settings"
     const val MODERATION_FEED = "moderation-feed"
@@ -362,8 +364,17 @@ private fun DashboardNavigation(
                     onLogout = onLogout,
                     onOpenServiceDetail = { navController.navigate(AppRoute.serviceDetail(it)) },
                     onOpenMyPosts = { navController.navigate(AppRoute.MY_POSTS) },
+                    onOpenStats = { navController.navigate(AppRoute.USER_STATS) },
                     onOpenSettings = { navController.navigate(AppRoute.SETTINGS) },
                     onOpenMyProfile = { navController.navigate(AppRoute.EDIT_PROFILE) }
+                )
+            }
+            composable(AppRoute.USER_STATS) { entry ->
+                val profileEntry = remember(entry) { navController.getBackStackEntry(AppRoute.PROFILE) }
+                val viewModel: ProfileViewModel = hiltViewModel(profileEntry)
+                UserStatsScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.navigateUp() }
                 )
             }
             composable(AppRoute.EDIT_PROFILE) {

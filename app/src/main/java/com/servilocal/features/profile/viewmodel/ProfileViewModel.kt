@@ -1,5 +1,6 @@
 package com.servilocal.features.profile.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.servilocal.domain.model.BadgeDisplay
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class ProfileUiState(
@@ -83,8 +85,16 @@ class ProfileViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            checkAndAwardBadges()
-            _uiState.update { it.copy(isLoading = false) }
+            try {
+                checkAndAwardBadges()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                // A denied/offline badge write must not crash profile composition.
+                Log.w(TAG, "Could not synchronize user badges", error)
+            } finally {
+                _uiState.update { it.copy(isLoading = false) }
+            }
         }
     }
 
@@ -121,4 +131,8 @@ class ProfileViewModel @Inject constructor(
 
     suspend fun deleteAccount(): Boolean =
         deleteAccountUseCase() == DeleteAccountResult.Success
+
+    private companion object {
+        const val TAG = "ProfileViewModel"
+    }
 }

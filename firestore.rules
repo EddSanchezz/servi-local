@@ -1,3 +1,15 @@
+// User data contract:
+// users/{uid} is private and contains email, role, points, level, account status,
+// timestamps and point-event metadata. Only the owner may read it; moderator
+// operations use trusted rule-side lookups.
+// users_public/{uid} contains only display name, avatar URL and visibility status.
+//
+// Notification data contract:
+// notifications/{notificationId} stores id, recipient userId, authenticated
+// createdByUserId, title/body, NotificationType, isRead, createdAtMillis, and
+// optional relatedPostId/relatedChatId/relatedCommentId/relatedReportId.
+// Recipients alone can read/update their inbox; create requires proof of the
+// related post, like, comment, chat, moderator decision, or self-generated event.
 rules_version = '2';
 
 service cloud.firestore {
@@ -12,49 +24,214 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == request.auth.uid;
     }
 
-    function isLikeCountUpdate(postId) {
-      return request.auth != null && isAuthenticatedLikeCountUpdate(postId);
-    }
-
-    function isAuthenticatedLikeCountUpdate(postId) {
-      let likeId = postId + '_' + request.auth.uid;
-      return resource.data.status == 'APPROVED'
-        && resource.data.providerId != request.auth.uid
-        && resource.data.upvotesCount is int
-        && request.resource.data.upvotesCount is int
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvotesCount'])
-        && (
-          (request.resource.data.upvotesCount == resource.data.upvotesCount + 1
-            && !exists(/databases/$(database)/documents/likes/$(likeId))
-            && existsAfter(/databases/$(database)/documents/likes/$(likeId))
-            && getAfter(/databases/$(database)/documents/likes/$(likeId)).data.userId == request.auth.uid
-            && getAfter(/databases/$(database)/documents/likes/$(likeId)).data.postId == postId)
-          || (request.resource.data.upvotesCount == resource.data.upvotesCount - 1
-            && resource.data.upvotesCount > 0
-            && exists(/databases/$(database)/documents/likes/$(likeId))
-            && !existsAfter(/databases/$(database)/documents/likes/$(likeId))
-            && get(/databases/$(database)/documents/likes/$(likeId)).data.userId == request.auth.uid
-            && get(/databases/$(database)/documents/likes/$(likeId)).data.postId == postId)
-        );
-    }
-
     match /users/{uid} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && request.auth.uid == uid
-        && request.resource.data.role == 'USER'
-        && request.resource.data.status == 'ACTIVE';
+      function isValidPrivateUserProfile(data) {
+        return data.keys().hasOnly([
+            'name', 'email', 'role', 'points', 'level', 'status', 'createdAtMillis', 'photoUrl', 'lastPointEventId'
+          ])
+          && data.keys().hasAll(['name', 'email', 'role', 'points', 'level', 'status', 'createdAtMillis'])
+          && data.name is string
+          && data.name.size() > 0
+          && data.name.size() <= 100
+          && data.email is string
+          && data.email.size() > 3
+          && data.email.size() <= 254
+          && data.email.matches('^[^@]+@[^@]+\\.[^@]+$')
+          && data.role in ['USER', 'MODERATOR']
+          && data.points is int
+          && data.points >= 0
+          && data.points <= 10000000
+          && data.level == levelForPoints(data.points)
+          && data.status in ['ACTIVE', 'BLOCKED', 'DELETED']
+          && data.createdAtMillis is int
+          && (!('photoUrl' in data)
+            || data.photoUrl == null
+            || (data.photoUrl is string
+              && data.photoUrl.size() <= 2048
+              && data.photoUrl.matches('^https://.*')))
+          && (!('lastPointEventId' in data)
+            || (data.lastPointEventId is string && data.lastPointEventId.size() <= 512));
+      }
+
+      function isValidNewUser() {
+        return request.auth.uid == uid
+          && isValidPrivateUserProfile(request.resource.data)
+          && request.resource.data.role == 'USER'
+          && request.resource.data.points == 0
+          && request.resource.data.level == 'PRINCIPIANTE'
+          && request.resource.data.status == 'ACTIVE';
+      }
+
+      function levelForPoints(points) {
+        return points >= 500 ? 'MAESTRO'
+          : points >= 250 ? 'EXPERTO'
+          : points >= 100 ? 'PROFESIONAL'
+          : 'PRINCIPIANTE';
+      }
+
+      function isValidPointGrant() {
+        let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+        let eventId = request.resource.data.lastPointEventId;
+        return request.auth.uid == uid
+          && isValidPrivateUserProfile(request.resource.data)
+          && eventId is string
+          && changedKeys.hasOnly(['points', 'level', 'lastPointEventId'])
+          && changedKeys.hasAll(['points', 'level', 'lastPointEventId'])
+          && request.resource.data.points is int
+          && resource.data.points is int
+          && request.resource.data.points >= 0
+          && isValidPublicationPointEvent(eventId);
+      }
+
+      function isValidPublicationPointEvent(eventId) {
+        return existsAfter(/databases/$(database)/documents/users/$(uid)/pointEvents/$(eventId))
+          && !exists(/databases/$(database)/documents/users/$(uid)/pointEvents/$(eventId))
+          && getAfter(/databases/$(database)/documents/users/$(uid)/pointEvents/$(eventId)).data.userId == uid
+          && getAfter(/databases/$(database)/documents/users/$(uid)/pointEvents/$(eventId)).data.eventId == eventId
+          && getAfter(/databases/$(database)/documents/users/$(uid)/pointEvents/$(eventId)).data.pointsDelta == 50
+          && request.resource.data.points - resource.data.points
+            == getAfter(/databases/$(database)/documents/users/$(uid)/pointEvents/$(eventId)).data.pointsDelta
+          && isOwnedPublicationPointSource(
+            eventId,
+            getAfter(/databases/$(database)/documents/users/$(uid)/pointEvents/$(eventId)).data.sourcePostId
+          )
+          && request.resource.data.level == levelForPoints(request.resource.data.points);
+      }
+
+      function isOwnedPublicationPointSource(eventId, postId) {
+        return postId is string
+          && eventId == 'publication_' + postId
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == uid;
+      }
+
+      // Private profile fields (including email) are owner-only.
+      allow get, list: if request.auth != null && request.auth.uid == uid;
+      allow create: if isValidNewUser();
       allow update: if request.auth != null
         && ((request.auth.uid == uid
+              && isValidPrivateUserProfile(request.resource.data)
               && request.resource.data.status == resource.data.status
-              && request.resource.data.role == resource.data.role)
+              && request.resource.data.role == resource.data.role
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['name', 'email', 'photoUrl']))
+          || (request.auth.uid == uid && isValidPointGrant())
           || (isModerator()
+              && isValidPrivateUserProfile(request.resource.data)
               && request.resource.data.status == 'BLOCKED'
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])));
+      allow delete: if request.auth != null && request.auth.uid == uid;
+
+      match /pointEvents/{eventId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null
+          && request.auth.uid == uid
+          && eventId == request.resource.data.eventId
+          && eventId is string
+          && eventId == 'publication_' + request.resource.data.sourcePostId
+          && request.resource.data.userId == uid
+          && request.resource.data.keys().hasOnly([
+            'eventId', 'userId', 'sourcePostId', 'pointsDelta', 'createdAtMillis'
+          ])
+          && request.resource.data.sourcePostId is string
+          && request.resource.data.pointsDelta == 50
+          && request.resource.data.createdAtMillis is int
+          && exists(/databases/$(database)/documents/posts/$(request.resource.data.sourcePostId))
+          && get(/databases/$(database)/documents/posts/$(request.resource.data.sourcePostId)).data.providerId == uid
+          && getAfter(/databases/$(database)/documents/users/$(uid)).data.lastPointEventId == eventId
+          && getAfter(/databases/$(database)/documents/users/$(uid)).data.points
+            == get(/databases/$(database)/documents/users/$(uid)).data.points + request.resource.data.pointsDelta;
+        allow update, delete: if false;
+      }
+
+      match /badges/{badgeId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null
+          && request.auth.uid == uid
+          && badgeId in ['badge_1', 'badge_2', 'badge_3', 'badge_4']
+          && request.resource.data.keys().hasOnly(['userId', 'badgeId', 'awardedAtMillis', 'sourcePostId'])
+          && request.resource.data.userId == uid
+          && request.resource.data.badgeId == badgeId
+          && request.resource.data.awardedAtMillis is int
+          && ((badgeId == 'badge_1'
+                && request.resource.data.sourcePostId is string
+                && exists(/databases/$(database)/documents/posts/$(request.resource.data.sourcePostId))
+                && get(/databases/$(database)/documents/posts/$(request.resource.data.sourcePostId)).data.providerId == uid)
+            || (badgeId == 'badge_2'
+                && !('sourcePostId' in request.resource.data)
+                && get(/databases/$(database)/documents/users/$(uid)).data.points >= 100)
+            || (badgeId == 'badge_3'
+                && !('sourcePostId' in request.resource.data)
+                && get(/databases/$(database)/documents/users/$(uid)).data.points >= 250)
+            || (badgeId == 'badge_4'
+                && !('sourcePostId' in request.resource.data)
+                && get(/databases/$(database)/documents/users/$(uid)).data.points >= 500));
+        allow update, delete: if false;
+      }
+    }
+
+    match /users_public/{uid} {
+      function isValidPublicProfile(data) {
+        return data.keys().hasOnly(['name', 'photoUrl', 'status'])
+          && data.keys().hasAll(['name', 'photoUrl', 'status'])
+          && data.name is string
+          && data.name.size() > 0
+          && data.name.size() <= 100
+          && (data.photoUrl == null
+            || (data.photoUrl is string
+              && data.photoUrl.size() <= 2048
+              && data.photoUrl.matches('^https://.*')))
+          && data.status in ['ACTIVE', 'BLOCKED', 'DELETED'];
+      }
+
+      allow get, list: if request.auth != null;
+      allow create: if request.auth != null
+        && isValidPublicProfile(request.resource.data)
+        && existsAfter(/databases/$(database)/documents/users/$(uid))
+        && request.resource.data.name == getAfter(/databases/$(database)/documents/users/$(uid)).data.name
+        && request.resource.data.photoUrl == getAfter(/databases/$(database)/documents/users/$(uid)).data.get('photoUrl', null)
+        && ((request.auth.uid == uid && request.resource.data.status == 'ACTIVE')
+          || (isModerator()
+            && request.resource.data.status == 'BLOCKED'
+            && getAfter(/databases/$(database)/documents/users/$(uid)).data.status == 'BLOCKED'));
+      allow update: if request.auth != null
+        && isValidPublicProfile(request.resource.data)
+        && ((request.auth.uid == uid
+              && request.resource.data.status == resource.data.status
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photoUrl'])
+              && request.resource.data.name == getAfter(/databases/$(database)/documents/users/$(uid)).data.name
+              && request.resource.data.photoUrl == getAfter(/databases/$(database)/documents/users/$(uid)).data.get('photoUrl', null))
+          || (isModerator()
+              && request.resource.data.status == 'BLOCKED'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+              && getAfter(/databases/$(database)/documents/users/$(uid)).data.status == 'BLOCKED'));
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     match /posts/{postId} {
+      function isValidLikeCountChange() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        let likeId = postId + '_' + request.auth.uid;
+        let previousCount = resource.data.get('upvotesCount', 0);
+        let nextCount = request.resource.data.get('upvotesCount', 0);
+        return request.auth != null
+          && request.auth.uid != resource.data.providerId
+          && changed.hasOnly(['upvotesCount'])
+          && previousCount is int
+          && nextCount is int
+          && ((resource.data.status == 'APPROVED'
+                && nextCount == previousCount + 1
+                && !exists(/databases/$(database)/documents/likes/$(likeId))
+                && existsAfter(/databases/$(database)/documents/likes/$(likeId))
+                && getAfter(/databases/$(database)/documents/likes/$(likeId)).data.postId == postId
+                && getAfter(/databases/$(database)/documents/likes/$(likeId)).data.userId == request.auth.uid)
+            || (nextCount == previousCount - 1
+                && exists(/databases/$(database)/documents/likes/$(likeId))
+                && !existsAfter(/databases/$(database)/documents/likes/$(likeId))
+                && get(/databases/$(database)/documents/likes/$(likeId)).data.postId == postId
+                && get(/databases/$(database)/documents/likes/$(likeId)).data.userId == request.auth.uid));
+      }
+
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.resource.data.providerId == request.auth.uid
@@ -65,10 +242,15 @@ service cloud.firestore {
             .hasOnly(['status', 'moderatorId', 'rejectionReason', 'rejectionNotes', 'reportCount', 'moderatedAtMillis', 'moderatedAt']))
         || (request.auth.uid == resource.data.providerId
           && request.resource.data.providerId == resource.data.providerId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'category', 'description', 'minPrice', 'maxPrice', 'isPriceToAgree',
+            'locationDescription', 'location', 'photos', 'status'
+          ])
           && (request.resource.data.status == resource.data.status
-            || request.resource.data.status == 'PENDING_VERIFICATION'
+            || (resource.data.status in ['PENDING_VERIFICATION', 'APPROVED']
+              && request.resource.data.status == 'PENDING_VERIFICATION')
             || (resource.data.status == 'APPROVED' && request.resource.data.status == 'FINISHED')))
-        || isLikeCountUpdate(postId)
+        || isValidLikeCountChange()
       );
       allow delete: if request.auth != null
         && (isModerator() || request.auth.uid == resource.data.providerId);
@@ -151,43 +333,72 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /comments/{commentId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null
-        && resource.data.userId == request.auth.uid;
-    }
-
     match /likes/{likeId} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null
+        && (!exists(/databases/$(database)/documents/likes/$(likeId))
+          || resource.data.userId == request.auth.uid
+          || isModerator());
+      allow list: if request.auth != null
+        && (resource.data.userId == request.auth.uid || isModerator());
       allow create: if request.auth != null
-        && request.resource.data.keys().hasOnly(['id', 'userId', 'postId'])
-        && request.resource.data.keys().hasAll(['id', 'userId', 'postId'])
+        && request.resource.data.keys().hasOnly(['id', 'postId', 'userId', 'createdAtMillis'])
+        && request.resource.data.id == likeId
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.postId is string
-        && request.resource.data.postId.size() > 0
+        && request.resource.data.postId.size() <= 256
         && likeId == request.resource.data.postId + '_' + request.auth.uid
-        && request.resource.data.id == likeId
+        && request.resource.data.createdAtMillis is int
         && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId))
         && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.status == 'APPROVED'
-        && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.providerId != request.auth.uid;
+        && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.providerId != request.auth.uid
+        && getAfter(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.get('upvotesCount', 0)
+          == get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.get('upvotesCount', 0) + 1;
       allow delete: if request.auth != null
         && resource.data.userId == request.auth.uid
-        && resource.data.postId is string
-        && likeId == resource.data.postId + '_' + request.auth.uid;
+        && likeId == resource.data.postId + '_' + request.auth.uid
+        && getAfter(/databases/$(database)/documents/posts/$(resource.data.postId)).data.get('upvotesCount', 0)
+          == get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.get('upvotesCount', 0) - 1;
+      allow update: if false;
     }
 
+    match /comments/{commentId} {
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+          || resource.data.postOwnerId == request.auth.uid
+          || isModerator()
+          || get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.status == 'APPROVED');
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'id', 'postId', 'postOwnerId', 'userId', 'authorName', 'content', 'createdAtMillis'
+        ])
+        && request.resource.data.id == commentId
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.postId is string
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0
+        && request.resource.data.content.size() <= 500
+        && request.resource.data.authorName is string
+        && request.resource.data.authorName.size() > 0
+        && request.resource.data.authorName.size() <= 100
+        && request.resource.data.authorName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
+        && request.resource.data.createdAtMillis is int
+        && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId))
+        && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.status == 'APPROVED'
+        && request.resource.data.postOwnerId
+          == get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.providerId;
+      allow update, delete: if false;
+    }
+
+    // Notifications are private to the recipient. Client-created notifications
+    // must identify their authenticated actor and prove the related app event.
     match /notifications/{notificationId} {
       function validNotificationShape() {
         return request.resource.data.keys().hasOnly([
             'id', 'userId', 'createdByUserId', 'title', 'body', 'type', 'isRead',
-            'relatedPostId', 'relatedChatId', 'relatedCommentId', 'relatedReportId',
-            'createdAtMillis'
+            'relatedPostId', 'relatedChatId', 'relatedCommentId', 'relatedReportId', 'createdAtMillis'
           ])
           && request.resource.data.keys().hasAll([
-            'id', 'userId', 'createdByUserId', 'title', 'body', 'type', 'isRead',
-            'createdAtMillis'
+            'id', 'userId', 'createdByUserId', 'title', 'body', 'type', 'isRead', 'createdAtMillis'
           ])
           && request.resource.data.id == notificationId
           && request.resource.data.userId is string
@@ -217,8 +428,8 @@ service cloud.firestore {
       }
 
       function isSelfNotification() {
-        return (request.resource.data.userId == request.auth.uid
-            && request.resource.data.type == 'ACHIEVEMENT')
+        return request.resource.data.userId == request.auth.uid
+          && request.resource.data.type == 'ACHIEVEMENT'
           || (request.resource.data.userId == request.auth.uid
             && request.resource.data.type == 'SYSTEM'
             && (request.resource.data.relatedPostId == null
@@ -254,7 +465,6 @@ service cloud.firestore {
         let chatId = request.resource.data.relatedChatId;
         return request.resource.data.type == 'REQUEST'
           && chatId is string
-          && chatId.size() > 0
           && request.resource.data.userId != request.auth.uid
           && exists(/databases/$(database)/documents/chats/$(chatId))
           && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid])
@@ -283,9 +493,8 @@ service cloud.firestore {
           && request.resource.data.userId != request.auth.uid
           && exists(/databases/$(database)/documents/comments/$(commentId))
           && get(/databases/$(database)/documents/comments/$(commentId)).data.userId == request.auth.uid
-          && get(/databases/$(database)/documents/comments/$(commentId)).data.postId == postId
-          && exists(/databases/$(database)/documents/posts/$(postId))
-          && get(/databases/$(database)/documents/posts/$(postId)).data.providerId == request.resource.data.userId;
+          && get(/databases/$(database)/documents/comments/$(commentId)).data.postOwnerId == request.resource.data.userId
+          && get(/databases/$(database)/documents/comments/$(commentId)).data.postId == postId;
       }
 
       function isValidNotificationCreate() {
@@ -315,4 +524,3 @@ service cloud.firestore {
     }
   }
 }
-

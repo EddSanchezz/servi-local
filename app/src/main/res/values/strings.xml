@@ -140,6 +140,15 @@
     <string name="pending">Pendientes</string>
     <string name="working_hours">Horario de atención</string>
     <string name="my_activity">Mi Actividad</string>
+    <string name="user_stats_entry_title">Mis estadísticas</string>
+    <string name="user_stats_entry_summary">Consulta tu actividad, publicaciones y logros</string>
+    <string name="user_stats_title">Estadísticas de usuario</string>
+    <string name="user_stats_total_posts">Publicaciones totales</string>
+    <string name="user_stats_approved_posts">Publicaciones aprobadas</string>
+    <string name="user_stats_likes_received">Apoyos recibidos</string>
+    <string name="user_stats_comments_received">Comentarios recibidos</string>
+    <string name="user_stats_unavailable">Todavía no hay estadísticas disponibles.</string>
+    <string name="user_stats_max_level">¡Has alcanzado el nivel máximo!</string>
     <string name="my_publications">Mis Publicaciones</string>
     <string name="manage_my_posts">Gestionar servicios activos e inactivos</string>
     <string name="my_votes_title">Servicios que me importan / Mis Votos</string>
@@ -441,7 +450,7 @@
     <string name="today_range">Hoy</string>
     <string name="this_week_range">Esta semana</string>
     <string name="this_month_range">Este mes</string>
-    <string name="memory_stats_description">Registros en memoria ingresados %1$s en Armenia y Quindío</string>
+    <string name="moderation_stats_description">Publicaciones y reportes registrados %1$s en Armenia y Quindío</string>
     <string name="rejected_plural">Rechazadas</string>
     <string name="reported_plural">Reportadas</string>
     <string name="staff_identifier">Staff ServiLocal · ID: %1$s</string>
@@ -531,6 +540,7 @@
     <string name="cannot_like_own_post">No puedes apoyar tu propia publicación.</string>
     <string name="verified_posts_only_like">Solo puedes apoyar publicaciones verificadas.</string>
     <string name="comment_success">Comentario publicado.</string>
+    <string name="interaction_network_error">No se pudo sincronizar la interacción. Revisa tu conexión e inténtalo de nuevo.</string>
     <string name="comment_empty">El comentario no puede estar vacío.</string>
     <string name="comment_too_long">El comentario no puede superar %1$d caracteres.</string>
     <string name="verified_posts_only_comment">Solo puedes comentar publicaciones verificadas.</string>

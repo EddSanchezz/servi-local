@@ -1,7 +1,7 @@
 package com.servilocal.data.repository.memory
 
 import com.servilocal.domain.model.Badge
-import com.servilocal.domain.model.BadgeCriterion
+import com.servilocal.domain.model.BadgeCatalog
 import com.servilocal.domain.model.UserBadge
 import com.servilocal.domain.repository.BadgeRepository
 import jakarta.inject.Inject
@@ -15,13 +15,13 @@ import java.util.UUID
 @Singleton
 class BadgeRepositoryImpl @Inject constructor() : BadgeRepository {
 
-    private val _badges = MutableStateFlow(seedBadges())
+    private val _badges = MutableStateFlow(BadgeCatalog.all)
     override val badges: StateFlow<List<Badge>> = _badges.asStateFlow()
 
     private val _userBadges = MutableStateFlow(seedUserBadges())
     override val userBadges: StateFlow<List<UserBadge>> = _userBadges.asStateFlow()
 
-    override suspend fun award(userId: String, badgeId: String): Boolean {
+    override suspend fun award(userId: String, badgeId: String, sourcePostId: String?): Boolean {
         if (userId <= "0" || _badges.value.none { it.id == badgeId }) return false
 
         val alreadyAwarded = _userBadges.value.any {
@@ -38,41 +38,6 @@ class BadgeRepositoryImpl @Inject constructor() : BadgeRepository {
         }
         return true
     }
-
-    private fun seedBadges(): List<Badge> = listOf(
-        Badge(
-            id = "badge_1",
-            name = "Primera Publicación",
-            description = "Publicaste tu primer servicio en la comunidad.",
-            iconUrl = "🥇",
-            criterion = BadgeCriterion.CREATED_POSTS,
-            threshold = 1
-        ),
-        Badge(
-            id = "badge_2",
-            name = "Influencer",
-            description = "Alcanzaste 100 puntos de reputación.",
-            iconUrl = "🔥",
-            criterion = BadgeCriterion.POINTS,
-            threshold = 100
-        ),
-        Badge(
-            id = "badge_3",
-            name = "Súper Proveedor",
-            description = "Alcanzaste 250 puntos de reputación.",
-            iconUrl = "⭐",
-            criterion = BadgeCriterion.POINTS,
-            threshold = 250
-        ),
-        Badge(
-            id = "badge_4",
-            name = "Comunitario",
-            description = "Alcanzaste 500 puntos de reputación.",
-            iconUrl = "🤝",
-            criterion = BadgeCriterion.POINTS,
-            threshold = 500
-        )
-    )
 
     private fun seedUserBadges(): List<UserBadge> = listOf(
         UserBadge(id = "user_badge_val_1", userId = "1", badgeId = "badge_1"),

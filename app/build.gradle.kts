@@ -21,6 +21,8 @@ val cloudinaryUploadPreset = localProperties.getProperty("CLOUDINARY_UPLOAD_PRES
 val openRouterApiKey = localProperties.getProperty("OPENROUTER_API_KEY", "").trim()
 val openRouterModel = localProperties.getProperty("OPENROUTER_MODEL", "inclusionai/ling-3.2-flash:free").trim()
 val openRouterFallbackModels = localProperties.getProperty("OPENROUTER_FALLBACK_MODELS", "baidu/ernie-5.5-flash-preview:free").split(",").map(String::trim).filter(String::isNotBlank)
+val firebaseEmulatorEnabled = localProperties.getProperty("FIREBASE_EMULATOR_ENABLED", "false").toBoolean()
+val firebaseEmulatorHost = localProperties.getProperty("FIREBASE_EMULATOR_HOST", "10.0.2.2").trim()
 
 android {
   namespace = "com.servilocal"
@@ -38,10 +40,15 @@ android {
     buildConfigField("String", "OPENROUTER_API_KEY", "\"$openRouterApiKey\"")
     buildConfigField("String", "OPENROUTER_MODEL", "\"$openRouterModel\"")
     buildConfigField("String", "OPENROUTER_FALLBACK_MODELS", "\"${openRouterFallbackModels.joinToString(",")}\"")
+    buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"$firebaseEmulatorHost\"")
   }
 
   buildTypes {
+    debug {
+      buildConfigField("boolean", "FIREBASE_EMULATOR_ENABLED", firebaseEmulatorEnabled.toString())
+    }
     release {
+      buildConfigField("boolean", "FIREBASE_EMULATOR_ENABLED", "false")
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

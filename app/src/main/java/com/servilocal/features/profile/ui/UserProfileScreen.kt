@@ -43,6 +43,7 @@ fun UserProfileScreen(
     onLogout: () -> Unit,
     onOpenServiceDetail: (String) -> Unit,
     onOpenMyPosts: () -> Unit,
+    onOpenStats: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenMyProfile: () -> Unit,
     modifier: Modifier = Modifier
@@ -260,6 +261,13 @@ fun UserProfileScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column {
+                        ProfileNavRow(
+                            icon = Icons.Default.BarChart,
+                            title = stringResource(R.string.user_stats_entry_title),
+                            subtitle = stringResource(R.string.user_stats_entry_summary),
+                            onClick = onOpenStats
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.padding(horizontal = 14.dp))
                         ProfileNavRow(
                             icon = Icons.AutoMirrored.Filled.Assignment,
                             title = stringResource(R.string.my_publications),

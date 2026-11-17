@@ -58,7 +58,8 @@ data class ServicePost(
     val rejectionReason: String? = null,
     val rejectionNotes: String? = null,
     val reportCount: Int = 0,
-    val createdAtMillis: Long = System.currentTimeMillis()
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val moderatedAtMillis: Long = 0L
 )
 
 data class ServiceComment(
@@ -68,7 +69,8 @@ data class ServiceComment(
     val text: String,
     val isAuthorReply: Boolean = false,
     val isRecommended: Boolean = true,
-    val authorId: String? = null
+    val authorId: String? = null,
+    val createdAtMillis: Long = System.currentTimeMillis()
 )
 
 typealias ChatStatus = ServiceRequestStatus

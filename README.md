@@ -31,7 +31,9 @@ La aplicación resuelve un problema concreto: muchos emprendedores y negocios pe
 - Búsqueda y filtrado por texto, categoría, zona y distancia.
 - Visualización de publicaciones en lista o en mapa interactivo.
 - Solicitudes de servicio y chat entre cliente y proveedor.
-- Comentarios, votación "Es importante"/"Me interesa", notificaciones, puntos, niveles e insignias.
+- Comentarios, votación "Es importante"/"Me interesa" y notificaciones persistentes.
+- Gamificación con puntos, niveles e insignias; cada publicación creada otorga 50 puntos mediante un evento idempotente.
+- Estadísticas personales y métricas de moderación.
 - Reporte de publicaciones y flujo de moderación.
 - Edición, finalización y eliminación de publicaciones propias.
 - Perfil con estadísticas personales y opción de eliminar la cuenta.
@@ -151,13 +153,17 @@ Gestiona las cuentas de usuario. La app admite correo/contraseña y Google media
 Es la base de datos principal. Las colecciones usadas son:
 
 - `users/{uid}`: perfil, rol, estado, puntos y nivel.
+- `users_public/{uid}`: nombre, foto y estado públicos, sin correo ni datos privados.
+- `users/{uid}/pointEvents/{eventId}` y `users/{uid}/badges/{badgeId}`: eventos idempotentes de puntos e insignias otorgadas.
+- `badges/{badgeId}`: catálogo de insignias.
 - `posts/{postId}`: publicaciones con estado de moderación, rango de precios, zona de cobertura, ubicación y fotos.
 - `chats/{chatId}` y `chats/{chatId}/messages`: conversaciones y mensajes.
+- `likes/{postId}_{uid}` y `comments/{commentId}`: apoyos únicos por usuario y comentarios.
 - `reports/{reportId}`: reportes de publicaciones.
 - `notifications/{notificationId}`: bandeja de notificaciones por usuario, con estado de lectura y referencias a publicaciones, chats, comentarios o reportes.
 - `moderators/{uid}`: datos del personal de moderación.
 
-Las reglas de seguridad (`firestore.rules`) aplican denegación por defecto y validan rol, autoría y estados permitidos.
+Las reglas de seguridad (`firestore.rules`) aplican denegación por defecto y validan rol, autoría, estado y la relación entre los eventos de puntos, likes, comentarios y notificaciones.
 
 **Problema que resuelve:** mantiene los datos sincronizados en tiempo real y aplica reglas de acceso del lado del servidor.
 
@@ -249,6 +255,8 @@ OPENROUTER_FALLBACK_MODELS=baidu/ernie-5.5-flash-preview:free
 4. Registrar las huellas SHA-1 y SHA-256 del certificado usado.
 5. Descargar `google-services.json` y colocarlo en `app/google-services.json`.
 6. Revisar y desplegar `firestore.rules`.
+
+Para probar las reglas y repositorios sin escribir en el proyecto real, activa los emuladores solo en depuración mediante `FIREBASE_EMULATOR_ENABLED=true` y `FIREBASE_EMULATOR_HOST=10.0.2.2` en `local.properties`. Inicia Auth y Firestore con `npx firebase-tools emulators:start --only auth,firestore --project <project-id>`. Las pruebas instrumentadas de `connectedDebugAndroidTest` están destinadas únicamente al emulador.
 
 ### Cloudinary
 

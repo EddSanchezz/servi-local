@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -186,7 +187,8 @@ class MockDataRepository @Inject constructor(
                 current + Like(
                     id = "like_${postId}_$userId",
                     userId = userId,
-                    postId = postId
+                    postId = postId,
+                    createdAtMillis = System.currentTimeMillis()
                 )
             }
         } else {
@@ -210,6 +212,25 @@ class MockDataRepository @Inject constructor(
     override fun hasLiked(postId: String, userId: String): Boolean =
         erdLikes.value.any { it.postId == postId && it.userId == userId }
 
+    override fun observeForPost(postId: String): Flow<List<Comment>> = combine(posts, comments) { allPosts, allComments ->
+        val post = allPosts.firstOrNull { it.id == postId }
+        val embeddedComments = post?.comments.orEmpty().map { comment ->
+            Comment(
+                id = comment.id,
+                postId = postId,
+                userId = comment.authorId.orEmpty(),
+                content = comment.text,
+                createdAtMillis = comment.createdAtMillis,
+                postOwnerId = post?.providerId,
+                authorName = comment.authorName,
+                displayDate = comment.date
+            )
+        }
+        (embeddedComments + allComments.filter { it.postId == postId })
+            .distinctBy(Comment::id)
+            .sortedByDescending(Comment::createdAtMillis)
+    }
+
     override suspend fun addComment(postId: String, userId: String, authorName: String, content: String): String? {
         if (content.isBlank()) return null
         val post = _posts.value.firstOrNull { it.id == postId }
@@ -218,8 +239,10 @@ class MockDataRepository @Inject constructor(
             id = "c_${UUID.randomUUID()}",
             postId = postId,
             userId = userId,
+            content = content,
+            postOwnerId = post?.providerId,
             authorName = authorName,
-            content = content
+            displayDate = "Justo ahora"
         )
         erdComments.update { listOf(newComment) + it }
 
@@ -230,7 +253,8 @@ class MockDataRepository @Inject constructor(
             text = content,
             isAuthorReply = post?.providerId == userId,
             isRecommended = true,
-            authorId = userId
+            authorId = userId,
+            createdAtMillis = newComment.createdAtMillis
         )
         _posts.update { list ->
             list.map {

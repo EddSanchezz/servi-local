@@ -14,6 +14,7 @@ sealed interface ToggleLikeResult {
     data object PostNotFound : ToggleLikeResult
     data object PostNotVerified : ToggleLikeResult
     data object OwnPost : ToggleLikeResult
+    data object NetworkError : ToggleLikeResult
 }
 
 class TogglePostLikeUseCase @Inject constructor(

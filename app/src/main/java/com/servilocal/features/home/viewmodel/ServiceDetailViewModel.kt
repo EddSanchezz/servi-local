@@ -76,6 +76,7 @@ class ServiceDetailViewModel @Inject constructor(
                     ToggleLikeResult.OwnPost -> RequestResult.Failure(resources.getString(R.string.cannot_like_own_post))
                     ToggleLikeResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_like))
                     ToggleLikeResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+                    ToggleLikeResult.NetworkError -> RequestResult.Failure(resources.getString(R.string.interaction_network_error))
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -98,14 +99,21 @@ class ServiceDetailViewModel @Inject constructor(
 
     /** Devuelve true si el comentario se publicó, para que la pantalla limpie el campo. */
     suspend fun addComment(postId: String, text: String): Boolean {
-        val result = when (addPostCommentUseCase(postId, text)) {
-            AddCommentResult.Success -> RequestResult.Success(resources.getString(R.string.comment_success))
-            AddCommentResult.EmptyContent -> RequestResult.Failure(resources.getString(R.string.comment_empty))
-            AddCommentResult.TooLong -> RequestResult.Failure(
-                resources.getString(R.string.comment_too_long, AddPostCommentUseCase.MAX_LENGTH)
-            )
-            AddCommentResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_comment))
-            AddCommentResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+        val result = try {
+            when (addPostCommentUseCase(postId, text)) {
+                AddCommentResult.Success -> RequestResult.Success(resources.getString(R.string.comment_success))
+                AddCommentResult.EmptyContent -> RequestResult.Failure(resources.getString(R.string.comment_empty))
+                AddCommentResult.TooLong -> RequestResult.Failure(
+                    resources.getString(R.string.comment_too_long, AddPostCommentUseCase.MAX_LENGTH)
+                )
+                AddCommentResult.PostNotVerified -> RequestResult.Failure(resources.getString(R.string.verified_posts_only_comment))
+                AddCommentResult.PostNotFound -> RequestResult.Failure(resources.getString(R.string.post_unavailable))
+                AddCommentResult.NetworkError -> RequestResult.Failure(resources.getString(R.string.interaction_network_error))
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            RequestResult.Failure(resources.getString(R.string.interaction_network_error))
         }
         _uiState.update { it.copy(commentResult = result) }
         return result is RequestResult.Success

@@ -11,7 +11,9 @@ data class ProfileStats(
     val publishedPosts: Int,
     val pendingPosts: Int,
     val totalPosts: Int,
-    val badgeCount: Int
+    val badgeCount: Int,
+    val likesReceived: Int = 0,
+    val commentsReceived: Int = 0
 ) {
     val remainingPoints: Int
         get() = nextLevelPoints?.let { (it - user.points).coerceAtLeast(0) } ?: 0

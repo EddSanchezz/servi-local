@@ -20,7 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -55,7 +55,7 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var selectedRole by remember { mutableStateOf(UserRole.USER) }
     val authUiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val activity = LocalContext.current as? android.app.Activity
+    val activity = LocalActivity.current
     val snackbarHostState = remember { SnackbarHostState() }
     val isLoading = authUiState.loginResult is RequestResult.Loading
     val loginError = (authUiState.loginResult as? RequestResult.Failure)?.errorMessage

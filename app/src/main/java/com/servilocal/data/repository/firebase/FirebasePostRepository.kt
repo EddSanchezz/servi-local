@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -50,6 +51,11 @@ class FirebasePostRepository @Inject constructor(
         .flatMapLatest { session ->
             if (session == null) {
                 flowOf(emptyList())
+            } else if (session.role == UserRole.MODERATOR) {
+                // Moderation metrics and history need every status, including rejected posts.
+                observePosts(postsCollection).map { posts ->
+                    posts.sortedByDescending(ServicePost::createdAtMillis)
+                }
             } else {
                 val approved = observePosts(
                     postsCollection.whereEqualTo(FIELD_STATUS, PostStatus.APPROVED.name)
@@ -57,19 +63,9 @@ class FirebasePostRepository @Inject constructor(
                 val owned = observePosts(
                     postsCollection.whereEqualTo(FIELD_PROVIDER_ID, session.userId)
                 )
-                if (session.role == UserRole.MODERATOR) {
-                    val pending = observePosts(
-                        postsCollection.whereEqualTo(FIELD_STATUS, PostStatus.PENDING_VERIFICATION.name)
-                    )
-                    combine(approved, owned, pending) { publicPosts, ownPosts, pendingPosts ->
-                        (publicPosts + ownPosts + pendingPosts).distinctBy(ServicePost::id)
-                            .sortedByDescending(ServicePost::createdAtMillis)
-                    }
-                } else {
-                    combine(approved, owned) { publicPosts, ownPosts ->
-                        (publicPosts + ownPosts).distinctBy(ServicePost::id)
-                            .sortedByDescending(ServicePost::createdAtMillis)
-                    }
+                combine(approved, owned) { publicPosts, ownPosts ->
+                    (publicPosts + ownPosts).distinctBy(ServicePost::id)
+                        .sortedByDescending(ServicePost::createdAtMillis)
                 }
             }
         }
@@ -201,6 +197,13 @@ class FirebasePostRepository @Inject constructor(
         return true
     }
 
+    override suspend fun countPostsByProvider(providerId: String): Int =
+        postsCollection.whereEqualTo(FIELD_PROVIDER_ID, providerId).get().await().size()
+
+    override suspend fun firstPostIdByProvider(providerId: String): String? =
+        postsCollection.whereEqualTo(FIELD_PROVIDER_ID, providerId).limit(1).get().await()
+            .documents.firstOrNull()?.id
+
     override suspend fun finishPost(postId: String): Boolean {
         val current = posts.value.firstOrNull { it.id == postId } ?: return false
         val uid = sessionRepository.session.value?.userId ?: return false
@@ -212,11 +215,13 @@ class FirebasePostRepository @Inject constructor(
     override suspend fun approvePost(postId: String) {
         val session = sessionRepository.session.value ?: return
         if (session.role != UserRole.MODERATOR) return
+        val moderatedAtMillis = System.currentTimeMillis()
         postsCollection.document(postId).update(
             mapOf(
                 FIELD_STATUS to PostStatus.APPROVED.name,
                 "moderatorId" to session.userId,
-                "moderatedAt" to FieldValue.serverTimestamp()
+                "moderatedAt" to FieldValue.serverTimestamp(),
+                "moderatedAtMillis" to moderatedAtMillis
             )
         ).await()
     }
@@ -224,13 +229,15 @@ class FirebasePostRepository @Inject constructor(
     override suspend fun rejectPost(postId: String, reason: String, notes: String?) {
         val session = sessionRepository.session.value ?: return
         if (session.role != UserRole.MODERATOR || reason.isBlank()) return
+        val moderatedAtMillis = System.currentTimeMillis()
         postsCollection.document(postId).update(
             mapOf(
                 FIELD_STATUS to PostStatus.REJECTED.name,
                 "moderatorId" to session.userId,
                 "rejectionReason" to reason.trim(),
                 "rejectionNotes" to notes?.trim(),
-                "moderatedAt" to FieldValue.serverTimestamp()
+                "moderatedAt" to FieldValue.serverTimestamp(),
+                "moderatedAtMillis" to moderatedAtMillis
             )
         ).await()
     }
@@ -244,13 +251,15 @@ class FirebasePostRepository @Inject constructor(
         val session = sessionRepository.session.value ?: return false
         if (session.role != UserRole.MODERATOR || status !in setOf(PostStatus.REJECTED, PostStatus.FINISHED)) return false
         if (status == PostStatus.REJECTED && reason.isNullOrBlank()) return false
+        val moderatedAtMillis = System.currentTimeMillis()
         postsCollection.document(postId).update(
             mapOf(
                 FIELD_STATUS to status.name,
                 "moderatorId" to session.userId,
                 "rejectionReason" to if (status == PostStatus.REJECTED) reason?.trim() else null,
                 "rejectionNotes" to if (status == PostStatus.REJECTED) notes?.trim() else null,
-                "moderatedAt" to FieldValue.serverTimestamp()
+                "moderatedAt" to FieldValue.serverTimestamp(),
+                "moderatedAtMillis" to moderatedAtMillis
             )
         ).await()
         return true
@@ -280,7 +289,7 @@ class FirebasePostRepository @Inject constructor(
         if (providerAvatarCache.containsKey(providerId)) {
             return providerAvatarCache[providerId]
         }
-        val avatar = firestore.collection(USERS_COLLECTION)
+        val avatar = firestore.collection(PUBLIC_USERS_COLLECTION)
             .document(providerId)
             .get()
             .await()
@@ -295,7 +304,7 @@ class FirebasePostRepository @Inject constructor(
                 flowOf(emptySet())
             } else {
                 callbackFlow {
-                    val registration = firestore.collection(USERS_COLLECTION)
+                    val registration = firestore.collection(PUBLIC_USERS_COLLECTION)
                         .whereEqualTo("status", UserStatus.BLOCKED.name)
                         .addSnapshotListener { snapshot, error ->
                             // Permission/network failures must never terminate the shared posts flow.
@@ -310,7 +319,7 @@ class FirebasePostRepository @Inject constructor(
     private suspend fun providerStatusFor(providerId: String): UserStatus {
         providerStatusCache[providerId]?.let { return it }
         val status = runCatching {
-            firestore.collection(USERS_COLLECTION).document(providerId).get().await()
+            firestore.collection(PUBLIC_USERS_COLLECTION).document(providerId).get().await()
                 .getString("status")
                 ?.let { UserStatus.valueOf(it) }
         }.getOrNull() ?: UserStatus.ACTIVE
@@ -361,7 +370,10 @@ class FirebasePostRepository @Inject constructor(
             rejectionReason = getString("rejectionReason"),
             rejectionNotes = getString("rejectionNotes"),
             reportCount = getLong("reportCount")?.toInt() ?: 0,
-            createdAtMillis = getLong("createdAtMillis") ?: 0L
+            createdAtMillis = getLong("createdAtMillis") ?: 0L,
+            moderatedAtMillis = getLong("moderatedAtMillis")
+                ?: getTimestamp("moderatedAt")?.toDate()?.time
+                ?: 0L
         )
     }
 
@@ -428,6 +440,7 @@ class FirebasePostRepository @Inject constructor(
     private companion object {
         const val POSTS_COLLECTION = "posts"
         const val USERS_COLLECTION = "users"
+        const val PUBLIC_USERS_COLLECTION = "users_public"
         const val FIELD_STATUS = "status"
         const val FIELD_PROVIDER_ID = "providerId"
     }

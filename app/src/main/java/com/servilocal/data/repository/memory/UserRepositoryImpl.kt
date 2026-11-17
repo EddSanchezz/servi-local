@@ -13,12 +13,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 @Singleton
 class UserRepositoryImpl @Inject constructor() : UserRepository {
 
     private val _users = MutableStateFlow(seedUsers())
     override val users: StateFlow<List<User>> = _users.asStateFlow()
+    private val pointEvents = mutableSetOf<Pair<String, String>>()
+    private val pointEventsMutex = Mutex()
+
     override suspend fun save(user: User): User {
         // El estado lo controla el sistema: no se permite cambiarlo desde un guardado normal.
         val currentStatus = _users.value.firstOrNull { it.id == user.id }?.status
@@ -28,6 +33,22 @@ class UserRepositoryImpl @Inject constructor() : UserRepository {
         }
         return userToSave
     }
+
+    override suspend fun addPointsOnce(userId: String, points: Int, eventId: String): User? =
+        pointEventsMutex.withLock {
+            if (userId.isBlank() || eventId.isBlank()) return@withLock null
+            val user = findById(userId) ?: return@withLock null
+            val eventKey = userId to eventId
+            if (eventKey in pointEvents) return@withLock user
+
+            val updatedPoints = (user.points + points).coerceAtLeast(0)
+            val updatedUser = save(user.copy(
+                points = updatedPoints,
+                level = UserLevel.fromPoints(updatedPoints)
+            ))
+            pointEvents += eventKey
+            updatedUser
+        }
 
     override suspend fun deleteById(id: String): Boolean {
         val exists = _users.value.any { it.id == id }

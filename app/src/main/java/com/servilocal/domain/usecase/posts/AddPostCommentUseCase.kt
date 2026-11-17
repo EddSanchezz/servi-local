@@ -14,6 +14,7 @@ sealed interface AddCommentResult {
     data object TooLong : AddCommentResult
     data object PostNotFound : AddCommentResult
     data object PostNotVerified : AddCommentResult
+    data object NetworkError : AddCommentResult
 }
 
 class AddPostCommentUseCase @Inject constructor(

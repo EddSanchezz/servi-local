@@ -69,33 +69,39 @@ class FirebaseNotificationRepository @Inject constructor(
      * action that caused them. Firestore's local persistence keeps writes queued offline.
      */
     override fun create(notification: AppNotification) {
-        val senderId = sessionRepository.session.value?.userId?.takeIf(String::isNotBlank)
-        if (senderId == null || notification.id.isBlank() || notification.userId.isBlank() ||
-            notification.title.isBlank() || notification.body.isBlank() || notification.isRead
-        ) return
-
         scope.launch {
             try {
-                // A newly-started chat is written by another coroutine. Wait until its
-                // local Firestore snapshot exists so the notification rules can verify
-                // that both users are actual chat participants.
-                val chatId = notification.relatedChatId
-                if (notification.type == NotificationType.REQUEST && chatId != null &&
-                    !awaitChatExists(chatId)
-                ) {
-                    Log.w(TAG, "Skipping chat notification because chat $chatId was not created")
-                    return@launch
-                }
-                if (sessionRepository.session.value?.userId != senderId) return@launch
-                collection.document(notification.id)
-                    .set(notification.toFirestoreMap(senderId))
-                    .await()
+                createAndAwait(notification)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
                 Log.w(TAG, "Could not save notification ${notification.id}", error)
             }
         }
+    }
+
+    /** Awaited variant for tests and flows that need to assert persisted delivery. */
+    suspend fun createAndAwait(notification: AppNotification) {
+        val senderId = sessionRepository.session.value?.userId?.takeIf(String::isNotBlank)
+            ?: return
+        if (notification.id.isBlank() || notification.userId.isBlank() ||
+            notification.title.isBlank() || notification.body.isBlank() || notification.isRead
+        ) return
+
+        // A newly-started chat is written by another coroutine. Wait until its
+        // local Firestore snapshot exists so the notification rules can verify
+        // that both users are actual chat participants.
+        val chatId = notification.relatedChatId
+        if (notification.type == NotificationType.REQUEST && chatId != null &&
+            !awaitChatExists(chatId)
+        ) {
+            Log.w(TAG, "Skipping chat notification because chat $chatId was not created")
+            return
+        }
+        if (sessionRepository.session.value?.userId != senderId) return
+        collection.document(notification.id)
+            .set(notification.toFirestoreMap(senderId))
+            .await()
     }
 
     override suspend fun markRead(notificationId: String, userId: String, isRead: Boolean): Boolean {
