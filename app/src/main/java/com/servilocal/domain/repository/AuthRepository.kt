@@ -16,6 +16,10 @@ interface AuthRepository {
 
     suspend fun updateCurrentUser(name: String, email: String)
     suspend fun updateCurrentUserPhoto(photoUrl: String?)
+    suspend fun updateCurrentUserProfile(name: String, email: String, photoUrl: String?) {
+        updateCurrentUser(name, email)
+        updateCurrentUserPhoto(photoUrl)
+    }
     suspend fun toggleModeratorShift()
     suspend fun syncCurrentUser(user: User) {}
 }

@@ -3,9 +3,14 @@ package com.servilocal.domain.repository
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 interface PostRepository {
     val posts: StateFlow<List<ServicePost>>
+
+    /** Live, public display level of a provider, derived from their current points. */
+    fun observeProviderLevel(providerId: String): Flow<String?> = flowOf(null)
 
     suspend fun createPost(
         title: String,

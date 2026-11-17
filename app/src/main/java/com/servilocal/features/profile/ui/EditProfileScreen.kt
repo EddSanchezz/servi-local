@@ -1,5 +1,6 @@
 package com.servilocal.features.profile.ui
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.servilocal.R
 import com.servilocal.core.ui.components.ImagePicker
+import com.servilocal.core.ui.components.ImagePickerBottomSheet
 import com.servilocal.core.ui.components.ProfilePhotoAvatar
 import com.servilocal.domain.exception.ImageUploadException
 import com.servilocal.features.profile.viewmodel.ProfileViewModel
@@ -60,6 +62,7 @@ fun EditProfileScreen(
     var name by rememberSaveable(currentUser.id) { mutableStateOf(currentUser.name) }
     var email by rememberSaveable(currentUser.id) { mutableStateOf(currentUser.email) }
     var photoUrl by rememberSaveable(currentUser.id) { mutableStateOf(currentUser.photoUrl) }
+    var showPhotoOptions by rememberSaveable(currentUser.id) { mutableStateOf(false) }
     var showValidation by rememberSaveable { mutableStateOf(false) }
     var isSaving by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -84,7 +87,8 @@ fun EditProfileScreen(
                 throw cancellation
             } catch (_: ImageUploadException) {
                 snackbarHostState.showSnackbar(photoUploadErrorMessage)
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                Log.e("EditProfileScreen", "Could not save profile changes", error)
                 snackbarHostState.showSnackbar(saveErrorMessage)
             } finally {
                 isSaving = false
@@ -125,16 +129,17 @@ fun EditProfileScreen(
                     photoUrl = it.toString()
                     scope.launch { snackbarHostState.showSnackbar(selectedPhotoMessage) }
                 },
-                trigger = { _, openPicker ->
+                trigger = { openCamera, openGallery ->
+                    val openPhotoOptions = { showPhotoOptions = true }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(contentAlignment = Alignment.BottomEnd) {
                             ProfilePhotoAvatar(
                                 name = name,
                                 photoUrl = photoUrl,
-                                modifier = Modifier.size(124.dp).clickable(onClick = openPicker)
+                                modifier = Modifier.size(124.dp).clickable(onClick = openPhotoOptions)
                             )
                             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary) {
-                                IconButton(onClick = openPicker) {
+                                IconButton(onClick = openPhotoOptions) {
                                     Icon(
                                         Icons.Default.CameraAlt,
                                         contentDescription = stringResource(R.string.edit_photo),
@@ -143,14 +148,32 @@ fun EditProfileScreen(
                                 }
                             }
                         }
-                        TextButton(onClick = openPicker) {
-                            Text(stringResource(R.string.change_profile_photo))
+                        TextButton(onClick = openPhotoOptions) {
+                            Text(
+                                stringResource(R.string.change_profile_photo),
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium)
+                            )
                         }
-                        if (photoUrl != null) {
-                            TextButton(onClick = { photoUrl = null }) {
-                                Text(stringResource(R.string.remove_profile_photo))
-                            }
-                        }
+                    }
+                    if (showPhotoOptions) {
+                        ImagePickerBottomSheet(
+                            title = stringResource(R.string.profile_photo_title),
+                            onCameraClick = {
+                                showPhotoOptions = false
+                                openCamera()
+                            },
+                            onGalleryClick = {
+                                showPhotoOptions = false
+                                openGallery()
+                            },
+                            onRemoveClick = if (photoUrl != null) {
+                                {
+                                    showPhotoOptions = false
+                                    photoUrl = null
+                                }
+                            } else null,
+                            onDismiss = { showPhotoOptions = false }
+                        )
                     }
                 }
             )

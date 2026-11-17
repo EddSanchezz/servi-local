@@ -49,7 +49,7 @@ fun UserProfileScreen(
     modifier: Modifier = Modifier
 ) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
-    val posts by viewModel.posts.collectAsStateWithLifecycle()
+    val votedPosts by viewModel.likedPosts.collectAsStateWithLifecycle()
     val myPosts by viewModel.myPosts.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val profileUiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -62,7 +62,6 @@ fun UserProfileScreen(
     var deleteAccountFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val ownedPosts = myPosts
-    val votedPosts = posts.filter { it.userUpvoted }
     val displayBadges = badges
     val points = stats?.user?.points ?: currentUser.points
     val nextLevelPoints = stats?.nextLevelPoints ?: currentUser.nextLevelPoints

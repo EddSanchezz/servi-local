@@ -101,7 +101,8 @@ class FirebaseBadgeRepositoryEmulatorTest {
 
             val persistedUser = userReference.get().await()
             assertEquals(270L, persistedUser.getLong("points"))
-            assertEquals(UserLevel.EXPERTO.name, persistedUser.getString("level"))
+            assertEquals(UserLevel.PROFESIONAL.name, persistedUser.getString("level"))
+            assertEquals(UserLevel.EXPERTO, userRepository.findById(userId)?.level)
             assertTrue(
                 runCatching {
                     userReference.update(mapOf("points" to 9_999, "level" to "MAESTRO")).await()

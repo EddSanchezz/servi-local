@@ -10,6 +10,7 @@ import com.servilocal.domain.model.PostCategory
 import com.servilocal.domain.model.PostStatus
 import com.servilocal.domain.model.ServicePost
 import com.servilocal.domain.model.UserRole
+import com.servilocal.domain.model.UserLevel
 import com.servilocal.domain.model.UserStatus
 import com.servilocal.domain.repository.PostRepository
 import com.servilocal.domain.repository.SessionRepository
@@ -20,14 +21,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.tasks.await
 import java.util.Locale
 
@@ -43,11 +46,33 @@ class FirebasePostRepository @Inject constructor(
 ) : PostRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val providerAvatarCache = mutableMapOf<String, String?>()
-    private val providerStatusCache = mutableMapOf<String, UserStatus>()
+    private data class PublicProviderProfile(
+        val name: String?,
+        val photoUrl: String?,
+        val level: String?,
+        val status: UserStatus
+    )
+
+    private val providerProfiles = MutableStateFlow<Map<String, PublicProviderProfile>>(emptyMap())
+    private val providerProfileListeners = mutableMapOf<String, ListenerRegistration>()
+    private val providerProfileLock = Any()
     private val postsCollection get() = firestore.collection(POSTS_COLLECTION)
 
-    override val posts = sessionRepository.session
+    override fun observeProviderLevel(providerId: String): Flow<String?> = callbackFlow {
+        val registration = firestore.collection(PUBLIC_USERS_COLLECTION).document(providerId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    trySend(null)
+                } else {
+                    val level = snapshot.getString("level")
+                        ?.let { runCatching { UserLevel.valueOf(it).displayName() }.getOrNull() }
+                    trySend(level)
+                }
+            }
+        awaitClose { registration.remove() }
+    }
+
+    private val rawPosts = sessionRepository.session
         .flatMapLatest { session ->
             if (session == null) {
                 flowOf(emptyList())
@@ -69,8 +94,29 @@ class FirebasePostRepository @Inject constructor(
                 }
             }
         }
-        .combine(observeBlockedUserIds()) { currentPosts, blockedUsers ->
-            currentPosts.filter { it.providerId !in blockedUsers }
+
+    override val posts = rawPosts
+        .onEach { currentPosts ->
+            syncProviderProfileListeners(currentPosts.mapNotNull { it.providerId }.toSet())
+        }
+        .combine(providerProfiles) { currentPosts, profiles ->
+            val hydratedPosts = currentPosts.map { post ->
+                val providerId = post.providerId ?: return@map post
+                val profile = profiles[providerId] ?: return@map post.copy(providerStatus = UserStatus.DELETED)
+                post.copy(
+                    providerName = profile.name?.takeIf(String::isNotBlank) ?: post.providerName,
+                    providerAvatar = profile.photoUrl,
+                    providerLevel = profile.level
+                        ?.let { raw -> runCatching { UserLevel.valueOf(raw).displayName() }.getOrNull() }
+                        ?: post.providerLevel,
+                    providerStatus = profile.status
+                )
+            }
+            if (sessionRepository.session.value?.role == UserRole.MODERATOR) {
+                hydratedPosts
+            } else {
+                hydratedPosts.filter { it.providerStatus == UserStatus.ACTIVE }
+            }
         }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
@@ -91,9 +137,8 @@ class FirebasePostRepository @Inject constructor(
         val user = firestore.collection(USERS_COLLECTION).document(session.userId).get().await()
         val providerName = user.getString("name").orEmpty()
         val providerAvatar = user.getString("photoUrl")
-        val providerLevel = user.getString("level")
-            ?.let { runCatching { com.servilocal.domain.model.UserLevel.valueOf(it).displayName() }.getOrNull() }
-            ?: "Nivel 1: Principiante"
+        val providerPoints = user.getLong("points")?.toInt() ?: 0
+        val providerLevel = com.servilocal.domain.model.UserLevel.fromPoints(providerPoints).displayName()
 
         require(title.isNotBlank()) { "El título es obligatorio." }
         require(description.isNotBlank()) { "La descripción es obligatoria." }
@@ -274,57 +319,40 @@ class FirebasePostRepository @Inject constructor(
             }
         }
         awaitClose { registration.remove() }
-    }.mapLatest { posts ->
-        posts.map { post ->
-            val providerId = post.providerId
-            if (providerId.isNullOrBlank()) post
-            else post.copy(
-                providerAvatar = post.providerAvatar ?: runCatching { providerAvatarFor(providerId) }.getOrNull(),
-                providerStatus = runCatching { providerStatusFor(providerId) }.getOrDefault(UserStatus.ACTIVE)
-            )
-        }.filter { it.providerStatus != UserStatus.BLOCKED }
     }
 
-    private suspend fun providerAvatarFor(providerId: String): String? {
-        if (providerAvatarCache.containsKey(providerId)) {
-            return providerAvatarCache[providerId]
-        }
-        val avatar = firestore.collection(PUBLIC_USERS_COLLECTION)
-            .document(providerId)
-            .get()
-            .await()
-            .getString("photoUrl")
-        providerAvatarCache[providerId] = avatar
-        return avatar
-    }
+    private fun syncProviderProfileListeners(providerIds: Set<String>) {
+        synchronized(providerProfileLock) {
+            (providerProfileListeners.keys - providerIds).forEach { staleId ->
+                providerProfileListeners.remove(staleId)?.remove()
+            }
+            providerProfiles.update { profiles -> profiles.filterKeys { it in providerIds } }
 
-    private fun observeBlockedUserIds(): Flow<Set<String>> = sessionRepository.session
-        .flatMapLatest { session ->
-            if (session == null) {
-                flowOf(emptySet())
-            } else {
-                callbackFlow {
-                    val registration = firestore.collection(PUBLIC_USERS_COLLECTION)
-                        .whereEqualTo("status", UserStatus.BLOCKED.name)
-                        .addSnapshotListener { snapshot, error ->
-                            // Permission/network failures must never terminate the shared posts flow.
-                            if (error != null) trySend(emptySet())
-                            else trySend(snapshot?.documents.orEmpty().map { it.id }.toSet())
+            (providerIds - providerProfileListeners.keys).forEach { providerId ->
+                val registration = firestore.collection(PUBLIC_USERS_COLLECTION)
+                    .document(providerId)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null || snapshot == null || !snapshot.exists()) {
+                            providerProfiles.update { it - providerId }
+                            return@addSnapshotListener
                         }
-                    awaitClose { registration.remove() }
-                }
+                        val status = when (snapshot.getString("status")?.uppercase(Locale.ROOT)) {
+                            UserStatus.ACTIVE.name -> UserStatus.ACTIVE
+                            UserStatus.BLOCKED.name -> UserStatus.BLOCKED
+                            else -> UserStatus.DELETED
+                        }
+                        providerProfiles.update { profiles ->
+                            profiles + (providerId to PublicProviderProfile(
+                                name = snapshot.getString("name"),
+                                photoUrl = snapshot.getString("photoUrl"),
+                                level = snapshot.getString("level"),
+                                status = status
+                            ))
+                        }
+                    }
+                providerProfileListeners[providerId] = registration
             }
         }
-
-    private suspend fun providerStatusFor(providerId: String): UserStatus {
-        providerStatusCache[providerId]?.let { return it }
-        val status = runCatching {
-            firestore.collection(PUBLIC_USERS_COLLECTION).document(providerId).get().await()
-                .getString("status")
-                ?.let { UserStatus.valueOf(it) }
-        }.getOrNull() ?: UserStatus.ACTIVE
-        providerStatusCache[providerId] = status
-        return status
     }
 
     private fun DocumentSnapshot.toServicePost(): ServicePost? {

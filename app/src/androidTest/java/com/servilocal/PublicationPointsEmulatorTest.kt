@@ -127,7 +127,12 @@ class PublicationPointsEmulatorTest {
             }
             assertTrue(awardPoints(userId, post.id) != null)
             assertEquals(270L, userReference.get().await().getLong("points"))
-            assertEquals(UserLevel.EXPERTO.name, userReference.get().await().getString("level"))
+            assertEquals(
+                UserLevel.EXPERTO.name,
+                firestore.collection(PUBLIC_USERS_COLLECTION).document(userId).get().await().getString("level")
+            )
+            // The old persisted level is intentionally left untouched; points are authoritative.
+            assertEquals(UserLevel.PROFESIONAL.name, userReference.get().await().getString("level"))
             assertTrue(userReference.collection(POINT_EVENTS_COLLECTION)
                 .document("publication_${post.id}").get().await().exists())
 

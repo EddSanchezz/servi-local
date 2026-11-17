@@ -48,12 +48,12 @@ class FirebaseChatRepository @Inject constructor(
     private var chatsListener: ListenerRegistration? = null
     private val messageListeners = mutableMapOf<String, ListenerRegistration>()
     private val postListeners = mutableMapOf<String, ListenerRegistration>()
-    private val providerListeners = mutableMapOf<String, ListenerRegistration>()
+    private data class PublicChatProfile(val name: String, val photoUrl: String?, val status: UserStatus)
+    private val publicProfileListeners = ConcurrentHashMap<String, ListenerRegistration>()
+    private val publicProfiles = ConcurrentHashMap<String, PublicChatProfile>()
     private val postAvailability = ConcurrentHashMap<String, PostStatus>()
     private val providerAvailability = ConcurrentHashMap<String, UserStatus>()
     private val chatCreationJobs = ConcurrentHashMap<String, Job>()
-    private val avatarCache = ConcurrentHashMap<String, String>()
-    private val avatarLoads = ConcurrentHashMap.newKeySet<String>()
 
     init {
         auth.addAuthStateListener { firebaseAuth ->
@@ -63,8 +63,9 @@ class FirebaseChatRepository @Inject constructor(
             messageListeners.clear()
             postListeners.values.forEach(ListenerRegistration::remove)
             postListeners.clear()
-            providerListeners.values.forEach(ListenerRegistration::remove)
-            providerListeners.clear()
+            publicProfileListeners.values.forEach(ListenerRegistration::remove)
+            publicProfileListeners.clear()
+            publicProfiles.clear()
             postAvailability.clear()
             providerAvailability.clear()
             if (userId != null) {
@@ -81,15 +82,19 @@ class FirebaseChatRepository @Inject constructor(
                             val clientId = doc.getString("clientId") ?: ""
                             val providerId = doc.getString("providerId") ?: ""
                             val postId = doc.getString("postId") ?: ""
-                            val clientName = doc.getString("clientName") ?: "Cliente"
-                            val providerName = doc.getString("providerName") ?: "Proveedor"
-                            val clientAvatar = doc.getString("clientAvatar")
-                            val providerAvatar = doc.getString("providerAvatar")
-                            clientAvatar?.takeIf(String::isNotBlank)?.let { avatarCache[clientId] = it }
-                            providerAvatar?.takeIf(String::isNotBlank)?.let { avatarCache[providerId] = it }
-                            ensureAvatarCached(clientId)
-                            ensureAvatarCached(providerId)
-                            observeAvailability(postId, providerId)
+                            val storedClientName = doc.getString("clientName") ?: "Cliente"
+                            val storedProviderName = doc.getString("providerName") ?: "Proveedor"
+                            val storedClientAvatar = doc.getString("clientAvatar")
+                            val storedProviderAvatar = doc.getString("providerAvatar")
+                            val clientProfile = publicProfiles[clientId]
+                            val providerProfile = publicProfiles[providerId]
+                            val clientName = clientProfile?.name ?: storedClientName
+                            val providerName = providerProfile?.name ?: storedProviderName
+                            val clientAvatar = if (clientProfile != null) clientProfile.photoUrl else storedClientAvatar
+                            val providerAvatar = if (providerProfile != null) providerProfile.photoUrl else storedProviderAvatar
+                            listenToPublicProfile(clientId)
+                            listenToPublicProfile(providerId)
+                            observeAvailability(postId)
                             val serviceTitle = doc.getString("serviceTitle") ?: ""
                             val servicePrice = doc.getString("servicePrice") ?: ""
                             val statusStr = doc.getString("status") ?: ServiceRequestStatus.IN_PROGRESS.name
@@ -108,7 +113,9 @@ class FirebaseChatRepository @Inject constructor(
                             val postStatus = runCatching { PostStatus.valueOf(postStatusStr) }.getOrDefault(PostStatus.APPROVED)
                             val providerStatus = runCatching { UserStatus.valueOf(providerStatusStr) }.getOrDefault(UserStatus.ACTIVE)
                             val currentPostStatus = postAvailability[postId] ?: postStatus
-                            val currentProviderStatus = providerAvailability[providerId] ?: providerStatus
+                            val currentProviderStatus = providerAvailability[providerId]
+                                ?: providerProfile?.status
+                                ?: providerStatus
 
                             ChatConversation(
                                 id = id,
@@ -119,8 +126,8 @@ class FirebaseChatRepository @Inject constructor(
                                 providerName = providerName,
                                 recipientName = recipient,
                                 recipientAvatar = if (isClient) providerAvatar else clientAvatar,
-                                clientAvatar = clientAvatar ?: avatarCache[clientId],
-                                providerAvatar = providerAvatar ?: avatarCache[providerId],
+                                clientAvatar = clientAvatar,
+                                providerAvatar = providerAvatar,
                                 serviceTitle = serviceTitle,
                                 servicePrice = servicePrice,
                                 status = status,
@@ -136,6 +143,7 @@ class FirebaseChatRepository @Inject constructor(
                         }
 
                         _conversations.value = chats
+                        publicProfiles.keys.forEach(::applyPublicProfileToConversations)
                         val activeChatIds = chats.map { it.id }.toSet()
                         messageListeners.keys
                             .filterNot { it in activeChatIds }
@@ -151,10 +159,13 @@ class FirebaseChatRepository @Inject constructor(
                                 .filterNot { postId -> chats.any { it.postId == postId } }
                                 .toList()
                                 .forEach { postId -> postListeners.remove(postId)?.remove() }
-                            providerListeners.keys
-                                .filterNot { providerId -> chats.any { it.providerId == providerId } }
+                            publicProfileListeners.keys
+                                .filterNot { profileId -> chats.any { it.providerId == profileId || it.clientId == profileId } }
                                 .toList()
-                                .forEach { providerId -> providerListeners.remove(providerId)?.remove() }
+                                .forEach { profileId ->
+                                    publicProfileListeners.remove(profileId)?.remove()
+                                    publicProfiles.remove(profileId)
+                                }
                         }
                     }
 
@@ -164,38 +175,62 @@ class FirebaseChatRepository @Inject constructor(
         }
     }
 
-    private fun ensureAvatarCached(userId: String) {
-        if (userId.isBlank() || avatarCache.containsKey(userId) || !avatarLoads.add(userId)) return
-        scope.launch {
-            try {
-                firestore.collection(PUBLIC_USERS_COLLECTION).document(userId).get().await()
-                    .getString("photoUrl")
-                    ?.takeIf(String::isNotBlank)
-                    ?.let { avatarCache[userId] = it }
-                _conversations.value = _conversations.value.map { conversation ->
-                    if (conversation.clientId == userId || conversation.providerId == userId) {
-                        val clientAvatar = conversation.clientAvatar ?: avatarCache[conversation.clientId]
-                        val providerAvatar = conversation.providerAvatar ?: avatarCache[conversation.providerId]
-                        conversation.copy(
-                            clientAvatar = clientAvatar,
-                            providerAvatar = providerAvatar,
-                            recipientAvatar = if (conversation.isClientRole) providerAvatar else clientAvatar
-                        )
-                    } else {
-                        conversation
-                    }
+    private fun listenToPublicProfile(userId: String) {
+        if (userId.isBlank() || publicProfileListeners.containsKey(userId)) return
+        publicProfileListeners[userId] = firestore.collection(PUBLIC_USERS_COLLECTION)
+            .document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "No se pudo sincronizar el perfil público $userId", error)
+                    return@addSnapshotListener
                 }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (error: Exception) {
-                Log.w(TAG, "No se pudo cargar el avatar público del usuario $userId", error)
-            } finally {
-                avatarLoads.remove(userId)
+                val profile = if (snapshot?.exists() == true) {
+                    PublicChatProfile(
+                        name = snapshot.getString("name").orEmpty(),
+                        photoUrl = snapshot.getString("photoUrl"),
+                        status = parseUserStatus(snapshot.getString("status"))
+                    )
+                } else null
+                if (profile == null) {
+                    publicProfiles.remove(userId)
+                    providerAvailability[userId] = UserStatus.DELETED
+                } else {
+                    publicProfiles[userId] = profile
+                    providerAvailability[userId] = profile.status
+                }
+                applyPublicProfileToConversations(userId)
+            }
+    }
+
+    private fun applyPublicProfileToConversations(userId: String) {
+        _conversations.value = _conversations.value.map { conversation ->
+            if (conversation.clientId != userId && conversation.providerId != userId) {
+                conversation
+            } else {
+                val clientProfile = publicProfiles[conversation.clientId]
+                val providerProfile = publicProfiles[conversation.providerId]
+                val clientName = clientProfile?.name?.takeIf(String::isNotBlank) ?: conversation.clientName
+                val providerName = providerProfile?.name?.takeIf(String::isNotBlank) ?: conversation.providerName
+                val clientAvatar = if (clientProfile != null) clientProfile.photoUrl else conversation.clientAvatar
+                val providerAvatar = if (providerProfile != null) providerProfile.photoUrl else conversation.providerAvatar
+                val providerStatus = providerProfile?.status ?: providerAvailability[conversation.providerId]
+                    ?: conversation.providerStatus
+                conversation.copy(
+                    clientName = clientName,
+                    providerName = providerName,
+                    recipientName = if (conversation.isClientRole) providerName else clientName,
+                    clientAvatar = clientAvatar,
+                    providerAvatar = providerAvatar,
+                    recipientAvatar = if (conversation.isClientRole) providerAvatar else clientAvatar,
+                    providerStatus = providerStatus,
+                    isPostAvailable = conversation.postStatus != PostStatus.REJECTED &&
+                        providerStatus == UserStatus.ACTIVE
+                )
             }
         }
     }
 
-    private fun observeAvailability(postId: String, providerId: String) {
+    private fun observeAvailability(postId: String) {
         if (postId.isNotBlank() && postId !in postListeners) {
             postListeners[postId] = firestore.collection("posts")
                 .document(postId)
@@ -211,23 +246,6 @@ class FirebaseChatRepository @Inject constructor(
                     }
                     postAvailability[postId] = status
                     updatePostAvailability(postId, status)
-                }
-        }
-        if (providerId.isNotBlank() && providerId !in providerListeners) {
-            providerListeners[providerId] = firestore.collection(PUBLIC_USERS_COLLECTION)
-                .document(providerId)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        Log.e(TAG, "No se pudo verificar el estado del proveedor $providerId", error)
-                        return@addSnapshotListener
-                    }
-                    val status = if (snapshot?.exists() == true) {
-                        parseUserStatus(snapshot.getString("status"))
-                    } else {
-                        UserStatus.DELETED
-                    }
-                    providerAvailability[providerId] = status
-                    updateProviderAvailability(providerId, status)
                 }
         }
     }
@@ -259,21 +277,6 @@ class FirebaseChatRepository @Inject constructor(
                     isPostAvailable = status != PostStatus.REJECTED &&
                         conversation.providerStatus != UserStatus.BLOCKED &&
                         conversation.providerStatus != UserStatus.DELETED
-                )
-            } else {
-                conversation
-            }
-        }
-    }
-
-    private fun updateProviderAvailability(providerId: String, status: UserStatus) {
-        _conversations.value = _conversations.value.map { conversation ->
-            if (conversation.providerId == providerId) {
-                conversation.copy(
-                    providerStatus = status,
-                    isPostAvailable = conversation.postStatus != PostStatus.REJECTED &&
-                        status != UserStatus.BLOCKED &&
-                        status != UserStatus.DELETED
                 )
             } else {
                 conversation
@@ -326,6 +329,29 @@ class FirebaseChatRepository @Inject constructor(
     private fun formatMessageTime(timestamp: Timestamp?): String {
         val date = timestamp?.toDate() ?: return "Ahora"
         return SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+    }
+
+    override suspend fun deleteConversationsForUser(userId: String): Boolean {
+        if (auth.currentUser?.uid != userId) return false
+        return try {
+            val chats = chatsCollection.whereArrayContains("participants", userId).get().await().documents
+            chats.chunked(MAX_BATCH_WRITES).forEach { chunk ->
+                val batch = firestore.batch()
+                chunk.forEach { document ->
+                    batch.update(document.reference, "deletedByUsers", FieldValue.arrayUnion(userId))
+                }
+                batch.commit().await()
+            }
+            _conversations.value = _conversations.value.filterNot {
+                it.clientId == userId || it.providerId == userId
+            }
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.e(TAG, "No se pudieron limpiar las conversaciones antes de eliminar la cuenta", error)
+            false
+        }
     }
 
     override fun sendMessage(conversationId: String, text: String) {
@@ -538,5 +564,6 @@ class FirebaseChatRepository @Inject constructor(
     private companion object {
         const val TAG = "FirebaseChatRepository"
         const val PUBLIC_USERS_COLLECTION = "users_public"
+        const val MAX_BATCH_WRITES = 400
     }
 }

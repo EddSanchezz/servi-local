@@ -18,7 +18,7 @@ package com.servilocal.domain.model
 
 // enum class UserRole se encuentra en UserRole.kt
 
-/** users.level — PRINCIPIANTE, PROFESIONAL, EXPERTO, MAESTRO. Los umbrales son ajustables. */
+/** Derived from users.points: PRINCIPIANTE, PROFESIONAL, EXPERTO, MAESTRO. */
 enum class UserLevel(val minPoints: Int) {
     PRINCIPIANTE(0),
     PROFESIONAL(100),

@@ -10,7 +10,7 @@ interface ChatRepository {
     val conversations: StateFlow<List<ChatConversation>>
 
     fun sendMessage(conversationId: String, text: String)
-    fun deleteConversationsForUser(userId: String): Boolean = false
+    suspend fun deleteConversationsForUser(userId: String): Boolean = false
     fun softDeleteChat(conversationId: String)
     fun startConversation(postId: String): String?
     fun startConversation(post: ServicePost, currentUser: UserProfile): String? =

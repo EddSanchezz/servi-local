@@ -34,9 +34,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -143,6 +145,7 @@ fun AppNavHost(
 ) {
     val rootNavController = rememberNavController()
     val appUiState by appViewModel.uiState.collectAsStateWithLifecycle()
+    val clearBlockedLoginFeedback = remember { mutableStateOf<(() -> Unit)?>(null) }
     val rootBackStack by rootNavController.currentBackStackEntryAsState()
     LaunchedEffect(appUiState.session, rootBackStack?.destination?.route) {
         if (appUiState.sessionWasEstablished && appUiState.session == null && rootBackStack?.destination?.route == AppRoute.DASHBOARD) {
@@ -171,6 +174,7 @@ fun AppNavHost(
         }
         composable(AppRoute.LOGIN) { entry ->
             val viewModel: AuthViewModel = hiltViewModel()
+            SideEffect { clearBlockedLoginFeedback.value = viewModel::clearLoginFeedback }
             val registeredEmail = entry.savedStateHandle.get<String>("registeredEmail").orEmpty()
             LoginScreen(
                 viewModel = viewModel,
@@ -247,7 +251,10 @@ fun AppNavHost(
     }
 
     if (appUiState.blockedAccountNotice != null) {
-        UserBlockedDialog(onAccept = appViewModel::acknowledgeBlockedAccount)
+        UserBlockedDialog(onAccept = {
+            appViewModel.acknowledgeBlockedAccount()
+            clearBlockedLoginFeedback.value?.invoke()
+        })
     }
 }
 

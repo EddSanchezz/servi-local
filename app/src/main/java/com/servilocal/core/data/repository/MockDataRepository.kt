@@ -642,7 +642,7 @@ class MockDataRepository @Inject constructor(
         refreshConversations()
     }
 
-    override fun deleteConversationsForUser(userId: String): Boolean {
+    override suspend fun deleteConversationsForUser(userId: String): Boolean {
         val conversationIds = _allConversations.value
             .filter { it.clientId == userId || it.providerId == userId }
             .map { it.id }

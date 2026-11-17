@@ -18,6 +18,7 @@ import com.servilocal.domain.usecase.profile.ProfileStats
 import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
 import com.servilocal.domain.usecase.posts.DeleteServicePostUseCase
 import com.servilocal.domain.usecase.posts.ObserveMyPostsUseCase
+import com.servilocal.domain.usecase.posts.ObserveUserLikesUseCase
 import com.servilocal.domain.usecase.moderation.ObserveReportHistoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -46,6 +48,7 @@ class ProfileViewModel @Inject constructor(
     postRepository: PostRepository,
     observeNotifications: ObserveNotificationsUseCase,
     observeUserBadges: ObserveUserBadgesUseCase,
+    observeUserLikes: ObserveUserLikesUseCase,
     observeMyPosts: ObserveMyPostsUseCase,
     observeReportHistory: ObserveReportHistoryUseCase,
     private val deleteServicePost: DeleteServicePostUseCase,
@@ -56,7 +59,10 @@ class ProfileViewModel @Inject constructor(
 ) : ViewModel() {
 
     val currentUser = authRepository.currentUser
-    val posts = postRepository.posts
+    val likedPosts = combine(postRepository.posts, observeUserLikes()) { posts, likedPostIds ->
+        posts.filter { it.id in likedPostIds }
+            .map { it.copy(userUpvoted = true) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val myPosts = observeMyPosts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val reportHistory = observeReportHistory()
@@ -156,8 +162,7 @@ class ProfileViewModel @Inject constructor(
             }
         }
 
-        authRepository.updateCurrentUser(name.trim(), email.trim())
-        authRepository.updateCurrentUserPhoto(persistentPhotoUrl)
+        authRepository.updateCurrentUserProfile(name.trim(), email.trim(), persistentPhotoUrl)
         refresh()
         return true
     }

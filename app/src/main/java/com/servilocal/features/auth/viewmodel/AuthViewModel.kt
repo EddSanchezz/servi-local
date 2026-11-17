@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class AuthUiState(
@@ -61,24 +62,34 @@ class AuthViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(loginResult = RequestResult.Loading) }
-            val user = runCatching { loginUser(email, password) }.getOrElse { error ->
+            try {
+                val user = loginUser(email, password)
+                _uiState.update {
+                    if (user != null) {
+                        it.copy(
+                            loginResult = RequestResult.Success(resources.getString(R.string.login_success)),
+                            authenticatedRole = user.role
+                        )
+                    } else {
+                        it.copy(loginResult = RequestResult.Failure(resources.getString(R.string.login_failure)))
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
                 val blocked = error is UserBlockedException
                 _uiState.update {
                     it.copy(
-                        loginResult = if (blocked) null else RequestResult.Failure(authFailureMessage(error)),
-                        authenticatedRole = null,
+                        loginResult = RequestResult.Failure(
+                            if (blocked) resources.getString(R.string.user_blocked_title)
+                            else authFailureMessage(error)
+                        ),
+                        authenticatedRole = null
                     )
                 }
-                return@launch
-            }
-            _uiState.update { state ->
-                if (user != null) {
-                    state.copy(
-                        loginResult = RequestResult.Success(resources.getString(R.string.login_success)),
-                        authenticatedRole = user.role
-                    )
-                } else {
-                    state.copy(loginResult = RequestResult.Failure(resources.getString(R.string.login_failure)))
+            } finally {
+                _uiState.update { state ->
+                    if (state.loginResult is RequestResult.Loading) state.copy(loginResult = null) else state
                 }
             }
         }
@@ -164,27 +175,37 @@ class AuthViewModel @Inject constructor(
         if (_uiState.value.loginResult is RequestResult.Loading) return
         viewModelScope.launch {
             _uiState.update { it.copy(loginResult = RequestResult.Loading, authenticatedRole = null) }
-            val result = signInWithGoogle?.invoke(activity) ?: GoogleSignInResult.Unavailable
-            _uiState.update {
-                when (result) {
-                    is GoogleSignInResult.Success -> it.copy(
-                        loginResult = RequestResult.Success(resources.getString(R.string.login_success)),
-                        authenticatedRole = result.user.role
-                    )
-                    GoogleSignInResult.Cancelled -> it.copy(loginResult = null)
-                    GoogleSignInResult.NetworkError -> it.copy(
-                        loginResult = RequestResult.Failure(resources.getString(R.string.google_sign_in_network_error))
-                    )
-                    GoogleSignInResult.AccountConflict -> it.copy(
-                        loginResult = RequestResult.Failure(resources.getString(R.string.google_account_conflict))
-                    )
-                    GoogleSignInResult.UserBlocked -> it.copy(
-                        loginResult = null,
-                        authenticatedRole = null
-                    )
-                    GoogleSignInResult.ProviderError, GoogleSignInResult.Unavailable -> it.copy(
-                        loginResult = RequestResult.Failure(resources.getString(R.string.google_sign_in_failed))
-                    )
+            try {
+                val result = signInWithGoogle?.invoke(activity) ?: GoogleSignInResult.Unavailable
+                _uiState.update {
+                    when (result) {
+                        is GoogleSignInResult.Success -> it.copy(
+                            loginResult = RequestResult.Success(resources.getString(R.string.login_success)),
+                            authenticatedRole = result.user.role
+                        )
+                        GoogleSignInResult.Cancelled -> it.copy(loginResult = null)
+                        GoogleSignInResult.NetworkError -> it.copy(
+                            loginResult = RequestResult.Failure(resources.getString(R.string.google_sign_in_network_error))
+                        )
+                        GoogleSignInResult.AccountConflict -> it.copy(
+                            loginResult = RequestResult.Failure(resources.getString(R.string.google_account_conflict))
+                        )
+                        GoogleSignInResult.UserBlocked -> it.copy(
+                            loginResult = RequestResult.Failure(resources.getString(R.string.user_blocked_title)),
+                            authenticatedRole = null
+                        )
+                        GoogleSignInResult.ProviderError, GoogleSignInResult.Unavailable -> it.copy(
+                            loginResult = RequestResult.Failure(resources.getString(R.string.google_sign_in_failed))
+                        )
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _uiState.update { it.copy(loginResult = RequestResult.Failure(resources.getString(R.string.google_sign_in_failed))) }
+            } finally {
+                _uiState.update { state ->
+                    if (state.loginResult is RequestResult.Loading) state.copy(loginResult = null) else state
                 }
             }
         }

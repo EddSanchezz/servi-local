@@ -119,6 +119,7 @@
     <string name="my_profile">My profile</string>
     <string name="go_to_my_profile">Go to my profile</string>
     <string name="change_profile_photo">Change profile photo</string>
+    <string name="profile_photo_title">Profile photo</string>
     <string name="profile_validation_error">Check the name and email before saving.</string>
     <string name="profile_save_error">Profile changes could not be saved. Please try again.</string>
     <string name="profile_photo_selected_pending_save">Photo selected. Tap Save to apply it to your profile.</string>
@@ -166,7 +167,7 @@
     <string name="delete_permanently">Delete permanently</string>
     <string name="delete_account_title">Delete account</string>
     <string name="delete_account_confirmation">Are you sure you want to delete your account? Your profile, posts, and conversations will be deleted. This action cannot be undone.</string>
-    <string name="delete_account_failed">Could not delete the account. Make sure your session is still active and try again.</string>
+    <string name="delete_account_failed">Could not delete the account. Please try again.</string>
     <string name="deleting_account">Deleting account…</string>
     <string name="demo_account_notice">This is a demo account with no persistent storage or session. Sign out to return to the access screen.</string>
     <string name="logout_lowercase">Sign out</string>

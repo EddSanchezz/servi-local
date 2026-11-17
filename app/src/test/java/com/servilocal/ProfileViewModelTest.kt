@@ -13,6 +13,7 @@ import com.servilocal.domain.usecase.notifications.CreateNotificationUseCase
 import com.servilocal.domain.usecase.notifications.ObserveNotificationsUseCase
 import com.servilocal.domain.usecase.posts.DeleteServicePostUseCase
 import com.servilocal.domain.usecase.posts.ObserveMyPostsUseCase
+import com.servilocal.domain.usecase.posts.ObserveUserLikesUseCase
 import com.servilocal.domain.usecase.profile.CheckAndAwardBadgesUseCase
 import com.servilocal.domain.usecase.profile.AddPointsUseCase
 import com.servilocal.domain.usecase.profile.AwardPublicationPointsUseCase
@@ -84,6 +85,7 @@ class ProfileViewModelTest {
             postRepository = postRepository,
             observeNotifications = ObserveNotificationsUseCase(sessions, authAndData),
             observeUserBadges = ObserveUserBadgesUseCase(sessions, badgeRepository),
+            observeUserLikes = ObserveUserLikesUseCase(authAndData, authAndData),
             observeMyPosts = ObserveMyPostsUseCase(postRepository, authAndData),
             observeReportHistory = ObserveReportHistoryUseCase(authAndData),
             deleteServicePost = DeleteServicePostUseCase(postRepository),

@@ -121,6 +121,7 @@
     <string name="my_profile">Mi perfil</string>
     <string name="go_to_my_profile">Ir a mi perfil</string>
     <string name="change_profile_photo">Cambiar foto de perfil</string>
+    <string name="profile_photo_title">Foto de perfil</string>
     <string name="profile_validation_error">Revisa el nombre y el correo antes de guardar.</string>
     <string name="profile_save_error">No se pudieron guardar los cambios del perfil. Inténtalo de nuevo.</string>
     <string name="profile_photo_selected_pending_save">Foto seleccionada. Pulsa Guardar para aplicarla al perfil.</string>
@@ -168,7 +169,7 @@
     <string name="delete_permanently">Eliminar definitivamente</string>
     <string name="delete_account_title">Eliminar cuenta</string>
     <string name="delete_account_confirmation">¿Seguro que quieres eliminar tu cuenta? Se eliminarán tu perfil, tus publicaciones y tus conversaciones. Esta acción no se puede deshacer.</string>
-    <string name="delete_account_failed">No se pudo eliminar la cuenta. Verifica que tu sesión siga activa e inténtalo de nuevo.</string>
+    <string name="delete_account_failed">No se pudo eliminar la cuenta. Inténtalo de nuevo.</string>
     <string name="deleting_account">Eliminando cuenta…</string>
     <string name="demo_account_notice">Esta es una cuenta de demostración sin almacenamiento ni sesión persistente. Puedes cerrar la sesión para regresar a la pantalla de acceso.</string>
     <string name="logout_lowercase">Cerrar sesión</string>

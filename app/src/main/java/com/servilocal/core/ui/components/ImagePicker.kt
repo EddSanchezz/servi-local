@@ -11,6 +11,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,14 +21,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import com.servilocal.R
+import com.servilocal.core.util.createTempImageUri
 import com.servilocal.core.util.hasImageReadPermission
 import com.servilocal.core.util.imageReadPermissions
-import com.servilocal.core.util.createTempImageUri
 
 /**
  * Reusable camera/gallery flow. The caller receives the selected image URI and owns
- * its preview and persistence. Camera and image-read permissions are requested only
- * when their respective source is chosen.
+ * its preview and persistence. Camera and image-library permissions are requested
+ * only when their respective source is chosen.
  */
 @Composable
 fun ImagePicker(
@@ -36,11 +37,11 @@ fun ImagePicker(
     trigger: @Composable (onCameraClick: () -> Unit, onGalleryClick: () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
-    var showPicker by rememberSaveable { mutableStateOf(false) }
     var showPermissionDialog by rememberSaveable { mutableStateOf(false) }
     var showGalleryPermissionDialog by rememberSaveable { mutableStateOf(false) }
     var showCameraError by rememberSaveable { mutableStateOf(false) }
     var tempCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var launchGalleryAfterPermission by remember { mutableStateOf(false) }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
@@ -48,11 +49,20 @@ fun ImagePicker(
 
     val galleryPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) {
-        if (context.hasImageReadPermission()) {
-            galleryLauncher.launch("image/*")
+    ) { permissions ->
+        if (permissions.values.any { it } || context.hasImageReadPermission()) {
+            // Launch on the next composition turn; starting a second activity-result
+            // contract from inside the permission callback can drop the first result.
+            launchGalleryAfterPermission = true
         } else {
             showGalleryPermissionDialog = true
+        }
+    }
+
+    LaunchedEffect(launchGalleryAfterPermission) {
+        if (launchGalleryAfterPermission) {
+            launchGalleryAfterPermission = false
+            galleryLauncher.launch("image/*")
         }
     }
 
@@ -98,11 +108,8 @@ fun ImagePicker(
     }
 
     fun openGallery() {
-        if (context.hasImageReadPermission()) {
-            galleryLauncher.launch("image/*")
-        } else {
-            galleryPermissionLauncher.launch(imageReadPermissions())
-        }
+        if (context.hasImageReadPermission()) galleryLauncher.launch("image/*")
+        else galleryPermissionLauncher.launch(imageReadPermissions())
     }
 
     trigger(
@@ -113,20 +120,6 @@ fun ImagePicker(
             openGallery()
         }
     )
-
-    if (showPicker) {
-        ImagePickerBottomSheet(
-            onCameraClick = {
-                showPicker = false
-                openCamera()
-            },
-            onGalleryClick = {
-                showPicker = false
-                openGallery()
-            },
-            onDismiss = { showPicker = false }
-        )
-    }
 
     if (showPermissionDialog) {
         AlertDialog(
@@ -190,4 +183,5 @@ fun ImagePicker(
             }
         )
     }
+
 }

@@ -74,6 +74,7 @@ class FirebaseUserRepository @Inject constructor(
                 if (auth.currentUser?.uid != firebaseUser.uid) return@launch
                 if (user.status == UserStatus.BLOCKED) {
                     _blockedAccountNotice.value = user.name.ifBlank { user.email }
+                    runCatching { syncBlockedPublicStatus(user) }
                     auth.signOut()
                     return@launch
                 }
@@ -118,6 +119,7 @@ class FirebaseUserRepository @Inject constructor(
         val sourcePostId = eventId.removePrefix(PUBLICATION_POINT_EVENT_PREFIX).takeIf(String::isNotBlank)
             ?: return null
         val userReference = usersCollection.document(userId)
+        val publicUserReference = publicUsersCollection.document(userId)
         val eventReference = userReference.collection(POINT_EVENTS_COLLECTION).document(eventId)
         val postReference = firestore.collection(POSTS_COLLECTION).document(sourcePostId)
         val createdAtMillis = System.currentTimeMillis()
@@ -136,6 +138,7 @@ class FirebaseUserRepository @Inject constructor(
             ) {
                 return@runTransaction null
             }
+            val publicUserSnapshot = transaction.get(publicUserReference)
 
             val updatedPoints = (user.points + points).coerceAtLeast(0)
             val updated = user.copy(
@@ -144,9 +147,13 @@ class FirebaseUserRepository @Inject constructor(
             )
             transaction.update(userReference, mapOf(
                 "points" to updated.points,
-                "level" to updated.level.name,
                 "lastPointEventId" to eventId
             ))
+            if (publicUserSnapshot.exists()) {
+                transaction.update(publicUserReference, "level", updated.level.name)
+            } else {
+                transaction.set(publicUserReference, updated.toPublicMap())
+            }
             transaction.set(eventReference, mapOf(
                 "eventId" to eventId,
                 "userId" to userId,
@@ -189,7 +196,7 @@ class FirebaseUserRepository @Inject constructor(
         if (auth.currentUser?.uid != id) return null
         val user = usersCollection.document(id).get().await().toUser(id) ?: return null
         publish(user)
-        syncPublicProfile(user)
+        if (user.status == UserStatus.BLOCKED) syncBlockedPublicStatus(user) else syncPublicProfile(user)
         return user
     }
 
@@ -281,6 +288,36 @@ class FirebaseUserRepository @Inject constructor(
         batch.commit().await()
     }
 
+    override suspend fun updateCurrentUserProfile(name: String, email: String, photoUrl: String?) {
+        val firebaseUser = auth.currentUser ?: error("No authenticated user")
+        val normalizedName = name.trim()
+        val normalizedEmail = email.trim().lowercase()
+        if (!firebaseUser.email.equals(normalizedEmail, ignoreCase = true)) {
+            firebaseUser.updateEmail(normalizedEmail).await()
+        }
+
+        val batch = firestore.batch()
+        batch.update(usersCollection.document(firebaseUser.uid), mapOf(
+            "name" to normalizedName,
+            "email" to normalizedEmail,
+            "photoUrl" to photoUrl
+        ))
+        batch.set(publicUsersCollection.document(firebaseUser.uid), mapOf(
+            "name" to normalizedName,
+            "photoUrl" to photoUrl
+        ), SetOptions.merge())
+        batch.commit().await()
+
+        _currentUser.value = _currentUser.value.copy(
+            name = normalizedName,
+            email = normalizedEmail,
+            photoUrl = photoUrl
+        )
+        _users.value.firstOrNull { it.id == firebaseUser.uid }?.let { user ->
+            publish(user.copy(name = normalizedName, email = normalizedEmail, photoUrl = photoUrl))
+        }
+    }
+
     override suspend fun syncCurrentUser(user: User) {
         publish(user)
         _currentUser.value = user.toUserProfile()
@@ -341,6 +378,7 @@ class FirebaseUserRepository @Inject constructor(
             if (existing != null) {
                 if (existing.status == UserStatus.BLOCKED) {
                     _blockedAccountNotice.value = existing.name.ifBlank { existing.email }
+                    syncBlockedPublicStatus(existing)
                     auth.signOut()
                     return GoogleSignInResult.UserBlocked
                 }
@@ -374,7 +412,6 @@ class FirebaseUserRepository @Inject constructor(
         "email" to email,
         "role" to role.name,
         "points" to points,
-        "level" to level.name,
         "status" to status.name,
         "createdAtMillis" to createdAtMillis,
         "photoUrl" to photoUrl
@@ -384,11 +421,21 @@ class FirebaseUserRepository @Inject constructor(
     private fun User.toPublicMap(): Map<String, Any?> = mapOf(
         "name" to name,
         "photoUrl" to photoUrl,
-        "status" to status.name
+        "status" to status.name,
+        "level" to level.name
     )
 
     private suspend fun syncPublicProfile(user: User) {
         publicUsersCollection.document(user.id).set(user.toPublicMap(), SetOptions.merge()).await()
+    }
+
+    private suspend fun syncBlockedPublicStatus(user: User) {
+        val reference = publicUsersCollection.document(user.id)
+        if (reference.get().await().exists()) {
+            reference.update("status", UserStatus.BLOCKED.name).await()
+        } else {
+            reference.set(user.copy(status = UserStatus.BLOCKED).toPublicMap()).await()
+        }
     }
 
     private fun publish(user: User) {
@@ -466,7 +513,7 @@ class FirebaseUserRepository @Inject constructor(
             email = getString("email").orEmpty(),
             role = runCatching { UserRole.valueOf(getString("role").orEmpty()) }.getOrDefault(UserRole.USER),
             points = getLong("points")?.toInt() ?: 0,
-            level = runCatching { UserLevel.valueOf(getString("level").orEmpty()) }.getOrDefault(UserLevel.PRINCIPIANTE),
+            level = UserLevel.fromPoints(getLong("points")?.toInt() ?: 0),
             status = runCatching { UserStatus.valueOf(getString("status").orEmpty()) }.getOrDefault(UserStatus.ACTIVE),
             createdAtMillis = getLong("createdAtMillis") ?: System.currentTimeMillis(),
             photoUrl = getString("photoUrl")
